@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Trading Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:      #0b1120;
+  --panel:   #111c2e;
+  --card:    #162032;
+  --border:  #1e2e45;
+  --accent:  #00e676;
+  --red:     #ff4455;
+  --yellow:  #ffc300;
+  --blue:    #4da6ff;
+  --text:    #dce8f5;
+  --muted:   #5b7a99;
+  --header:  #0d1626;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;min-height:100vh}
+#lock-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999}
+.lock-box{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:40px 36px;width:320px;text-align:center}
+.lock-logo{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;color:var(--text);letter-spacing:1px;margin-bottom:6px}
+.lock-logo span{color:var(--accent)}
+.lock-sub{font-size:12px;color:var(--muted);margin-bottom:28px}
+.lock-input{width:100%;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:11px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;letter-spacing:3px;text-align:center;outline:none;margin-bottom:12px}
+.lock-input:focus{border-color:var(--accent)}
+.lock-btn{width:100%;background:var(--accent);color:#0b1120;border:none;border-radius:6px;padding:11px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer;letter-spacing:0.5px}
+.lock-btn:hover{opacity:0.9}
+.lock-error{font-size:12px;color:var(--red);margin-top:10px;min-height:16px}
+#dashboard{display:none}
+.topbar{background:var(--header);border-bottom:1px solid var(--border);padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between}
+.topbar-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;letter-spacing:1px;color:var(--text);text-transform:uppercase}
+.topbar-title span{color:var(--accent)}
+.topbar-meta{font-size:11px;color:var(--muted)}
+.main{padding:20px 24px}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+@media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:14px 16px;position:relative;overflow:hidden}
+.kpi-accent{position:absolute;top:0;left:0;width:100%;height:2px;background:var(--accent)}
+.kpi-accent.red{background:var(--red)}
+.kpi-accent.yellow{background:var(--yellow)}
+.kpi-accent.blue{background:var(--blue)}
+.kpi-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:6px}
+.kpi-value{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700;color:var(--accent);line-height:1}
+.kpi-value.red{color:var(--red)}
+.kpi-value.white{color:var(--text)}
+.kpi-value.yellow{color:var(--yellow)}
+.kpi-value.blue{color:var(--blue)}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:4px}
+.grid-2{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:16px}
+@media(max-width:900px){.grid-2{grid-template-columns:1fr}}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:16px}
+.panel-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.panel-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.chart-wrap{position:relative;height:180px}
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.bar-label{font-size:11px;color:var(--muted);width:56px;flex-shrink:0}
+.bar-track{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;background:var(--accent);border-radius:3px}
+.bar-fill.red{background:var(--red)}
+.bar-pct{font-size:12px;color:var(--text);font-weight:500;width:36px;text-align:right;flex-shrink:0}
+.bar-n{font-size:10px;color:var(--muted);width:28px;flex-shrink:0}
+.stat-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
+.stat-row:last-child{border-bottom:none}
+.stat-label{font-size:12px;color:var(--muted)}
+.stat-val{font-size:13px;font-weight:500;color:var(--text)}
+.stat-val.green{color:var(--accent)}
+.stat-val.red{color:var(--red)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead tr{background:var(--panel)}
+th{text-align:left;padding:8px 10px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;border-bottom:1px solid var(--border);font-weight:500}
+td{padding:9px 10px;border-bottom:1px solid var(--border);color:var(--text)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,0.025)}
+.win{color:var(--accent);font-weight:500}
+.loss{color:var(--red);font-weight:500}
+.be{color:var(--yellow);font-weight:500}
+.badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+.badge.win{background:rgba(0,230,118,0.12);color:var(--accent)}
+.badge.loss{background:rgba(255,68,85,0.12);color:var(--red)}
+.badge.be{background:rgba(255,195,0,0.12);color:var(--yellow)}
+</style>
+</head>
+<body>
+
+<div id="lock-screen">
+  <div class="lock-box">
+    <div class="lock-logo">DALE <span>TRADING</span></div>
+    <div class="lock-sub">Enter password to continue</div>
+    <input class="lock-input" type="password"
+      id="pw" placeholder="••••••"
+      onkeydown="if(event.key==='Enter')unlock()">
+    <button class="lock-btn" onclick="unlock()">UNLOCK</button>
+    <div class="lock-error" id="pw-err"></div>
+  </div>
+</div>
+
+<div id="dashboard">
+<div class="topbar">
+  <div class="topbar-title">DALE <span>TRADING</span> DASHBOARD</div>
+  <div class="topbar-meta">Updated Apr 14 2026 11:45 AM</div>
+</div>
+<div class="main">
+
+<div class="kpi-grid">
+  <div class="kpi">
+    <div class="kpi-accent blue"></div>
+    <div class="kpi-label">Total Trades</div>
+    <div class="kpi-value blue">51</div>
+    <div class="kpi-sub">27W / 21L</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-accent "></div>
+    <div class="kpi-label">Total P&L</div>
+    <div class="kpi-value ">$+1.19</div>
+    <div class="kpi-sub">all time</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-accent "></div>
+    <div class="kpi-label">Win Rate</div>
+    <div class="kpi-value ">52.9%</div>
+    <div class="kpi-sub">above breakeven</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-accent yellow"></div>
+    <div class="kpi-label">Avg Win / Avg Loss</div>
+    <div class="kpi-value yellow">$0.11</div>
+    <div class="kpi-sub" style="color:var(--red)">$-0.09 avg loss</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-accent"></div>
+    <div class="kpi-label">Best Trade</div>
+    <div class="kpi-value">$+0.40</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-accent red"></div>
+    <div class="kpi-label">Worst Trade</div>
+    <div class="kpi-value red">$-0.27</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-accent blue"></div>
+    <div class="kpi-label">$2–$5 Win Rate</div>
+    <div class="kpi-value red">48%</div>
+    <div class="kpi-sub">23 trades</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-accent blue"></div>
+    <div class="kpi-label">$5–$8 Win Rate</div>
+    <div class="kpi-value blue">55%</div>
+    <div class="kpi-sub">20 trades</div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="panel">
+    <div class="panel-title">Cumulative P&L</div>
+    <div class="chart-wrap">
+      <canvas id="pnlChart"></canvas>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-title">Win Rate by Price</div>
+    <div style="padding-top:4px">
+      <div class="bar-row">
+        <div class="bar-label">$2 – $5</div>
+        <div class="bar-track"><div class="bar-fill red" style="width:48%"></div></div>
+        <div class="bar-pct">48%</div>
+        <div class="bar-n">23t</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">$5 – $8</div>
+        <div class="bar-track"><div class="bar-fill " style="width:55%"></div></div>
+        <div class="bar-pct">55%</div>
+        <div class="bar-n">20t</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">$8 – $20</div>
+        <div class="bar-track"><div class="bar-fill " style="width:71%"></div></div>
+        <div class="bar-pct">71%</div>
+        <div class="bar-n">7t</div>
+      </div>
+    </div>
+    <div style="margin-top:20px">
+      <div class="panel-title">P&L Summary</div>
+      <div class="stat-row"><span class="stat-label">Total wins</span><span class="stat-val green">27</span></div>
+      <div class="stat-row"><span class="stat-label">Total losses</span><span class="stat-val red">21</span></div>
+      <div class="stat-row"><span class="stat-label">Best trade</span><span class="stat-val green">$+0.40</span></div>
+      <div class="stat-row"><span class="stat-label">Worst trade</span><span class="stat-val red">$-0.27</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="panel" style="margin-bottom:16px">
+  <div class="panel-title">Recent Trades</div>
+  <div style="overflow-x:auto">
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th><th>Ticker</th><th>Buy</th>
+        <th>Sell</th><th>Shares</th>
+        <th>P&L $</th><th>P&L %</th><th>Result</th>
+      </tr>
+    </thead>
+    <tbody>
+<tr><td>2026-03-30</td><td><b>ASTC</b></td><td>$5.95</td><td>$5.75</td><td>1</td><td class='loss'>$-0.20</td><td class='loss'>-3.36%</td><td><span class='badge loss'>Loss</span></td></tr>
+<tr><td>2026-03-30</td><td><b>ASTC</b></td><td>$5.17</td><td>$5.25</td><td>1</td><td class='win'>$+0.08</td><td class='win'>+1.55%</td><td><span class='badge win'>Win</span></td></tr>
+<tr><td>2026-03-30</td><td><b>ASTC</b></td><td>$4.96</td><td>$4.96</td><td>1</td><td class='be'>$+0.00</td><td class='be'>+0.00%</td><td><span class='badge be'>Break Even</span></td></tr>
+<tr><td>2026-03-26</td><td><b>EEIQ</b></td><td>$9.48</td><td>$9.82</td><td>1</td><td class='win'>$+0.34</td><td class='win'>+3.64%</td><td><span class='badge win'>Win</span></td></tr>
+<tr><td>2026-03-26</td><td><b>EEIQ</b></td><td>$7.97</td><td>$7.81</td><td>1</td><td class='loss'>$-0.16</td><td class='loss'>-1.99%</td><td><span class='badge loss'>Loss</span></td></tr>
+<tr><td>2026-03-26</td><td><b>EEIQ</b></td><td>$7.55</td><td>$7.79</td><td>1</td><td class='win'>$+0.24</td><td class='win'>+3.15%</td><td><span class='badge win'>Win</span></td></tr>
+<tr><td>2026-03-26</td><td><b>EEIQ</b></td><td>$7.95</td><td>$8.08</td><td>1</td><td class='win'>$+0.13</td><td class='win'>+1.64%</td><td><span class='badge win'>Win</span></td></tr>
+<tr><td>2026-03-26</td><td><b>EEIQ</b></td><td>$7.23</td><td>$7.42</td><td>1</td><td class='win'>$+0.19</td><td class='win'>+2.58%</td><td><span class='badge win'>Win</span></td></tr>
+<tr><td>2026-03-26</td><td><b>EEIQ</b></td><td>$6.55</td><td>$6.72</td><td>1</td><td class='win'>$+0.17</td><td class='win'>+2.60%</td><td><span class='badge win'>Win</span></td></tr>
+<tr><td>2026-03-26</td><td><b>EEIQ</b></td><td>$6.57</td><td>$6.60</td><td>1</td><td class='win'>$+0.03</td><td class='win'>+0.47%</td><td><span class='badge win'>Win</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+
+</div>
+</div>
+<script>
+function unlock(){
+  const pw = document.getElementById('pw').value;
+  if(pw === 'r3d'){
+    document.getElementById('lock-screen').style.display='none';
+    document.getElementById('dashboard').style.display='block';
+    initChart();
+  } else {
+    document.getElementById('pw-err').textContent='Incorrect password.';
+    document.getElementById('pw').value='';
+  }
+}
+function initChart(){
+const ctx = document.getElementById('pnlChart').getContext('2d');
+new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: ["2026-02-02", "2026-02-03", "2026-02-06", "2026-02-09", "2026-02-13", "2026-03-04", "2026-03-05", "2026-03-13", "2026-03-16", "2026-03-17", "2026-03-20", "2026-03-23", "2026-03-24", "2026-03-26", "2026-03-30"],
+    datasets: [{
+      data: [0.2343, 0.2449, 0.1158, 0.2238, 0.3438, 0.7438, 0.6995, 0.6807, 0.6322, 0.4613, 0.4327, 0.792, 0.5245, 1.3071, 1.1874],
+      borderColor: '#00e676',
+      backgroundColor: '#00e67615',
+      borderWidth: 2,
+      pointRadius: 2,
+      pointHoverRadius: 4,
+      fill: true,
+      tension: 0.3
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {display: false},
+      tooltip: {
+        backgroundColor: '#162032',
+        borderColor: '#1e2e45',
+        borderWidth: 1,
+        callbacks: {label: c => ' $' + c.parsed.y.toFixed(2)}
+      }
+    },
+    scales: {
+      x: {ticks: {color:'#5b7a99',font:{size:10},maxTicksLimit:6},grid:{color:'#1e2e45'}},
+      y: {ticks: {color:'#5b7a99',font:{size:10},callback: v => '$' + v.toFixed(2)},grid:{color:'#1e2e45'}}
+    }
+  }
+});
+}
+</script>
+</body></html>
