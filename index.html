@@ -3,19 +3,25 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Dale Trading Dashboard</title>
+<title>Trading Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
 :root{
-  --bg:#0b1120;--panel:#111c2e;--card:#162032;--border:#1e2e45;
-  --accent:#00e676;--red:#ff4455;--yellow:#ffc300;--blue:#4da6ff;
-  --text:#dce8f5;--muted:#5b7a99;--header:#0d1626;
+  --bg:      #0b1120;
+  --panel:   #111c2e;
+  --card:    #162032;
+  --border:  #1e2e45;
+  --accent:  #00e676;
+  --red:     #ff4455;
+  --yellow:  #ffc300;
+  --blue:    #4da6ff;
+  --text:    #dce8f5;
+  --muted:   #5b7a99;
+  --header:  #0d1626;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;min-height:100vh}
-
-/* ── LOCK ── */
 #lock-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999}
 .lock-box{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:40px 36px;width:320px;text-align:center}
 .lock-logo{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;color:var(--text);letter-spacing:1px;margin-bottom:6px}
@@ -23,29 +29,15 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .lock-sub{font-size:12px;color:var(--muted);margin-bottom:28px}
 .lock-input{width:100%;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:11px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;letter-spacing:3px;text-align:center;outline:none;margin-bottom:12px}
 .lock-input:focus{border-color:var(--accent)}
-.lock-btn{width:100%;background:var(--accent);color:#0b1120;border:none;border-radius:6px;padding:11px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer;letter-spacing:.5px}
-.lock-btn:hover{opacity:.9}
+.lock-btn{width:100%;background:var(--accent);color:#0b1120;border:none;border-radius:6px;padding:11px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer;letter-spacing:0.5px}
+.lock-btn:hover{opacity:0.9}
 .lock-error{font-size:12px;color:var(--red);margin-top:10px;min-height:16px}
 #dashboard{display:none}
-
-/* ── TOPBAR ── */
-.topbar{background:var(--header);border-bottom:1px solid var(--border);padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.topbar-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;letter-spacing:1px;color:var(--text);text-transform:uppercase;white-space:nowrap}
+.topbar{background:var(--header);border-bottom:1px solid var(--border);padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between}
+.topbar-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;letter-spacing:1px;color:var(--text);text-transform:uppercase}
 .topbar-title span{color:var(--accent)}
-.topbar-right{display:flex;align-items:center;gap:10px}
 .topbar-meta{font-size:11px;color:var(--muted)}
-
-/* ── FILTER BAR ── */
-.filter-bar{background:var(--panel);border-bottom:1px solid var(--border);padding:8px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.filter-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;white-space:nowrap}
-.period-select{background:var(--card);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:'Inter',sans-serif;font-size:12px;padding:6px 10px;outline:none;cursor:pointer;min-height:34px}
-.period-select:focus{border-color:var(--accent)}
-.range-pill{font-size:11px;color:var(--accent);background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.2);border-radius:4px;padding:3px 10px;white-space:nowrap}
-
-/* ── MAIN ── */
 .main{padding:20px 24px}
-
-/* ── KPI GRID ── */
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
 @media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
 .kpi{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:14px 16px;position:relative;overflow:hidden}
@@ -54,429 +46,231 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .kpi-accent.yellow{background:var(--yellow)}
 .kpi-accent.blue{background:var(--blue)}
 .kpi-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:6px}
-.kpi-value{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700;color:var(--accent);line-height:1;transition:color .25s}
+.kpi-value{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700;color:var(--accent);line-height:1}
 .kpi-value.red{color:var(--red)}
 .kpi-value.white{color:var(--text)}
 .kpi-value.yellow{color:var(--yellow)}
 .kpi-value.blue{color:var(--blue)}
 .kpi-sub{font-size:11px;color:var(--muted);margin-top:4px}
-.kpi-sub.red{color:var(--red)}
-
-/* ── PANELS ── */
 .grid-2{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:16px}
 @media(max-width:900px){.grid-2{grid-template-columns:1fr}}
-.grid-2-eq{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
-@media(max-width:900px){.grid-2-eq{grid-template-columns:1fr}}
-.panel{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:16px;margin-bottom:16px}
-.panel-last{margin-bottom:0}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:16px}
 .panel-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
 .panel-title::after{content:'';flex:1;height:1px;background:var(--border)}
 .chart-wrap{position:relative;height:180px}
-.chart-wrap-lg{position:relative;height:200px}
-
-/* ── BAR ROWS ── */
 .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .bar-label{font-size:11px;color:var(--muted);width:56px;flex-shrink:0}
 .bar-track{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden}
-.bar-fill{height:100%;background:var(--accent);border-radius:3px;transition:width .4s ease}
+.bar-fill{height:100%;background:var(--accent);border-radius:3px}
 .bar-fill.red{background:var(--red)}
 .bar-pct{font-size:12px;color:var(--text);font-weight:500;width:36px;text-align:right;flex-shrink:0}
 .bar-n{font-size:10px;color:var(--muted);width:28px;flex-shrink:0}
-
-/* ── STAT ROWS ── */
 .stat-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
 .stat-row:last-child{border-bottom:none}
 .stat-label{font-size:12px;color:var(--muted)}
 .stat-val{font-size:13px;font-weight:500;color:var(--text)}
 .stat-val.green{color:var(--accent)}
 .stat-val.red{color:var(--red)}
-
-/* ── TABLE ── */
 table{width:100%;border-collapse:collapse;font-size:12px}
 thead tr{background:var(--panel)}
-th{text-align:left;padding:8px 10px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--border);font-weight:500}
+th{text-align:left;padding:8px 10px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;border-bottom:1px solid var(--border);font-weight:500}
 td{padding:9px 10px;border-bottom:1px solid var(--border);color:var(--text)}
 tr:last-child td{border-bottom:none}
-tr:hover td{background:rgba(255,255,255,.025)}
+tr:hover td{background:rgba(255,255,255,0.025)}
 .win{color:var(--accent);font-weight:500}
 .loss{color:var(--red);font-weight:500}
 .be{color:var(--yellow);font-weight:500}
-.badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
-.badge.win{background:rgba(0,230,118,.12);color:var(--accent)}
-.badge.loss{background:rgba(255,68,85,.12);color:var(--red)}
-.badge.be{background:rgba(255,195,0,.12);color:var(--yellow)}
-.empty-row{color:var(--muted);font-style:italic;text-align:center;padding:16px!important}
+.badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+.badge.win{background:rgba(0,230,118,0.12);color:var(--accent)}
+.badge.loss{background:rgba(255,68,85,0.12);color:var(--red)}
+.badge.be{background:rgba(255,195,0,0.12);color:var(--yellow)}
 </style>
 </head>
 <body>
 
-<!-- LOCK SCREEN -->
 <div id="lock-screen">
   <div class="lock-box">
     <div class="lock-logo">DALE <span>TRADING</span></div>
     <div class="lock-sub">Enter password to continue</div>
-    <input class="lock-input" type="password" id="pw" placeholder="••••••"
+    <input class="lock-input" type="password"
+      id="pw" placeholder="••••••"
       onkeydown="if(event.key==='Enter')unlock()">
     <button class="lock-btn" onclick="unlock()">UNLOCK</button>
     <div class="lock-error" id="pw-err"></div>
   </div>
 </div>
 
-<!-- DASHBOARD -->
 <div id="dashboard">
+<div class="topbar">
+  <div class="topbar-title">DALE <span>TRADING</span> DASHBOARD</div>
+  <div class="topbar-meta">Updated May 07 2026 02:05 PM</div>
+</div>
+<div class="main">
 
-  <div class="topbar">
-    <div class="topbar-title">DALE <span>TRADING</span> DASHBOARD</div>
-    <div class="topbar-right">
-      <div class="topbar-meta">Updated May 07 2026 01:58 PM</div>
+<div class="kpi-grid">
+  <div class="kpi">
+    <div class="kpi-accent blue"></div>
+    <div class="kpi-label">Total Trades</div>
+    <div class="kpi-value blue">150</div>
+    <div class="kpi-sub">71W / 75L</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-accent red"></div>
+    <div class="kpi-label">Total P&L</div>
+    <div class="kpi-value red">$-3.20</div>
+    <div class="kpi-sub">all time</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-accent red"></div>
+    <div class="kpi-label">Win Rate</div>
+    <div class="kpi-value red">47.3%</div>
+    <div class="kpi-sub">below breakeven</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-accent yellow"></div>
+    <div class="kpi-label">Avg Win / Avg Loss</div>
+    <div class="kpi-value yellow">$0.18</div>
+    <div class="kpi-sub" style="color:var(--red)">$-0.21 avg loss</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-accent"></div>
+    <div class="kpi-label">Best Trade</div>
+    <div class="kpi-value">$+1.02</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-accent red"></div>
+    <div class="kpi-label">Worst Trade</div>
+    <div class="kpi-value red">$-1.12</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-accent blue"></div>
+    <div class="kpi-label">$2–$5 Win Rate</div>
+    <div class="kpi-value red">41%</div>
+    <div class="kpi-sub">49 trades</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-accent blue"></div>
+    <div class="kpi-label">$5–$8 Win Rate</div>
+    <div class="kpi-value blue">53%</div>
+    <div class="kpi-sub">68 trades</div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="panel">
+    <div class="panel-title">Cumulative P&L</div>
+    <div class="chart-wrap">
+      <canvas id="pnlChart"></canvas>
     </div>
   </div>
-
-  <!-- FILTER BAR -->
-  <div class="filter-bar">
-    <span class="filter-label">Time period</span>
-    <select class="period-select" id="periodSel" onchange="updateDashboard()">
-      <option value="today">Today</option>
-      <option value="yesterday">Yesterday</option>
-      <option value="last7">Last 7 days</option>
-      <option value="last14" selected>Last 2 weeks</option>
-      <option value="mtd">Month to date</option>
-      <option value="last_month">Last month</option>
-      <option value="last30">Last 30 days</option>
-      <option value="qtd">Quarter to date</option>
-      <option value="ytd">Year to date</option>
-      <option value="last_year">Last year</option>
-      <option value="all_time">All time</option>
-    </select>
-    <div class="range-pill" id="rangePill">Last 2 weeks</div>
+  <div class="panel">
+    <div class="panel-title">Win Rate by Price</div>
+    <div style="padding-top:4px">
+      <div class="bar-row">
+        <div class="bar-label">$2 – $5</div>
+        <div class="bar-track"><div class="bar-fill red" style="width:41%"></div></div>
+        <div class="bar-pct">41%</div>
+        <div class="bar-n">49t</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">$5 – $8</div>
+        <div class="bar-track"><div class="bar-fill " style="width:53%"></div></div>
+        <div class="bar-pct">53%</div>
+        <div class="bar-n">68t</div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label">$8 – $20</div>
+        <div class="bar-track"><div class="bar-fill red" style="width:47%"></div></div>
+        <div class="bar-pct">47%</div>
+        <div class="bar-n">30t</div>
+      </div>
+    </div>
+    <div style="margin-top:20px">
+      <div class="panel-title">P&L Summary</div>
+      <div class="stat-row"><span class="stat-label">Total wins</span><span class="stat-val green">71</span></div>
+      <div class="stat-row"><span class="stat-label">Total losses</span><span class="stat-val red">75</span></div>
+      <div class="stat-row"><span class="stat-label">Best trade</span><span class="stat-val green">$+1.02</span></div>
+      <div class="stat-row"><span class="stat-label">Worst trade</span><span class="stat-val red">$-1.12</span></div>
+    </div>
   </div>
+</div>
 
-  <div class="main">
+<div class="panel" style="margin-bottom:16px">
+  <div class="panel-title">Recent Trades</div>
+  <div style="overflow-x:auto">
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th><th>Ticker</th><th>Buy</th>
+        <th>Sell</th><th>Shares</th>
+        <th>P&L $</th><th>P&L %</th><th>Result</th>
+      </tr>
+    </thead>
+    <tbody>
+<tr><td>2026-05-05</td><td><b>CLRB</b></td><td>$6.18</td><td>$6.02</td><td>1</td><td class='loss'>$-0.16</td><td class='loss'>-2.55%</td><td><span class='badge loss'>Loss</span></td></tr>
+<tr><td>2026-05-05</td><td><b>CLRB</b></td><td>$6.86</td><td>$6.64</td><td>1</td><td class='loss'>$-0.22</td><td class='loss'>-3.21%</td><td><span class='badge loss'>Loss</span></td></tr>
+<tr><td>2026-05-05</td><td><b>CLRB</b></td><td>$5.69</td><td>$5.86</td><td>1</td><td class='win'>$+0.17</td><td class='win'>+2.99%</td><td><span class='badge win'>Win</span></td></tr>
+<tr><td>2026-05-04</td><td><b>NIVF</b></td><td>$2.37</td><td>$2.37</td><td>1</td><td class='win'>$+0.00</td><td class='win'>+0.04%</td><td><span class='badge win'>Win</span></td></tr>
+<tr><td>2026-05-04</td><td><b>CLNN</b></td><td>$7.76</td><td>$8.19</td><td>1</td><td class='win'>$+0.43</td><td class='win'>+5.54%</td><td><span class='badge win'>Win</span></td></tr>
+<tr><td>2026-05-04</td><td><b>CLNN</b></td><td>$7.99</td><td>$7.61</td><td>1</td><td class='loss'>$-0.38</td><td class='loss'>-4.74%</td><td><span class='badge loss'>Loss</span></td></tr>
+<tr><td>2026-05-04</td><td><b>CNSP</b></td><td>$10.04</td><td>$9.99</td><td>1</td><td class='loss'>$-0.05</td><td class='loss'>-0.50%</td><td><span class='badge loss'>Loss</span></td></tr>
+<tr><td>2026-05-04</td><td><b>CNSP</b></td><td>$8.27</td><td>$7.95</td><td>1</td><td class='loss'>$-0.32</td><td class='loss'>-3.87%</td><td><span class='badge loss'>Loss</span></td></tr>
+<tr><td>2026-05-04</td><td><b>CNSP</b></td><td>$6.33</td><td>$7.35</td><td>1</td><td class='win'>$+1.02</td><td class='win'>+16.11%</td><td><span class='badge win'>Win</span></td></tr>
+<tr><td>2026-05-04</td><td><b>CNSP</b></td><td>$5.04</td><td>$5.28</td><td>1</td><td class='win'>$+0.24</td><td class='win'>+4.76%</td><td><span class='badge win'>Win</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+</div>
 
-    <!-- KPI GRID -->
-    <div class="kpi-grid">
-      <div class="kpi">
-        <div class="kpi-accent blue"></div>
-        <div class="kpi-label">Total Trades</div>
-        <div class="kpi-value blue" id="kTotal">—</div>
-        <div class="kpi-sub" id="kWL">—</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-accent" id="kPnlAccent"></div>
-        <div class="kpi-label">Net P&amp;L</div>
-        <div class="kpi-value" id="kPnl">—</div>
-        <div class="kpi-sub" id="kPnlSub">—</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-accent" id="kWrAccent"></div>
-        <div class="kpi-label">Win Rate</div>
-        <div class="kpi-value" id="kWr">—</div>
-        <div class="kpi-sub" id="kWrSub">—</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-accent yellow"></div>
-        <div class="kpi-label">Avg Win / Avg Loss</div>
-        <div class="kpi-value yellow" id="kAvgWin">—</div>
-        <div class="kpi-sub red" id="kAvgLoss">—</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-accent"></div>
-        <div class="kpi-label">Best Trade</div>
-        <div class="kpi-value" id="kBest">—</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-accent red"></div>
-        <div class="kpi-label">Worst Trade</div>
-        <div class="kpi-value red" id="kWorst">—</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-accent blue"></div>
-        <div class="kpi-label">$2–$5 Win Rate</div>
-        <div class="kpi-value" id="kWr25">—</div>
-        <div class="kpi-sub" id="kN25">—</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-accent blue"></div>
-        <div class="kpi-label">$5–$8 Win Rate</div>
-        <div class="kpi-value" id="kWr58">—</div>
-        <div class="kpi-sub" id="kN58">—</div>
-      </div>
-    </div>
-
-    <!-- EQUITY + SUMMARY -->
-    <div class="grid-2">
-      <div class="panel">
-        <div class="panel-title">Cumulative P&amp;L</div>
-        <div class="chart-wrap"><canvas id="equityChart"></canvas></div>
-      </div>
-      <div class="panel">
-        <div class="panel-title">Win Rate by Price</div>
-        <div id="priceBarRows"></div>
-        <div style="margin-top:20px">
-          <div class="panel-title">P&amp;L Summary</div>
-          <div id="summaryRows"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- DAY P&L -->
-    <div class="panel">
-      <div class="panel-title">Day P&amp;L</div>
-      <div class="chart-wrap-lg"><canvas id="dayPnlChart"></canvas></div>
-    </div>
-
-    <!-- DOW + TIME -->
-    <div class="grid-2-eq">
-      <div class="panel panel-last">
-        <div class="panel-title">Win Rate by Day of Week</div>
-        <div class="chart-wrap-lg"><canvas id="dowChart"></canvas></div>
-      </div>
-      <div class="panel panel-last">
-        <div class="panel-title">Win Rate by Entry Time</div>
-        <div class="chart-wrap-lg"><canvas id="timeChart"></canvas></div>
-      </div>
-    </div>
-
-    <!-- RECENT TRADES -->
-    <div class="panel" style="margin-top:16px">
-      <div class="panel-title">Recent Trades</div>
-      <div style="overflow-x:auto">
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th><th>Ticker</th><th>Buy</th><th>Sell</th>
-              <th>Shares</th><th>P&amp;L $</th><th>P&amp;L %</th><th>Result</th>
-            </tr>
-          </thead>
-          <tbody id="tradeBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-  </div><!-- /main -->
-</div><!-- /dashboard -->
-
+</div>
+</div>
 <script>
-const ALL = {"today": {"kpis": {"total": 0, "wins": 0, "losses": 0, "total_pnl": 0, "win_rate": 0, "avg_win": 0, "avg_loss": 0, "best": 0, "worst": 0}, "eq_dates": [], "eq_vals": [], "dp_dates": [], "dp_vals": [], "dp_colors": [], "dow_labels": ["Mon", "Tue", "Wed", "Thu", "Fri"], "dow_wr": [0, 0, 0, 0, 0], "dow_cnt": [0, 0, 0, 0, 0], "tm_labels": [], "tm_wr": [], "tm_cnt": [], "table": [], "wr25": 0, "n25": 0, "wr58": 0, "n58": 0, "wr820": 0, "n820": 0}, "yesterday": {"kpis": {"total": 0, "wins": 0, "losses": 0, "total_pnl": 0, "win_rate": 0, "avg_win": 0, "avg_loss": 0, "best": 0, "worst": 0}, "eq_dates": [], "eq_vals": [], "dp_dates": [], "dp_vals": [], "dp_colors": [], "dow_labels": ["Mon", "Tue", "Wed", "Thu", "Fri"], "dow_wr": [0, 0, 0, 0, 0], "dow_cnt": [0, 0, 0, 0, 0], "tm_labels": [], "tm_wr": [], "tm_cnt": [], "table": [], "wr25": 0, "n25": 0, "wr58": 0, "n58": 0, "wr820": 0, "n820": 0}, "last7": {"kpis": {"total": 11, "wins": 5, "losses": 6, "total_pnl": 0.71, "win_rate": 45.5, "avg_win": 0.37, "avg_loss": -0.19, "best": 1.02, "worst": -0.38}, "eq_dates": ["2026-05-04", "2026-05-05"], "eq_vals": [0.91, 0.71], "dp_dates": ["2026-05-04", "2026-05-05"], "dp_vals": [0.91, -0.21], "dp_colors": ["#00e676", "#ff4455"], "dow_labels": ["Mon", "Tue", "Wed", "Thu", "Fri"], "dow_wr": [50.0, 33.3, 0, 0, 0], "dow_cnt": [8, 3, 0, 0, 0], "tm_labels": [], "tm_wr": [], "tm_cnt": [], "table": [{"date": "2026-05-05", "ticker": "CLRB", "buy": "$6.18", "sell": "$6.02", "shares": "1", "pnl": "-$0.16", "pct": "-2.55%", "result": "Loss", "win": false}, {"date": "2026-05-05", "ticker": "CLRB", "buy": "$6.86", "sell": "$6.64", "shares": "1", "pnl": "-$0.22", "pct": "-3.21%", "result": "Loss", "win": false}, {"date": "2026-05-05", "ticker": "CLRB", "buy": "$5.69", "sell": "$5.86", "shares": "1", "pnl": "+$0.17", "pct": "+2.99%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "NIVF", "buy": "$2.37", "sell": "$2.37", "shares": "1", "pnl": "+$0.00", "pct": "+0.04%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "CLNN", "buy": "$7.76", "sell": "$8.19", "shares": "1", "pnl": "+$0.43", "pct": "+5.54%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "CLNN", "buy": "$7.99", "sell": "$7.61", "shares": "1", "pnl": "-$0.38", "pct": "-4.74%", "result": "Loss", "win": false}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$10.04", "sell": "$9.99", "shares": "1", "pnl": "-$0.05", "pct": "-0.50%", "result": "Loss", "win": false}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$8.27", "sell": "$7.95", "shares": "1", "pnl": "-$0.32", "pct": "-3.87%", "result": "Loss", "win": false}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$6.33", "sell": "$7.35", "shares": "1", "pnl": "+$1.02", "pct": "+16.11%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$5.04", "sell": "$5.28", "shares": "1", "pnl": "+$0.24", "pct": "+4.76%", "result": "Win", "win": true}], "wr25": 100.0, "n25": 1, "wr58": 50.0, "n58": 8, "wr820": 0.0, "n820": 2}, "last14": {"kpis": {"total": 21, "wins": 11, "losses": 10, "total_pnl": 1.07, "win_rate": 52.4, "avg_win": 0.29, "avg_loss": -0.21, "best": 1.02, "worst": -0.38}, "eq_dates": ["2026-04-24", "2026-04-27", "2026-04-28", "2026-04-29", "2026-05-04", "2026-05-05"], "eq_vals": [-0.21, 0.4, 0.31, 0.37, 1.28, 1.07], "dp_dates": ["2026-04-24", "2026-04-27", "2026-04-28", "2026-04-29", "2026-05-04", "2026-05-05"], "dp_vals": [-0.21, 0.61, -0.09, 0.06, 0.91, -0.21], "dp_colors": ["#ff4455", "#00e676", "#ff4455", "#00e676", "#00e676", "#ff4455"], "dow_labels": ["Mon", "Tue", "Wed", "Thu", "Fri"], "dow_wr": [63.6, 33.3, 66.7, 0, 0.0], "dow_cnt": [11, 6, 3, 0, 1], "tm_labels": ["9:30-10:00"], "tm_wr": [50.0], "tm_cnt": [2], "table": [{"date": "2026-05-05", "ticker": "CLRB", "buy": "$6.18", "sell": "$6.02", "shares": "1", "pnl": "-$0.16", "pct": "-2.55%", "result": "Loss", "win": false}, {"date": "2026-05-05", "ticker": "CLRB", "buy": "$6.86", "sell": "$6.64", "shares": "1", "pnl": "-$0.22", "pct": "-3.21%", "result": "Loss", "win": false}, {"date": "2026-05-05", "ticker": "CLRB", "buy": "$5.69", "sell": "$5.86", "shares": "1", "pnl": "+$0.17", "pct": "+2.99%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "NIVF", "buy": "$2.37", "sell": "$2.37", "shares": "1", "pnl": "+$0.00", "pct": "+0.04%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "CLNN", "buy": "$7.76", "sell": "$8.19", "shares": "1", "pnl": "+$0.43", "pct": "+5.54%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "CLNN", "buy": "$7.99", "sell": "$7.61", "shares": "1", "pnl": "-$0.38", "pct": "-4.74%", "result": "Loss", "win": false}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$10.04", "sell": "$9.99", "shares": "1", "pnl": "-$0.05", "pct": "-0.50%", "result": "Loss", "win": false}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$8.27", "sell": "$7.95", "shares": "1", "pnl": "-$0.32", "pct": "-3.87%", "result": "Loss", "win": false}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$6.33", "sell": "$7.35", "shares": "1", "pnl": "+$1.02", "pct": "+16.11%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$5.04", "sell": "$5.28", "shares": "1", "pnl": "+$0.24", "pct": "+4.76%", "result": "Win", "win": true}], "wr25": 42.9, "n25": 7, "wr58": 60.0, "n58": 10, "wr820": 50.0, "n820": 4}, "mtd": {"kpis": {"total": 11, "wins": 5, "losses": 6, "total_pnl": 0.71, "win_rate": 45.5, "avg_win": 0.37, "avg_loss": -0.19, "best": 1.02, "worst": -0.38}, "eq_dates": ["2026-05-04", "2026-05-05"], "eq_vals": [0.91, 0.71], "dp_dates": ["2026-05-04", "2026-05-05"], "dp_vals": [0.91, -0.21], "dp_colors": ["#00e676", "#ff4455"], "dow_labels": ["Mon", "Tue", "Wed", "Thu", "Fri"], "dow_wr": [50.0, 33.3, 0, 0, 0], "dow_cnt": [8, 3, 0, 0, 0], "tm_labels": [], "tm_wr": [], "tm_cnt": [], "table": [{"date": "2026-05-05", "ticker": "CLRB", "buy": "$6.18", "sell": "$6.02", "shares": "1", "pnl": "-$0.16", "pct": "-2.55%", "result": "Loss", "win": false}, {"date": "2026-05-05", "ticker": "CLRB", "buy": "$6.86", "sell": "$6.64", "shares": "1", "pnl": "-$0.22", "pct": "-3.21%", "result": "Loss", "win": false}, {"date": "2026-05-05", "ticker": "CLRB", "buy": "$5.69", "sell": "$5.86", "shares": "1", "pnl": "+$0.17", "pct": "+2.99%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "NIVF", "buy": "$2.37", "sell": "$2.37", "shares": "1", "pnl": "+$0.00", "pct": "+0.04%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "CLNN", "buy": "$7.76", "sell": "$8.19", "shares": "1", "pnl": "+$0.43", "pct": "+5.54%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "CLNN", "buy": "$7.99", "sell": "$7.61", "shares": "1", "pnl": "-$0.38", "pct": "-4.74%", "result": "Loss", "win": false}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$10.04", "sell": "$9.99", "shares": "1", "pnl": "-$0.05", "pct": "-0.50%", "result": "Loss", "win": false}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$8.27", "sell": "$7.95", "shares": "1", "pnl": "-$0.32", "pct": "-3.87%", "result": "Loss", "win": false}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$6.33", "sell": "$7.35", "shares": "1", "pnl": "+$1.02", "pct": "+16.11%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$5.04", "sell": "$5.28", "shares": "1", "pnl": "+$0.24", "pct": "+4.76%", "result": "Win", "win": true}], "wr25": 100.0, "n25": 1, "wr58": 50.0, "n58": 8, "wr820": 0.0, "n820": 2}, "last_month": {"kpis": {"total": 88, "wins": 39, "losses": 48, "total_pnl": -5.1, "win_rate": 44.3, "avg_win": 0.2, "avg_loss": -0.27, "best": 0.55, "worst": -1.12}, "eq_dates": ["2026-04-01", "2026-04-02", "2026-04-06", "2026-04-07", "2026-04-08", "2026-04-09", "2026-04-13", "2026-04-14", "2026-04-15", "2026-04-17", "2026-04-20", "2026-04-22", "2026-04-23", "2026-04-24", "2026-04-27", "2026-04-28", "2026-04-29"], "eq_vals": [-1.1, -1.2, -1.82, -2.35, -2.42, -2.43, -2.03, -2.18, -4.33, -4.22, -4.16, -4.23, -5.46, -5.67, -5.06, -5.15, -5.1], "dp_dates": ["2026-04-01", "2026-04-02", "2026-04-06", "2026-04-07", "2026-04-08", "2026-04-09", "2026-04-13", "2026-04-14", "2026-04-15", "2026-04-17", "2026-04-20", "2026-04-22", "2026-04-23", "2026-04-24", "2026-04-27", "2026-04-28", "2026-04-29"], "dp_vals": [-1.1, -0.1, -0.63, -0.53, -0.07, -0.01, 0.4, -0.15, -2.15, 0.11, 0.06, -0.07, -1.24, -0.21, 0.61, -0.09, 0.06], "dp_colors": ["#ff4455", "#ff4455", "#ff4455", "#ff4455", "#ff4455", "#ff4455", "#00e676", "#ff4455", "#ff4455", "#00e676", "#00e676", "#ff4455", "#ff4455", "#ff4455", "#00e676", "#ff4455", "#00e676"], "dow_labels": ["Mon", "Tue", "Wed", "Thu", "Fri"], "dow_wr": [53.3, 47.1, 47.4, 23.1, 40.0], "dow_cnt": [15, 17, 38, 13, 5], "tm_labels": ["9:00-9:30", "9:30-10:00", "11:30-12:00"], "tm_wr": [33.3, 61.1, 0.0], "tm_cnt": [21, 18, 1], "table": [{"date": "2026-04-29", "ticker": "XTLB", "buy": "$4.42", "sell": "$4.17", "shares": "1", "pnl": "-$0.25", "pct": "-5.58%", "result": "Loss", "win": false}, {"date": "2026-04-29", "ticker": "XTLB", "buy": "$4.35", "sell": "$4.38", "shares": "1", "pnl": "+$0.03", "pct": "+0.73%", "result": "Win", "win": true}, {"date": "2026-04-29", "ticker": "AXIL", "buy": "$9.00", "sell": "$9.27", "shares": "1", "pnl": "+$0.27", "pct": "+3.00%", "result": "Win", "win": true}, {"date": "2026-04-28", "ticker": "ARTL", "buy": "$4.16", "sell": "$3.99", "shares": "1", "pnl": "-$0.17", "pct": "-4.09%", "result": "Loss", "win": false}, {"date": "2026-04-28", "ticker": "NEXR", "buy": "$3.98", "sell": "$3.65", "shares": "1", "pnl": "-$0.32", "pct": "-8.12%", "result": "Loss", "win": false}, {"date": "2026-04-28", "ticker": "NEXR", "buy": "$4.08", "sell": "$4.48", "shares": "1", "pnl": "+$0.40", "pct": "+9.80%", "result": "Win", "win": true}, {"date": "2026-04-27", "ticker": "GLND", "buy": "$7.78", "sell": "$7.96", "shares": "1", "pnl": "+$0.18", "pct": "+2.31%", "result": "Win", "win": true}, {"date": "2026-04-27", "ticker": "GLND", "buy": "$7.75", "sell": "$8.09", "shares": "1", "pnl": "+$0.34", "pct": "+4.43%", "result": "Win", "win": true}, {"date": "2026-04-27", "ticker": "GLND", "buy": "$8.50", "sell": "$8.59", "shares": "1", "pnl": "+$0.09", "pct": "+1.06%", "result": "Win", "win": true}, {"date": "2026-04-24", "ticker": "ELPW", "buy": "$3.97", "sell": "$3.76", "shares": "1", "pnl": "-$0.21", "pct": "-5.29%", "result": "Loss", "win": false}], "wr25": 32.0, "n25": 25, "wr58": 52.5, "n58": 40, "wr820": 42.9, "n820": 21}, "last30": {"kpis": {"total": 78, "wins": 38, "losses": 40, "total_pnl": -2.04, "win_rate": 48.7, "avg_win": 0.25, "avg_loss": -0.28, "best": 1.02, "worst": -1.12}, "eq_dates": ["2026-04-08", "2026-04-09", "2026-04-13", "2026-04-14", "2026-04-15", "2026-04-17", "2026-04-20", "2026-04-22", "2026-04-23", "2026-04-24", "2026-04-27", "2026-04-28", "2026-04-29", "2026-05-04", "2026-05-05"], "eq_vals": [-0.07, -0.08, 0.32, 0.17, -1.97, -1.86, -1.81, -1.87, -3.11, -3.32, -2.7, -2.8, -2.74, -1.83, -2.04], "dp_dates": ["2026-04-08", "2026-04-09", "2026-04-13", "2026-04-14", "2026-04-15", "2026-04-17", "2026-04-20", "2026-04-22", "2026-04-23", "2026-04-24", "2026-04-27", "2026-04-28", "2026-04-29", "2026-05-04", "2026-05-05"], "dp_vals": [-0.07, -0.01, 0.4, -0.15, -2.15, 0.11, 0.06, -0.07, -1.24, -0.21, 0.61, -0.09, 0.06, 0.91, -0.21], "dp_colors": ["#ff4455", "#ff4455", "#00e676", "#ff4455", "#ff4455", "#00e676", "#00e676", "#ff4455", "#ff4455", "#ff4455", "#00e676", "#ff4455", "#00e676", "#00e676", "#ff4455"], "dow_labels": ["Mon", "Tue", "Wed", "Thu", "Fri"], "dow_wr": [61.1, 47.4, 55.6, 11.1, 40.0], "dow_cnt": [18, 19, 27, 9, 5], "tm_labels": ["9:00-9:30", "9:30-10:00", "11:30-12:00"], "tm_wr": [33.3, 62.5, 0.0], "tm_cnt": [21, 16, 1], "table": [{"date": "2026-05-05", "ticker": "CLRB", "buy": "$6.18", "sell": "$6.02", "shares": "1", "pnl": "-$0.16", "pct": "-2.55%", "result": "Loss", "win": false}, {"date": "2026-05-05", "ticker": "CLRB", "buy": "$6.86", "sell": "$6.64", "shares": "1", "pnl": "-$0.22", "pct": "-3.21%", "result": "Loss", "win": false}, {"date": "2026-05-05", "ticker": "CLRB", "buy": "$5.69", "sell": "$5.86", "shares": "1", "pnl": "+$0.17", "pct": "+2.99%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "NIVF", "buy": "$2.37", "sell": "$2.37", "shares": "1", "pnl": "+$0.00", "pct": "+0.04%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "CLNN", "buy": "$7.76", "sell": "$8.19", "shares": "1", "pnl": "+$0.43", "pct": "+5.54%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "CLNN", "buy": "$7.99", "sell": "$7.61", "shares": "1", "pnl": "-$0.38", "pct": "-4.74%", "result": "Loss", "win": false}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$10.04", "sell": "$9.99", "shares": "1", "pnl": "-$0.05", "pct": "-0.50%", "result": "Loss", "win": false}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$8.27", "sell": "$7.95", "shares": "1", "pnl": "-$0.32", "pct": "-3.87%", "result": "Loss", "win": false}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$6.33", "sell": "$7.35", "shares": "1", "pnl": "+$1.02", "pct": "+16.11%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$5.04", "sell": "$5.28", "shares": "1", "pnl": "+$0.24", "pct": "+4.76%", "result": "Win", "win": true}], "wr25": 37.5, "n25": 16, "wr58": 55.0, "n58": 40, "wr820": 45.0, "n820": 20}, "qtd": {"kpis": {"total": 99, "wins": 44, "losses": 54, "total_pnl": -4.39, "win_rate": 44.4, "avg_win": 0.22, "avg_loss": -0.26, "best": 1.02, "worst": -1.12}, "eq_dates": ["2026-04-01", "2026-04-02", "2026-04-06", "2026-04-07", "2026-04-08", "2026-04-09", "2026-04-13", "2026-04-14", "2026-04-15", "2026-04-17", "2026-04-20", "2026-04-22", "2026-04-23", "2026-04-24", "2026-04-27", "2026-04-28", "2026-04-29", "2026-05-04", "2026-05-05"], "eq_vals": [-1.1, -1.2, -1.82, -2.35, -2.42, -2.43, -2.03, -2.18, -4.33, -4.22, -4.16, -4.23, -5.46, -5.67, -5.06, -5.15, -5.1, -4.18, -4.39], "dp_dates": ["2026-04-01", "2026-04-02", "2026-04-06", "2026-04-07", "2026-04-08", "2026-04-09", "2026-04-13", "2026-04-14", "2026-04-15", "2026-04-17", "2026-04-20", "2026-04-22", "2026-04-23", "2026-04-24", "2026-04-27", "2026-04-28", "2026-04-29", "2026-05-04", "2026-05-05"], "dp_vals": [-1.1, -0.1, -0.63, -0.53, -0.07, -0.01, 0.4, -0.15, -2.15, 0.11, 0.06, -0.07, -1.24, -0.21, 0.61, -0.09, 0.06, 0.91, -0.21], "dp_colors": ["#ff4455", "#ff4455", "#ff4455", "#ff4455", "#ff4455", "#ff4455", "#00e676", "#ff4455", "#ff4455", "#00e676", "#00e676", "#ff4455", "#ff4455", "#ff4455", "#00e676", "#ff4455", "#00e676", "#00e676", "#ff4455"], "dow_labels": ["Mon", "Tue", "Wed", "Thu", "Fri"], "dow_wr": [52.2, 45.0, 47.4, 23.1, 40.0], "dow_cnt": [23, 20, 38, 13, 5], "tm_labels": ["9:00-9:30", "9:30-10:00", "11:30-12:00"], "tm_wr": [33.3, 61.1, 0.0], "tm_cnt": [21, 18, 1], "table": [{"date": "2026-05-05", "ticker": "CLRB", "buy": "$6.18", "sell": "$6.02", "shares": "1", "pnl": "-$0.16", "pct": "-2.55%", "result": "Loss", "win": false}, {"date": "2026-05-05", "ticker": "CLRB", "buy": "$6.86", "sell": "$6.64", "shares": "1", "pnl": "-$0.22", "pct": "-3.21%", "result": "Loss", "win": false}, {"date": "2026-05-05", "ticker": "CLRB", "buy": "$5.69", "sell": "$5.86", "shares": "1", "pnl": "+$0.17", "pct": "+2.99%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "NIVF", "buy": "$2.37", "sell": "$2.37", "shares": "1", "pnl": "+$0.00", "pct": "+0.04%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "CLNN", "buy": "$7.76", "sell": "$8.19", "shares": "1", "pnl": "+$0.43", "pct": "+5.54%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "CLNN", "buy": "$7.99", "sell": "$7.61", "shares": "1", "pnl": "-$0.38", "pct": "-4.74%", "result": "Loss", "win": false}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$10.04", "sell": "$9.99", "shares": "1", "pnl": "-$0.05", "pct": "-0.50%", "result": "Loss", "win": false}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$8.27", "sell": "$7.95", "shares": "1", "pnl": "-$0.32", "pct": "-3.87%", "result": "Loss", "win": false}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$6.33", "sell": "$7.35", "shares": "1", "pnl": "+$1.02", "pct": "+16.11%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$5.04", "sell": "$5.28", "shares": "1", "pnl": "+$0.24", "pct": "+4.76%", "result": "Win", "win": true}], "wr25": 34.6, "n25": 26, "wr58": 52.1, "n58": 48, "wr820": 39.1, "n820": 23}, "ytd": {"kpis": {"total": 150, "wins": 71, "losses": 75, "total_pnl": -3.2, "win_rate": 47.3, "avg_win": 0.18, "avg_loss": -0.21, "best": 1.02, "worst": -1.12}, "eq_dates": ["2026-02-02", "2026-02-03", "2026-02-06", "2026-02-09", "2026-02-13", "2026-03-04", "2026-03-05", "2026-03-13", "2026-03-16", "2026-03-17", "2026-03-20", "2026-03-23", "2026-03-24", "2026-03-26", "2026-03-30", "2026-04-01", "2026-04-02", "2026-04-06", "2026-04-07", "2026-04-08", "2026-04-09", "2026-04-13", "2026-04-14", "2026-04-15", "2026-04-17", "2026-04-20", "2026-04-22", "2026-04-23", "2026-04-24", "2026-04-27", "2026-04-28", "2026-04-29", "2026-05-04", "2026-05-05"], "eq_vals": [0.23, 0.24, 0.12, 0.22, 0.34, 0.74, 0.7, 0.68, 0.63, 0.46, 0.43, 0.79, 0.52, 1.31, 1.19, 0.09, -0.01, -0.64, -1.17, -1.24, -1.24, -0.84, -0.99, -3.14, -3.03, -2.97, -3.04, -4.27, -4.48, -3.87, -3.96, -3.91, -3.0, -3.2], "dp_dates": ["2026-02-02", "2026-02-03", "2026-02-06", "2026-02-09", "2026-02-13", "2026-03-04", "2026-03-05", "2026-03-13", "2026-03-16", "2026-03-17", "2026-03-20", "2026-03-23", "2026-03-24", "2026-03-26", "2026-03-30", "2026-04-01", "2026-04-02", "2026-04-06", "2026-04-07", "2026-04-08", "2026-04-09", "2026-04-13", "2026-04-14", "2026-04-15", "2026-04-17", "2026-04-20", "2026-04-22", "2026-04-23", "2026-04-24", "2026-04-27", "2026-04-28", "2026-04-29", "2026-05-04", "2026-05-05"], "dp_vals": [0.23, 0.01, -0.13, 0.11, 0.12, 0.4, -0.04, -0.02, -0.05, -0.17, -0.03, 0.36, -0.27, 0.78, -0.12, -1.1, -0.1, -0.63, -0.53, -0.07, -0.01, 0.4, -0.15, -2.15, 0.11, 0.06, -0.07, -1.24, -0.21, 0.61, -0.09, 0.06, 0.91, -0.21], "dp_colors": ["#00e676", "#00e676", "#ff4455", "#00e676", "#00e676", "#00e676", "#ff4455", "#ff4455", "#ff4455", "#ff4455", "#ff4455", "#00e676", "#ff4455", "#00e676", "#ff4455", "#ff4455", "#ff4455", "#ff4455", "#ff4455", "#ff4455", "#ff4455", "#00e676", "#ff4455", "#ff4455", "#00e676", "#00e676", "#ff4455", "#ff4455", "#ff4455", "#00e676", "#ff4455", "#00e676", "#00e676", "#ff4455"], "dow_labels": ["Mon", "Tue", "Wed", "Thu", "Fri"], "dow_wr": [53.7, 42.4, 48.7, 43.5, 42.9], "dow_cnt": [41, 33, 39, 23, 14], "tm_labels": ["9:00-9:30", "9:30-10:00", "10:00-10:30", "10:30-11:00", "11:30-12:00"], "tm_wr": [38.5, 64.5, 100.0, 33.3, 0.0], "tm_cnt": [26, 31, 1, 3, 1], "table": [{"date": "2026-05-05", "ticker": "CLRB", "buy": "$6.18", "sell": "$6.02", "shares": "1", "pnl": "-$0.16", "pct": "-2.55%", "result": "Loss", "win": false}, {"date": "2026-05-05", "ticker": "CLRB", "buy": "$6.86", "sell": "$6.64", "shares": "1", "pnl": "-$0.22", "pct": "-3.21%", "result": "Loss", "win": false}, {"date": "2026-05-05", "ticker": "CLRB", "buy": "$5.69", "sell": "$5.86", "shares": "1", "pnl": "+$0.17", "pct": "+2.99%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "NIVF", "buy": "$2.37", "sell": "$2.37", "shares": "1", "pnl": "+$0.00", "pct": "+0.04%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "CLNN", "buy": "$7.76", "sell": "$8.19", "shares": "1", "pnl": "+$0.43", "pct": "+5.54%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "CLNN", "buy": "$7.99", "sell": "$7.61", "shares": "1", "pnl": "-$0.38", "pct": "-4.74%", "result": "Loss", "win": false}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$10.04", "sell": "$9.99", "shares": "1", "pnl": "-$0.05", "pct": "-0.50%", "result": "Loss", "win": false}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$8.27", "sell": "$7.95", "shares": "1", "pnl": "-$0.32", "pct": "-3.87%", "result": "Loss", "win": false}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$6.33", "sell": "$7.35", "shares": "1", "pnl": "+$1.02", "pct": "+16.11%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$5.04", "sell": "$5.28", "shares": "1", "pnl": "+$0.24", "pct": "+4.76%", "result": "Win", "win": true}], "wr25": 40.8, "n25": 49, "wr58": 52.9, "n58": 68, "wr820": 46.7, "n820": 30}, "last_year": {"kpis": {"total": 0, "wins": 0, "losses": 0, "total_pnl": 0, "win_rate": 0, "avg_win": 0, "avg_loss": 0, "best": 0, "worst": 0}, "eq_dates": [], "eq_vals": [], "dp_dates": [], "dp_vals": [], "dp_colors": [], "dow_labels": ["Mon", "Tue", "Wed", "Thu", "Fri"], "dow_wr": [0, 0, 0, 0, 0], "dow_cnt": [0, 0, 0, 0, 0], "tm_labels": [], "tm_wr": [], "tm_cnt": [], "table": [], "wr25": 0, "n25": 0, "wr58": 0, "n58": 0, "wr820": 0, "n820": 0}, "all_time": {"kpis": {"total": 150, "wins": 71, "losses": 75, "total_pnl": -3.2, "win_rate": 47.3, "avg_win": 0.18, "avg_loss": -0.21, "best": 1.02, "worst": -1.12}, "eq_dates": ["2026-02-02", "2026-02-03", "2026-02-06", "2026-02-09", "2026-02-13", "2026-03-04", "2026-03-05", "2026-03-13", "2026-03-16", "2026-03-17", "2026-03-20", "2026-03-23", "2026-03-24", "2026-03-26", "2026-03-30", "2026-04-01", "2026-04-02", "2026-04-06", "2026-04-07", "2026-04-08", "2026-04-09", "2026-04-13", "2026-04-14", "2026-04-15", "2026-04-17", "2026-04-20", "2026-04-22", "2026-04-23", "2026-04-24", "2026-04-27", "2026-04-28", "2026-04-29", "2026-05-04", "2026-05-05"], "eq_vals": [0.23, 0.24, 0.12, 0.22, 0.34, 0.74, 0.7, 0.68, 0.63, 0.46, 0.43, 0.79, 0.52, 1.31, 1.19, 0.09, -0.01, -0.64, -1.17, -1.24, -1.24, -0.84, -0.99, -3.14, -3.03, -2.97, -3.04, -4.27, -4.48, -3.87, -3.96, -3.91, -3.0, -3.2], "dp_dates": ["2026-02-02", "2026-02-03", "2026-02-06", "2026-02-09", "2026-02-13", "2026-03-04", "2026-03-05", "2026-03-13", "2026-03-16", "2026-03-17", "2026-03-20", "2026-03-23", "2026-03-24", "2026-03-26", "2026-03-30", "2026-04-01", "2026-04-02", "2026-04-06", "2026-04-07", "2026-04-08", "2026-04-09", "2026-04-13", "2026-04-14", "2026-04-15", "2026-04-17", "2026-04-20", "2026-04-22", "2026-04-23", "2026-04-24", "2026-04-27", "2026-04-28", "2026-04-29", "2026-05-04", "2026-05-05"], "dp_vals": [0.23, 0.01, -0.13, 0.11, 0.12, 0.4, -0.04, -0.02, -0.05, -0.17, -0.03, 0.36, -0.27, 0.78, -0.12, -1.1, -0.1, -0.63, -0.53, -0.07, -0.01, 0.4, -0.15, -2.15, 0.11, 0.06, -0.07, -1.24, -0.21, 0.61, -0.09, 0.06, 0.91, -0.21], "dp_colors": ["#00e676", "#00e676", "#ff4455", "#00e676", "#00e676", "#00e676", "#ff4455", "#ff4455", "#ff4455", "#ff4455", "#ff4455", "#00e676", "#ff4455", "#00e676", "#ff4455", "#ff4455", "#ff4455", "#ff4455", "#ff4455", "#ff4455", "#ff4455", "#00e676", "#ff4455", "#ff4455", "#00e676", "#00e676", "#ff4455", "#ff4455", "#ff4455", "#00e676", "#ff4455", "#00e676", "#00e676", "#ff4455"], "dow_labels": ["Mon", "Tue", "Wed", "Thu", "Fri"], "dow_wr": [53.7, 42.4, 48.7, 43.5, 42.9], "dow_cnt": [41, 33, 39, 23, 14], "tm_labels": ["9:00-9:30", "9:30-10:00", "10:00-10:30", "10:30-11:00", "11:30-12:00"], "tm_wr": [38.5, 64.5, 100.0, 33.3, 0.0], "tm_cnt": [26, 31, 1, 3, 1], "table": [{"date": "2026-05-05", "ticker": "CLRB", "buy": "$6.18", "sell": "$6.02", "shares": "1", "pnl": "-$0.16", "pct": "-2.55%", "result": "Loss", "win": false}, {"date": "2026-05-05", "ticker": "CLRB", "buy": "$6.86", "sell": "$6.64", "shares": "1", "pnl": "-$0.22", "pct": "-3.21%", "result": "Loss", "win": false}, {"date": "2026-05-05", "ticker": "CLRB", "buy": "$5.69", "sell": "$5.86", "shares": "1", "pnl": "+$0.17", "pct": "+2.99%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "NIVF", "buy": "$2.37", "sell": "$2.37", "shares": "1", "pnl": "+$0.00", "pct": "+0.04%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "CLNN", "buy": "$7.76", "sell": "$8.19", "shares": "1", "pnl": "+$0.43", "pct": "+5.54%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "CLNN", "buy": "$7.99", "sell": "$7.61", "shares": "1", "pnl": "-$0.38", "pct": "-4.74%", "result": "Loss", "win": false}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$10.04", "sell": "$9.99", "shares": "1", "pnl": "-$0.05", "pct": "-0.50%", "result": "Loss", "win": false}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$8.27", "sell": "$7.95", "shares": "1", "pnl": "-$0.32", "pct": "-3.87%", "result": "Loss", "win": false}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$6.33", "sell": "$7.35", "shares": "1", "pnl": "+$1.02", "pct": "+16.11%", "result": "Win", "win": true}, {"date": "2026-05-04", "ticker": "CNSP", "buy": "$5.04", "sell": "$5.28", "shares": "1", "pnl": "+$0.24", "pct": "+4.76%", "result": "Win", "win": true}], "wr25": 40.8, "n25": 49, "wr58": 52.9, "n58": 68, "wr820": 46.7, "n820": 30}};
-const PW  = "r3d";
-
-const PERIOD_LABELS = {
-  today:"Today", yesterday:"Yesterday", last7:"Last 7 days",
-  last14:"Last 2 weeks", mtd:"Month to date", last_month:"Last month",
-  last30:"Last 30 days", qtd:"Quarter to date", ytd:"Year to date",
-  last_year:"Last year", all_time:"All time",
-};
-
 function unlock(){
-  if(document.getElementById('pw').value === PW){
+  const pw = document.getElementById('pw').value;
+  if(pw === 'r3d'){
     document.getElementById('lock-screen').style.display='none';
     document.getElementById('dashboard').style.display='block';
-    updateDashboard();
+    initChart();
   } else {
     document.getElementById('pw-err').textContent='Incorrect password.';
     document.getElementById('pw').value='';
   }
 }
-
-/* ── CHART INSTANCES ── */
-let eqChart, dpChart, dowChart, tmChart;
-function destroyAll(){
-  [eqChart, dpChart, dowChart, tmChart].forEach(c=>c&&c.destroy());
-}
-
-const CHART_GRID   = '#1e2e45';
-const CHART_TICK   = '#5b7a99';
-const CHART_TT_BG  = '#162032';
-const CHART_TT_BD  = '#1e2e45';
-
-function baseOpts(){
-  return {
-    responsive:true, maintainAspectRatio:false,
-    plugins:{legend:{display:false},tooltip:{
-      backgroundColor:CHART_TT_BG, borderColor:CHART_TT_BD, borderWidth:1,
-    }},
-    scales:{
-      x:{ticks:{color:CHART_TICK,font:{size:10},maxTicksLimit:8},grid:{color:CHART_GRID}},
-      y:{ticks:{color:CHART_TICK,font:{size:10}},grid:{color:CHART_GRID}},
+function initChart(){
+const ctx = document.getElementById('pnlChart').getContext('2d');
+new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: ["2026-02-02", "2026-02-03", "2026-02-06", "2026-02-09", "2026-02-13", "2026-03-04", "2026-03-05", "2026-03-13", "2026-03-16", "2026-03-17", "2026-03-20", "2026-03-23", "2026-03-24", "2026-03-26", "2026-03-30", "2026-04-01", "2026-04-02", "2026-04-06", "2026-04-07", "2026-04-08", "2026-04-09", "2026-04-13", "2026-04-14", "2026-04-15", "2026-04-17", "2026-04-20", "2026-04-22", "2026-04-23", "2026-04-24", "2026-04-27", "2026-04-28", "2026-04-29", "2026-05-04", "2026-05-05"],
+    datasets: [{
+      data: [0.2343, 0.2449, 0.1158, 0.2238, 0.3438, 0.7438, 0.6995, 0.6807, 0.6322, 0.4613, 0.4327, 0.792, 0.5245, 1.3071, 1.1874, 0.0877, -0.0104, -0.6371, -1.1666, -1.2362, -1.2449, -0.8437, -0.993, -3.1394, -3.0279, -2.9724, -3.0384, -4.2741, -4.4841, -3.8706, -3.9636, -3.9084, -2.9958, -3.2033],
+      borderColor: '#ff4455',
+      backgroundColor: '#ff445515',
+      borderWidth: 2,
+      pointRadius: 2,
+      pointHoverRadius: 4,
+      fill: true,
+      tension: 0.3
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {display: false},
+      tooltip: {
+        backgroundColor: '#162032',
+        borderColor: '#1e2e45',
+        borderWidth: 1,
+        callbacks: {label: c => ' $' + c.parsed.y.toFixed(2)}
+      }
     },
-  };
-}
-
-function fmtPnl(v){
-  const s = v<0?'-':'';
-  return s+'$'+Math.abs(v).toFixed(2);
-}
-
-function colorClass(v, pos50){
-  if(pos50) return v>=50?'':'red';
-  return v>=0?'':'red';
-}
-
-/* ── PRICE BARS ── */
-function renderPriceBars(d){
-  const rows = [
-    ['$2 – $5',  d.wr25,  d.n25],
-    ['$5 – $8',  d.wr58,  d.n58],
-    ['$8 – $20', d.wr820, d.n820],
-  ];
-  document.getElementById('priceBarRows').innerHTML = rows.map(([lbl,wr,n])=>{
-    const cls = wr>=50?'':'red';
-    return `<div class="bar-row">
-      <div class="bar-label">${lbl}</div>
-      <div class="bar-track"><div class="bar-fill ${cls}" style="width:${wr}%"></div></div>
-      <div class="bar-pct">${wr}%</div>
-      <div class="bar-n">${n}t</div>
-    </div>`;
-  }).join('');
-}
-
-/* ── SUMMARY ROWS ── */
-function renderSummary(kpis){
-  document.getElementById('summaryRows').innerHTML = `
-    <div class="stat-row"><span class="stat-label">Total wins</span><span class="stat-val green">${kpis.wins}</span></div>
-    <div class="stat-row"><span class="stat-label">Total losses</span><span class="stat-val red">${kpis.losses}</span></div>
-    <div class="stat-row"><span class="stat-label">Best trade</span><span class="stat-val green">+${kpis.best.toFixed(2)}</span></div>
-    <div class="stat-row"><span class="stat-label">Worst trade</span><span class="stat-val red">${fmtPnl(kpis.worst)}</span></div>
-  `;
-}
-
-/* ── TRADE TABLE ── */
-function renderTable(rows){
-  if(!rows.length){
-    document.getElementById('tradeBody').innerHTML=
-      '<tr><td colspan="8" class="empty-row">No trades in this period.</td></tr>';
-    return;
+    scales: {
+      x: {ticks: {color:'#5b7a99',font:{size:10},maxTicksLimit:6},grid:{color:'#1e2e45'}},
+      y: {ticks: {color:'#5b7a99',font:{size:10},callback: v => '$' + v.toFixed(2)},grid:{color:'#1e2e45'}}
+    }
   }
-  document.getElementById('tradeBody').innerHTML = rows.map(t=>{
-    const rc = t.win?'win':'loss';
-    return `<tr>
-      <td>${t.date}</td><td><b>${t.ticker}</b></td>
-      <td>${t.buy}</td><td>${t.sell}</td><td>${t.shares}</td>
-      <td class="${rc}">${t.pnl}</td>
-      <td class="${rc}">${t.pct}</td>
-      <td><span class="badge ${rc}">${t.result}</span></td>
-    </tr>`;
-  }).join('');
-}
-
-/* ── MAIN UPDATE ── */
-function updateDashboard(){
-  const period = document.getElementById('periodSel').value;
-  const d      = ALL[period];
-  const k      = d.kpis;
-
-  document.getElementById('rangePill').textContent = PERIOD_LABELS[period];
-
-  // KPIs
-  const pnlPos = k.total_pnl >= 0;
-  setText('kTotal', k.total, 'blue');
-  document.getElementById('kWL').textContent = k.wins+'W / '+k.losses+'L';
-
-  setText('kPnl',  fmtPnl(k.total_pnl), pnlPos?'':'red');
-  document.getElementById('kPnlAccent').className = 'kpi-accent'+(pnlPos?'':' red');
-  document.getElementById('kPnlSub').textContent = pnlPos?'positive period':'negative period';
-
-  const wrPos = k.win_rate >= 50;
-  setText('kWr', k.win_rate+'%', wrPos?'':'red');
-  document.getElementById('kWrAccent').className = 'kpi-accent'+(wrPos?'':' red');
-  document.getElementById('kWrSub').textContent = wrPos?'above breakeven':'below breakeven';
-
-  setText('kAvgWin',  '$'+k.avg_win.toFixed(2), 'yellow');
-  document.getElementById('kAvgLoss').textContent = '$'+k.avg_loss.toFixed(2)+' avg loss';
-
-  setText('kBest',  '+$'+k.best.toFixed(2), '');
-  setText('kWorst', fmtPnl(k.worst), 'red');
-
-  const wr25Pos = k.win_rate>=50;  // use per-period buckets
-  setText('kWr25', d.wr25+'%', d.wr25>=50?'':'red');
-  document.getElementById('kN25').textContent = d.n25+' trades';
-  setText('kWr58', d.wr58+'%', d.wr58>=50?'blue':'red');
-  document.getElementById('kN58').textContent = d.n58+' trades';
-
-  renderPriceBars(d);
-  renderSummary(k);
-  renderTable(d.table);
-  destroyAll();
-
-  // ── Equity chart ──────────────────────────────────────────────────────
-  const eqColor = (d.eq_vals.length && d.eq_vals[d.eq_vals.length-1] >= 0) ? '#00e676' : '#ff4455';
-  const eqOpts  = baseOpts();
-  eqOpts.scales.y.ticks.callback = v => '$'+v.toFixed(2);
-  eqOpts.plugins.tooltip.callbacks = {label: c=>' $'+c.parsed.y.toFixed(2)};
-  eqChart = new Chart(document.getElementById('equityChart'),{
-    type:'line',
-    data:{
-      labels: d.eq_dates,
-      datasets:[{
-        data: d.eq_vals, borderColor: eqColor,
-        backgroundColor: eqColor+'18', borderWidth:2,
-        pointRadius:2, pointHoverRadius:4,
-        fill:true, tension:0.3,
-      }]
-    },
-    options: eqOpts,
-  });
-
-  // ── Day P&L bar ──────────────────────────────────────────────────────
-  const dpOpts = baseOpts();
-  dpOpts.scales.y.ticks.callback = v => '$'+v.toFixed(2);
-  dpOpts.plugins.tooltip.callbacks = {label: c=>' $'+c.parsed.y.toFixed(2)};
-  dpChart = new Chart(document.getElementById('dayPnlChart'),{
-    type:'bar',
-    data:{
-      labels: d.dp_dates,
-      datasets:[{
-        data: d.dp_vals,
-        backgroundColor: d.dp_colors,
-        borderRadius:4, borderSkipped:false,
-      }]
-    },
-    options: dpOpts,
-  });
-
-  // ── DOW win rate ────────────────────────────────────────────────────
-  const dowOpts = baseOpts();
-  dowOpts.scales.y.min = 0; dowOpts.scales.y.max = 100;
-  dowOpts.scales.y.ticks.callback = v => v+'%';
-  dowOpts.plugins.tooltip.callbacks = {label: c=>` ${c.raw}% (${d.dow_cnt[c.dataIndex]} trades)`};
-  dowChart = new Chart(document.getElementById('dowChart'),{
-    type:'bar',
-    data:{
-      labels: d.dow_labels,
-      datasets:[{
-        data: d.dow_wr,
-        backgroundColor: d.dow_wr.map(v=>v>=50?'#00e676aa':'#ff4455aa'),
-        borderRadius:4, borderSkipped:false,
-      }]
-    },
-    options: dowOpts,
-  });
-
-  // ── Entry time win rate ─────────────────────────────────────────────
-  const tmOpts  = baseOpts();
-  tmOpts.indexAxis = 'y';
-  tmOpts.scales.x  = {min:0,max:100,ticks:{color:CHART_TICK,font:{size:10},callback:v=>v+'%'},grid:{color:CHART_GRID}};
-  tmOpts.scales.y  = {ticks:{color:CHART_TICK,font:{size:9}},grid:{color:CHART_GRID}};
-  tmOpts.plugins.tooltip.callbacks = {label: c=>` ${c.raw}% (${d.tm_cnt[c.dataIndex]} trades)`};
-  tmChart = new Chart(document.getElementById('timeChart'),{
-    type:'bar',
-    data:{
-      labels: d.tm_labels,
-      datasets:[{
-        data: d.tm_wr,
-        backgroundColor: d.tm_wr.map(v=>v>=50?'#00e676aa':'#ff4455aa'),
-        borderRadius:4, borderSkipped:false,
-      }]
-    },
-    options: tmOpts,
-  });
-}
-
-function setText(id, val, cls){
-  const el = document.getElementById(id);
-  el.textContent = val;
-  el.className   = 'kpi-value' + (cls ? ' '+cls : '');
+});
 }
 </script>
-</body>
-</html>
+</body></html>
