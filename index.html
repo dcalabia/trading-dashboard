@@ -37,6 +37,15 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .topbar-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;letter-spacing:1px;color:var(--text);text-transform:uppercase}
 .topbar-title span{color:var(--accent)}
 .topbar-meta{font-size:11px;color:var(--muted)}
+
+/* Tab bar */
+.tabbar{background:var(--header);border-bottom:1px solid var(--border);padding:0 24px;display:flex;gap:0}
+.tab-btn{padding:0 20px;height:40px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;cursor:pointer;transition:all .15s;white-space:nowrap}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+
 .main{padding:20px 24px}
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
 @media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
@@ -84,6 +93,39 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 .badge.win{background:rgba(0,230,118,0.12);color:var(--accent)}
 .badge.loss{background:rgba(255,68,85,0.12);color:var(--red)}
 .badge.be{background:rgba(255,195,0,0.12);color:var(--yellow)}
+
+/* Checklist styles */
+.cl-page{padding:20px 24px;max-width:800px}
+.cl-date-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.cl-date{font-size:13px;color:var(--muted)}
+.cl-reset{background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--muted);font-size:11px;padding:4px 10px;cursor:pointer;font-family:'Inter',sans-serif}
+.cl-reset:hover{border-color:var(--red);color:var(--red)}
+.cl-progress-wrap{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:14px 16px;margin-bottom:20px}
+.cl-progress-row{display:flex;align-items:center;gap:12px}
+.cl-progress-track{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.cl-progress-fill{height:100%;background:var(--accent);border-radius:3px;transition:width .3s}
+.cl-progress-lbl{font-size:12px;color:var(--muted);white-space:nowrap}
+.cl-section{background:var(--card);border:1px solid var(--border);border-radius:6px;margin-bottom:12px;overflow:hidden}
+.cl-section-hdr{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.cl-section-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted)}
+.cl-section-badge{font-size:10px;padding:1px 7px;border-radius:10px;background:rgba(0,230,118,0.1);color:var(--accent);font-weight:600}
+.cl-item{border-bottom:1px solid var(--border)}
+.cl-item:last-child{border-bottom:none}
+.cl-row{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;transition:background .1s}
+.cl-row:hover{background:rgba(255,255,255,0.03)}
+.cl-box{width:18px;height:18px;border-radius:4px;border:1.5px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.cl-box.on{background:var(--accent);border-color:var(--accent)}
+.cl-check-icon{width:10px;height:10px;opacity:0;transition:opacity .15s}
+.cl-box.on .cl-check-icon{opacity:1}
+.cl-label{flex:1;font-size:13px;color:var(--text);line-height:1.4;user-select:none}
+.cl-label.done{color:var(--muted);text-decoration:line-through}
+.cl-note-btn{background:transparent;border:none;color:var(--muted);font-size:14px;padding:2px 4px;cursor:pointer;flex-shrink:0;opacity:0.5;transition:opacity .15s;line-height:1}
+.cl-note-btn:hover{opacity:1;color:var(--blue)}
+.cl-note-btn.has-note{opacity:1;color:var(--blue)}
+.cl-note-area{padding:0 14px 10px 42px}
+.cl-note-textarea{width:100%;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:'Inter',sans-serif;font-size:12px;padding:8px 10px;outline:none;resize:none;min-height:52px;line-height:1.5}
+.cl-note-textarea:focus{border-color:var(--blue)}
+.cl-note-textarea::placeholder{color:var(--muted)}
 </style>
 </head>
 <body>
@@ -103,8 +145,17 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 <div id="dashboard">
 <div class="topbar">
   <div class="topbar-title">DALE <span>TRADING</span> DASHBOARD</div>
-  <div class="topbar-meta">Updated Jun 11 2026 03:30 PM</div>
+  <div class="topbar-meta" id="topbar-date"></div>
 </div>
+<div class="tabbar">
+  <button class="tab-btn active" onclick="switchTab('home')">Home</button>
+  <button class="tab-btn" onclick="switchTab('presession')">Pre-Session</button>
+  <button class="tab-btn" onclick="switchTab('live')">Live Session</button>
+  <button class="tab-btn" onclick="switchTab('postsession')">Post-Session</button>
+</div>
+
+<!-- HOME TAB -->
+<div class="tab-pane active" id="tab-home">
 <div class="main">
 
 <div class="kpi-grid">
@@ -198,79 +249,66 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 <div class="panel" style="margin-bottom:16px">
   <div class="panel-title">Advanced Stats</div>
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0">
-
     <div style="padding:10px 14px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)">
       <div class="kpi-label">Avg Daily P&L</div>
       <div class="kpi-value " style="font-size:18px">$+0.01</div>
       <div class="kpi-sub">50 trading days</div>
     </div>
-
     <div style="padding:10px 14px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)">
       <div class="kpi-label">Avg Per-Share G/L</div>
       <div class="kpi-value " style="font-size:18px">$+0.0027</div>
       <div class="kpi-sub">per share traded</div>
     </div>
-
     <div style="padding:10px 14px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)">
       <div class="kpi-label">Profit Factor</div>
       <div class="kpi-value yellow" style="font-size:18px">1.02</div>
       <div class="kpi-sub">gross wins / gross losses</div>
     </div>
-
     <div style="padding:10px 14px;border-bottom:1px solid var(--border)">
       <div class="kpi-label">P&L Std Deviation</div>
       <div class="kpi-value white" style="font-size:18px">$0.38</div>
       <div class="kpi-sub">trade consistency</div>
     </div>
-
     <div style="padding:10px 14px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)">
       <div class="kpi-label">Kelly %</div>
       <div class="kpi-value yellow" style="font-size:18px">0.0%</div>
       <div class="kpi-sub">optimal position size</div>
     </div>
-
     <div style="padding:10px 14px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)">
       <div class="kpi-label">SQN</div>
       <div class="kpi-value red" style="font-size:18px">0.11</div>
       <div class="kpi-sub">poor system quality</div>
     </div>
-
     <div style="padding:10px 14px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)">
       <div class="kpi-label">K-Ratio</div>
       <div class="kpi-value white" style="font-size:18px">-0.048</div>
       <div class="kpi-sub">equity curve quality</div>
     </div>
-
     <div style="padding:10px 14px;border-bottom:1px solid var(--border)">
       <div class="kpi-label">Scratch Trades</div>
       <div class="kpi-value white" style="font-size:18px">5</div>
       <div class="kpi-sub">break-even outcomes</div>
     </div>
-
     <div style="padding:10px 14px;border-right:1px solid var(--border)">
       <div class="kpi-label">Max Consec. Wins</div>
       <div class="kpi-value" style="font-size:18px">9</div>
       <div class="kpi-sub">best streak</div>
     </div>
-
     <div style="padding:10px 14px;border-right:1px solid var(--border)">
       <div class="kpi-label">Max Consec. Losses</div>
       <div class="kpi-value red" style="font-size:18px">6</div>
       <div class="kpi-sub">worst streak</div>
     </div>
-
     <div style="padding:10px 14px;border-right:1px solid var(--border)">
       <div class="kpi-label">Avg Hold — Winners</div>
       <div class="kpi-value white" style="font-size:18px">0.6 min</div>
       <div class="kpi-sub">winning trade duration</div>
     </div>
-
     <div style="padding:10px 14px">
       <div class="kpi-label">Avg Hold — Losers</div>
       <div class="kpi-value red" style="font-size:18px">0.7 min</div>
       <div class="kpi-sub">losing trade duration</div>
     </div>
-
   </div>
 </div>
 
@@ -302,51 +340,314 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 </div>
 
 </div>
+</div><!-- end home tab -->
+
+<!-- PRE-SESSION TAB -->
+<div class="tab-pane" id="tab-presession">
+<div class="cl-page">
+  <div class="cl-date-bar">
+    <div class="cl-date" id="pre-date"></div>
+    <button class="cl-reset" onclick="resetTab('pre')">Reset</button>
+  </div>
+  <div class="cl-progress-wrap">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Pre-Session Progress</div>
+    <div class="cl-progress-row">
+      <div class="cl-progress-track"><div class="cl-progress-fill" id="pre-bar" style="width:0%"></div></div>
+      <div class="cl-progress-lbl" id="pre-lbl">0 / 0</div>
+    </div>
+  </div>
+  <div id="pre-checklist"></div>
 </div>
+</div>
+
+<!-- LIVE SESSION TAB -->
+<div class="tab-pane" id="tab-live">
+<div class="cl-page">
+  <div class="cl-date-bar">
+    <div class="cl-date" id="live-date"></div>
+    <button class="cl-reset" onclick="resetTab('live')">Reset</button>
+  </div>
+  <div class="cl-progress-wrap">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Live Session Progress</div>
+    <div class="cl-progress-row">
+      <div class="cl-progress-track"><div class="cl-progress-fill" id="live-bar" style="width:0%"></div></div>
+      <div class="cl-progress-lbl" id="live-lbl">0 / 0</div>
+    </div>
+  </div>
+  <div id="live-checklist"></div>
+</div>
+</div>
+
+<!-- POST-SESSION TAB -->
+<div class="tab-pane" id="tab-postsession">
+<div class="cl-page">
+  <div class="cl-date-bar">
+    <div class="cl-date" id="post-date"></div>
+    <button class="cl-reset" onclick="resetTab('post')">Reset</button>
+  </div>
+  <div class="cl-progress-wrap">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Post-Session Progress</div>
+    <div class="cl-progress-row">
+      <div class="cl-progress-track"><div class="cl-progress-fill" id="post-bar" style="width:0%"></div></div>
+      <div class="cl-progress-lbl" id="post-lbl">0 / 0</div>
+    </div>
+  </div>
+  <div id="post-checklist"></div>
+</div>
+</div>
+
+</div><!-- end dashboard -->
+
 <script>
+// ── Checklist data ──────────────────────────────────────────────
+const CHECKLISTS = {
+  pre: [
+    {
+      title: 'Core',
+      items: [
+        {id:'pre-wake',   label:'Wake up on time (no snooze)'},
+        {id:'pre-platform',label:'Open trading platform + data feeds'},
+        {id:'pre-scan',   label:'Scan premarket movers (volume, % gain, news)'},
+        {id:'pre-5pillar',label:'Apply your 5-pillar filter (no exceptions)'},
+      ]
+    },
+    {
+      title: 'Setup Nuances (per stock)',
+      items: [
+        {id:'pre-daily',  label:'Check daily chart context (trend vs chop)'},
+        {id:'pre-bluesky',label:'Is this a blue-sky / all-time-high setup?'},
+        {id:'pre-cleanair',label:'Is there clean air above (no nearby daily resistance)?'},
+        {id:'pre-float',  label:'Float size appropriate for setup type?'},
+        {id:'pre-pmvol',  label:'Premarket volume meaningful relative to float?'},
+        {id:'pre-vwap',   label:'Is price holding above VWAP premarket?'},
+        {id:'pre-news',   label:'Is the move news-driven or sympathy only?'},
+        {id:'pre-pullback',label:'Does the first pullback form cleanly?'},
+        {id:'pre-spread', label:'Is spread tight enough for size?'},
+        {id:'pre-hod',    label:'Is there a clear HOD level everyone sees?'},
+      ]
+    },
+    {
+      title: 'Decision',
+      items: [
+        {id:'pre-plan',   label:'Define entry, stop, and first target in advance'},
+        {id:'pre-handsoff',label:'Hands off until setup appears'},
+      ]
+    }
+  ],
+  live: [
+    {
+      title: 'Trading Checklist',
+      items: [
+        {id:'live-reflection', label:'30-minute day trading reflection (night before) done'},
+        {id:'live-nuclear',    label:'Nuclear option defined'},
+        {id:'live-nodistractions', label:'No visual distractions'},
+        {id:'live-phone',      label:'Phone off until 9:30'},
+        {id:'live-recording',  label:'Recording on'},
+        {id:'live-hotkeys',    label:'Hotkeys on'},
+        {id:'live-edge',       label:'Edge desktop open'},
+        {id:'live-5pillars',   label:'Ready to analyze 5 pillars and entry before going in'},
+      ]
+    }
+  ],
+  post: [
+    {
+      title: 'Non-Negotiable',
+      items: [
+        {id:'post-gym',      label:'Gym (train, not max out)'},
+        {id:'post-sauna',    label:'Sauna (parasympathetic downshift)'},
+        {id:'post-shower',   label:'Shower (signal sleep mode)'},
+        {id:'post-mag',      label:'Magnesium before bed'},
+        {id:'post-nofood',   label:'No eating 3 hours before bed'},
+        {id:'post-nocoffee', label:'No coffee 10 hours before bed'},
+        {id:'post-noblue',   label:'No blue light 2 hours before bed'},
+        {id:'post-wakeup',   label:'Set wake-up time aligned with premarket'},
+        {id:'post-sleep',    label:'Sleep'},
+      ]
+    },
+    {
+      title: 'Trading Review (Core Only)',
+      items: [
+        {id:'post-review',   label:'Review today\'s trades (entries, exits, mistakes, missed trades)'},
+        {id:'post-tag',      label:'Tag mistakes by category (late entry, stop discipline, hesitation, overconfidence)'},
+        {id:'post-screenshot',label:'Screenshot + save key charts (winners, losers, missed A+ setups)'},
+        {id:'post-rules',    label:'Review rules (what NOT to trade)'},
+      ]
+    }
+  ]
+};
+
+// ── Storage helpers ─────────────────────────────────────────────
+function todayKey(){
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function loadData(tab){
+  try{const v=localStorage.getItem(`trading-cl-${tab}-${todayKey()}`);return v?JSON.parse(v):{}}catch(e){return{}}
+}
+function saveData(tab,data){
+  try{localStorage.setItem(`trading-cl-${tab}-${todayKey()}`,JSON.stringify(data))}catch(e){}
+}
+
+// ── Render a checklist ──────────────────────────────────────────
+function renderChecklist(tab, containerId){
+  const sections = CHECKLISTS[tab];
+  const data = loadData(tab);
+  const container = document.getElementById(containerId);
+  let total=0, done=0;
+
+  let html='';
+  sections.forEach(sec=>{
+    let secDone=0;
+    sec.items.forEach(it=>{if(data[it.id]?.checked)secDone++;});
+    total+=sec.items.length;
+    done+=secDone;
+    html+=`<div class="cl-section">
+      <div class="cl-section-hdr">
+        <div class="cl-section-title">${sec.title}</div>
+        <div class="cl-section-badge">${secDone}/${sec.items.length}</div>
+      </div>`;
+    sec.items.forEach(it=>{
+      const checked=!!data[it.id]?.checked;
+      const note=data[it.id]?.note||'';
+      const noteOpen=!!data[it.id]?.noteOpen;
+      html+=`<div class="cl-item" id="item-${it.id}">
+        <div class="cl-row" onclick="toggleItem('${tab}','${it.id}')">
+          <div class="cl-box${checked?' on':''}" id="box-${it.id}">
+            <svg class="cl-check-icon" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M1.5 5L4 7.5L8.5 2.5" stroke="#0b1120" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="cl-label${checked?' done':''}" id="lbl-${it.id}">${it.label}</div>
+          <button class="cl-note-btn${note?' has-note':''}" id="notebtn-${it.id}" onclick="event.stopPropagation();toggleNote('${tab}','${it.id}')" title="Add note">✏️</button>
+        </div>
+        <div class="cl-note-area" id="notearea-${it.id}" style="display:${noteOpen?'block':'none'}">
+          <textarea class="cl-note-textarea" id="notetxt-${it.id}" placeholder="Add a note..." oninput="saveNote('${tab}','${it.id}',this.value)">${note}</textarea>
+        </div>
+      </div>`;
+    });
+    html+='</div>';
+  });
+
+  container.innerHTML=html;
+  updateProgress(tab, done, total);
+}
+
+function updateProgress(tab, done, total){
+  const pct = total>0 ? Math.round(done/total*100) : 0;
+  document.getElementById(`${tab}-bar`).style.width=pct+'%';
+  document.getElementById(`${tab}-lbl`).textContent=`${done} / ${total}`;
+}
+
+function toggleItem(tab, id){
+  const data=loadData(tab);
+  if(!data[id])data[id]={};
+  data[id].checked=!data[id].checked;
+  saveData(tab,data);
+  renderChecklist(tab, `${tab}-checklist`);
+}
+
+function toggleNote(tab, id){
+  const data=loadData(tab);
+  if(!data[id])data[id]={};
+  data[id].noteOpen=!data[id].noteOpen;
+  saveData(tab,data);
+  const area=document.getElementById(`notearea-${id}`);
+  area.style.display=data[id].noteOpen?'block':'none';
+  if(data[id].noteOpen){
+    setTimeout(()=>{const t=document.getElementById(`notetxt-${id}`);if(t)t.focus();},50);
+  }
+}
+
+function saveNote(tab, id, val){
+  const data=loadData(tab);
+  if(!data[id])data[id]={};
+  data[id].note=val;
+  saveData(tab,data);
+  const btn=document.getElementById(`notebtn-${id}`);
+  if(btn){btn.classList.toggle('has-note',val.trim().length>0);}
+}
+
+function resetTab(tab){
+  if(!confirm('Reset all checkboxes and notes for today?'))return;
+  localStorage.removeItem(`trading-cl-${tab}-${todayKey()}`);
+  renderChecklist(tab, `${tab}-checklist`);
+}
+
+// ── Tabs ────────────────────────────────────────────────────────
+const TAB_IDS=['home','presession','live','postsession'];
+function switchTab(id){
+  TAB_IDS.forEach(t=>{
+    document.getElementById(`tab-${t}`).classList.toggle('active',t===id);
+  });
+  document.querySelectorAll('.tab-btn').forEach((btn,i)=>{
+    btn.classList.toggle('active',TAB_IDS[i]===id);
+  });
+  localStorage.setItem('trading-active-tab',id);
+}
+
+// ── Date display ────────────────────────────────────────────────
+function setDates(){
+  const d=new Date();
+  const str=d.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  document.getElementById('topbar-date').textContent=str;
+  ['pre','live','post'].forEach(t=>{
+    const el=document.getElementById(`${t}-date`);
+    if(el)el.textContent=str;
+  });
+}
+
+// ── Unlock ──────────────────────────────────────────────────────
 function unlock(){
   const pw = document.getElementById('pw').value;
   if(pw === 'r3d'){
     document.getElementById('lock-screen').style.display='none';
     document.getElementById('dashboard').style.display='block';
     initChart();
+    setDates();
+    renderChecklist('pre','pre-checklist');
+    renderChecklist('live','live-checklist');
+    renderChecklist('post','post-checklist');
+    const saved=localStorage.getItem('trading-active-tab');
+    if(saved&&TAB_IDS.includes(saved))switchTab(saved);
   } else {
     document.getElementById('pw-err').textContent='Incorrect password.';
     document.getElementById('pw').value='';
   }
 }
+
+// ── Chart ───────────────────────────────────────────────────────
 function initChart(){
 const ctx = document.getElementById('pnlChart').getContext('2d');
 new Chart(ctx, {
   type: 'line',
   data: {
-    labels: ["2026-02-02", "2026-02-03", "2026-02-06", "2026-02-09", "2026-02-13", "2026-03-04", "2026-03-05", "2026-03-13", "2026-03-16", "2026-03-17", "2026-03-20", "2026-03-23", "2026-03-24", "2026-03-26", "2026-03-30", "2026-04-01", "2026-04-02", "2026-04-06", "2026-04-07", "2026-04-08", "2026-04-09", "2026-04-13", "2026-04-14", "2026-04-15", "2026-04-17", "2026-04-20", "2026-04-22", "2026-04-23", "2026-04-24", "2026-04-27", "2026-04-28", "2026-04-29", "2026-05-04", "2026-05-05", "2026-05-08", "2026-05-12", "2026-05-13", "2026-05-15", "2026-05-19", "2026-05-21", "2026-05-28", "2026-05-29", "2026-06-01", "2026-06-02", "2026-06-03", "2026-06-04", "2026-06-05", "2026-06-09", "2026-06-10", "2026-06-11"],
+    labels: ["2026-02-02","2026-02-03","2026-02-06","2026-02-09","2026-02-13","2026-03-04","2026-03-05","2026-03-13","2026-03-16","2026-03-17","2026-03-20","2026-03-23","2026-03-24","2026-03-26","2026-03-30","2026-04-01","2026-04-02","2026-04-06","2026-04-07","2026-04-08","2026-04-09","2026-04-13","2026-04-14","2026-04-15","2026-04-17","2026-04-20","2026-04-22","2026-04-23","2026-04-24","2026-04-27","2026-04-28","2026-04-29","2026-05-04","2026-05-05","2026-05-08","2026-05-12","2026-05-13","2026-05-15","2026-05-19","2026-05-21","2026-05-28","2026-05-29","2026-06-01","2026-06-02","2026-06-03","2026-06-04","2026-06-05","2026-06-09","2026-06-10","2026-06-11"],
     datasets: [{
-      data: [0.2343, 0.2449, 0.1158, 0.2238, 0.3438, 0.7438, 0.6995, 0.6807, 0.6322, 0.4613, 0.4327, 0.792, 0.5245, 1.3071, 1.1874, 0.0877, -0.0104, -0.6371, -1.1666, -1.2362, -1.2449, -0.8437, -0.993, -3.1394, -3.0279, -2.9724, -3.0384, -4.2741, -4.4841, -3.8706, -3.9636, -3.9084, -2.9958, -3.2033, -3.1823, -3.2804, -3.2804, -3.2404, -3.387, -3.3799, -0.5157, -0.9688, -1.0076, 0.2482, 0.2382, -0.0918, -0.8046, 2.3785, 1.2985, 0.7149],
-      borderColor: '#00e676',
-      backgroundColor: '#00e67615',
-      borderWidth: 2,
-      pointRadius: 2,
-      pointHoverRadius: 4,
-      fill: true,
-      tension: 0.3
+      data: [0.2343,0.2449,0.1158,0.2238,0.3438,0.7438,0.6995,0.6807,0.6322,0.4613,0.4327,0.792,0.5245,1.3071,1.1874,0.0877,-0.0104,-0.6371,-1.1666,-1.2362,-1.2449,-0.8437,-0.993,-3.1394,-3.0279,-2.9724,-3.0384,-4.2741,-4.4841,-3.8706,-3.9636,-3.9084,-2.9958,-3.2033,-3.1823,-3.2804,-3.2804,-3.2404,-3.387,-3.3799,-0.5157,-0.9688,-1.0076,0.2482,0.2382,-0.0918,-0.8046,2.3785,1.2985,0.7149],
+      borderColor:'#00e676',
+      backgroundColor:'#00e67615',
+      borderWidth:2,
+      pointRadius:2,
+      pointHoverRadius:4,
+      fill:true,
+      tension:0.3
     }]
   },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {display: false},
-      tooltip: {
-        backgroundColor: '#162032',
-        borderColor: '#1e2e45',
-        borderWidth: 1,
-        callbacks: {label: c => ' $' + c.parsed.y.toFixed(2)}
+  options:{
+    responsive:true,
+    maintainAspectRatio:false,
+    plugins:{
+      legend:{display:false},
+      tooltip:{
+        backgroundColor:'#162032',
+        borderColor:'#1e2e45',
+        borderWidth:1,
+        callbacks:{label:c=>' $'+c.parsed.y.toFixed(2)}
       }
     },
-    scales: {
-      x: {ticks: {color:'#5b7a99',font:{size:10},maxTicksLimit:6},grid:{color:'#1e2e45'}},
-      y: {ticks: {color:'#5b7a99',font:{size:10},callback: v => '$' + v.toFixed(2)},grid:{color:'#1e2e45'}}
+    scales:{
+      x:{ticks:{color:'#5b7a99',font:{size:10},maxTicksLimit:6},grid:{color:'#1e2e45'}},
+      y:{ticks:{color:'#5b7a99',font:{size:10},callback:v=>'$'+v.toFixed(2)},grid:{color:'#1e2e45'}}
     }
   }
 });
