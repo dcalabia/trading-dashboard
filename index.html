@@ -158,64 +158,27 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 <div class="tab-pane active" id="tab-home">
 <div class="main">
 
-<div class="kpi-grid">
-  <div class="kpi">
-    <div class="kpi-accent blue"></div>
-    <div class="kpi-label">Total Trades</div>
-    <div class="kpi-value blue">263</div>
-    <div class="kpi-sub">129W / 129L</div>
-  </div>
-  <div class="kpi">
-    <div class="kpi-accent "></div>
-    <div class="kpi-label">Total P&L</div>
-    <div class="kpi-value ">$+0.71</div>
-    <div class="kpi-sub">all time</div>
-  </div>
-  <div class="kpi">
-    <div class="kpi-accent red"></div>
-    <div class="kpi-label">Win Rate</div>
-    <div class="kpi-value red">49.0%</div>
-    <div class="kpi-sub">below breakeven</div>
-  </div>
-  <div class="kpi">
-    <div class="kpi-accent yellow"></div>
-    <div class="kpi-label">Avg Win / Avg Loss</div>
-    <div class="kpi-value yellow">$0.26</div>
-    <div class="kpi-sub" style="color:var(--red)">$-0.25 avg loss</div>
-  </div>
-  <div class="kpi">
-    <div class="kpi-accent"></div>
-    <div class="kpi-label">Best Trade</div>
-    <div class="kpi-value">$+1.67</div>
-  </div>
-  <div class="kpi">
-    <div class="kpi-accent red"></div>
-    <div class="kpi-label">Worst Trade</div>
-    <div class="kpi-value red">$-1.91</div>
-  </div>
-  <div class="kpi">
-    <div class="kpi-accent blue"></div>
-    <div class="kpi-label">$2–$5 Win Rate</div>
-    <div class="kpi-value red">50%</div>
-    <div class="kpi-sub">107 trades</div>
-  </div>
-  <div class="kpi">
-    <div class="kpi-accent blue"></div>
-    <div class="kpi-label">$5–$8 Win Rate</div>
-    <div class="kpi-value blue">53%</div>
-    <div class="kpi-sub">99 trades</div>
-  </div>
+<!-- Period selector -->
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
+  <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;white-space:nowrap">Viewing period</div>
+  <select id="period-select" onchange="setPeriod(this.value)" style="background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:7px 12px;outline:none;cursor:pointer;flex:0 0 auto;min-width:200px">
+    <option value="all">All Time</option>
+  </select>
+  <div id="period-label" style="font-size:11px;color:var(--muted)"></div>
 </div>
+
+<!-- Dynamic KPI cards -->
+<div class="kpi-grid" id="kpi-grid"></div>
 
 <div class="grid-2">
   <div class="panel">
-    <div class="panel-title">Cumulative P&L</div>
+    <div class="panel-title" id="chart-title">Cumulative P&L</div>
     <div class="chart-wrap">
       <canvas id="pnlChart"></canvas>
     </div>
   </div>
   <div class="panel">
-    <div class="panel-title">Win Rate by Price</div>
+    <div class="panel-title">Win Rate by Price <span style="font-size:9px;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(all time)</span></div>
     <div style="padding-top:4px">
       <div class="bar-row">
         <div class="bar-label">$2 – $5</div>
@@ -225,7 +188,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
       </div>
       <div class="bar-row">
         <div class="bar-label">$5 – $8</div>
-        <div class="bar-track"><div class="bar-fill " style="width:53%"></div></div>
+        <div class="bar-track"><div class="bar-fill" style="width:53%"></div></div>
         <div class="bar-pct">53%</div>
         <div class="bar-n">99t</div>
       </div>
@@ -238,25 +201,22 @@ tr:hover td{background:rgba(255,255,255,0.025)}
     </div>
     <div style="margin-top:20px">
       <div class="panel-title">P&L Summary</div>
-      <div class="stat-row"><span class="stat-label">Total wins</span><span class="stat-val green">129</span></div>
-      <div class="stat-row"><span class="stat-label">Total losses</span><span class="stat-val red">129</span></div>
-      <div class="stat-row"><span class="stat-label">Best trade</span><span class="stat-val green">$+1.67</span></div>
-      <div class="stat-row"><span class="stat-label">Worst trade</span><span class="stat-val red">$-1.91</span></div>
+      <div id="pnl-summary"></div>
     </div>
   </div>
 </div>
 
 <div class="panel" style="margin-bottom:16px">
-  <div class="panel-title">Advanced Stats</div>
+  <div class="panel-title">Advanced Stats <span style="font-size:9px;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(all time)</span></div>
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0">
     <div style="padding:10px 14px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)">
       <div class="kpi-label">Avg Daily P&L</div>
-      <div class="kpi-value " style="font-size:18px">$+0.01</div>
+      <div class="kpi-value" style="font-size:18px">$+0.01</div>
       <div class="kpi-sub">50 trading days</div>
     </div>
     <div style="padding:10px 14px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)">
       <div class="kpi-label">Avg Per-Share G/L</div>
-      <div class="kpi-value " style="font-size:18px">$+0.0027</div>
+      <div class="kpi-value" style="font-size:18px">$+0.0027</div>
       <div class="kpi-sub">per share traded</div>
     </div>
     <div style="padding:10px 14px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)">
@@ -313,7 +273,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 </div>
 
 <div class="panel" style="margin-bottom:16px">
-  <div class="panel-title">Recent Trades</div>
+  <div class="panel-title" id="trades-panel-title">Trades</div>
   <div style="overflow-x:auto">
   <table>
     <thead>
@@ -323,18 +283,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
         <th>P&L $</th><th>P&L %</th><th>Result</th>
       </tr>
     </thead>
-    <tbody>
-<tr><td>2026-06-11</td><td><b>PPCB</b></td><td>$6.14</td><td>$5.96</td><td>1</td><td class='loss'>$-0.18</td><td class='loss'>-3.01%</td><td><span class='badge loss'>Loss</span></td></tr>
-<tr><td>2026-06-11</td><td><b>WTO</b></td><td>$1.97</td><td>$1.91</td><td>1</td><td class='loss'>$-0.06</td><td class='loss'>-3.05%</td><td><span class='badge loss'>Loss</span></td></tr>
-<tr><td>2026-06-11</td><td><b>GLXG</b></td><td>$4.54</td><td>$4.38</td><td>1</td><td class='loss'>$-0.16</td><td class='loss'>-3.52%</td><td><span class='badge loss'>Loss</span></td></tr>
-<tr><td>2026-06-11</td><td><b>GLXG</b></td><td>$4.06</td><td>$4.16</td><td>1</td><td class='win'>$+0.10</td><td class='win'>+2.46%</td><td><span class='badge win'>Win</span></td></tr>
-<tr><td>2026-06-11</td><td><b>GLXG</b></td><td>$3.71</td><td>$3.86</td><td>1</td><td class='win'>$+0.15</td><td class='win'>+4.04%</td><td><span class='badge win'>Win</span></td></tr>
-<tr><td>2026-06-11</td><td><b>PPCB</b></td><td>$6.09</td><td>$5.95</td><td>1</td><td class='loss'>$-0.14</td><td class='loss'>-2.31%</td><td><span class='badge loss'>Loss</span></td></tr>
-<tr><td>2026-06-11</td><td><b>PPCB</b></td><td>$6.17</td><td>$6.03</td><td>1</td><td class='loss'>$-0.14</td><td class='loss'>-2.27%</td><td><span class='badge loss'>Loss</span></td></tr>
-<tr><td>2026-06-11</td><td><b>GLXG</b></td><td>$3.20</td><td>$3.40</td><td>1</td><td class='win'>$+0.20</td><td class='win'>+6.25%</td><td><span class='badge win'>Win</span></td></tr>
-<tr><td>2026-06-11</td><td><b>PPCB</b></td><td>$4.93</td><td>$4.94</td><td>1</td><td class='win'>$+0.01</td><td class='win'>+0.18%</td><td><span class='badge win'>Win</span></td></tr>
-<tr><td>2026-06-11</td><td><b>PPCB</b></td><td>$4.41</td><td>$4.43</td><td>1</td><td class='win'>$+0.02</td><td class='win'>+0.45%</td><td><span class='badge win'>Win</span></td></tr>
-    </tbody>
+    <tbody id="trades-tbody"></tbody>
   </table>
   </div>
 </div>
@@ -602,8 +551,11 @@ function unlock(){
   if(pw === 'r3d'){
     document.getElementById('lock-screen').style.display='none';
     document.getElementById('dashboard').style.display='block';
-    initChart();
     setDates();
+    buildPeriodSelect();
+    const savedPeriod = localStorage.getItem('trading-period')||'all';
+    document.getElementById('period-select').value = savedPeriod;
+    setPeriod(savedPeriod);
     renderChecklist('pre','pre-checklist');
     renderChecklist('live','live-checklist');
     renderChecklist('post','post-checklist');
@@ -615,42 +567,290 @@ function unlock(){
   }
 }
 
-// ── Chart ───────────────────────────────────────────────────────
-function initChart(){
-const ctx = document.getElementById('pnlChart').getContext('2d');
-new Chart(ctx, {
-  type: 'line',
-  data: {
-    labels: ["2026-02-02","2026-02-03","2026-02-06","2026-02-09","2026-02-13","2026-03-04","2026-03-05","2026-03-13","2026-03-16","2026-03-17","2026-03-20","2026-03-23","2026-03-24","2026-03-26","2026-03-30","2026-04-01","2026-04-02","2026-04-06","2026-04-07","2026-04-08","2026-04-09","2026-04-13","2026-04-14","2026-04-15","2026-04-17","2026-04-20","2026-04-22","2026-04-23","2026-04-24","2026-04-27","2026-04-28","2026-04-29","2026-05-04","2026-05-05","2026-05-08","2026-05-12","2026-05-13","2026-05-15","2026-05-19","2026-05-21","2026-05-28","2026-05-29","2026-06-01","2026-06-02","2026-06-03","2026-06-04","2026-06-05","2026-06-09","2026-06-10","2026-06-11"],
-    datasets: [{
-      data: [0.2343,0.2449,0.1158,0.2238,0.3438,0.7438,0.6995,0.6807,0.6322,0.4613,0.4327,0.792,0.5245,1.3071,1.1874,0.0877,-0.0104,-0.6371,-1.1666,-1.2362,-1.2449,-0.8437,-0.993,-3.1394,-3.0279,-2.9724,-3.0384,-4.2741,-4.4841,-3.8706,-3.9636,-3.9084,-2.9958,-3.2033,-3.1823,-3.2804,-3.2804,-3.2404,-3.387,-3.3799,-0.5157,-0.9688,-1.0076,0.2482,0.2382,-0.0918,-0.8046,2.3785,1.2985,0.7149],
-      borderColor:'#00e676',
-      backgroundColor:'#00e67615',
-      borderWidth:2,
-      pointRadius:2,
-      pointHoverRadius:4,
-      fill:true,
-      tension:0.3
-    }]
-  },
-  options:{
-    responsive:true,
-    maintainAspectRatio:false,
-    plugins:{
-      legend:{display:false},
-      tooltip:{
-        backgroundColor:'#162032',
-        borderColor:'#1e2e45',
-        borderWidth:1,
-        callbacks:{label:c=>' $'+c.parsed.y.toFixed(2)}
-      }
-    },
-    scales:{
-      x:{ticks:{color:'#5b7a99',font:{size:10},maxTicksLimit:6},grid:{color:'#1e2e45'}},
-      y:{ticks:{color:'#5b7a99',font:{size:10},callback:v=>'$'+v.toFixed(2)},grid:{color:'#1e2e45'}}
-    }
+// ── Trade & daily data ──────────────────────────────────────────
+const CUM_DATA = [
+  {date:"2026-02-02",cum:0.2343},{date:"2026-02-03",cum:0.2449},{date:"2026-02-06",cum:0.1158},
+  {date:"2026-02-09",cum:0.2238},{date:"2026-02-13",cum:0.3438},{date:"2026-03-04",cum:0.7438},
+  {date:"2026-03-05",cum:0.6995},{date:"2026-03-13",cum:0.6807},{date:"2026-03-16",cum:0.6322},
+  {date:"2026-03-17",cum:0.4613},{date:"2026-03-20",cum:0.4327},{date:"2026-03-23",cum:0.792},
+  {date:"2026-03-24",cum:0.5245},{date:"2026-03-26",cum:1.3071},{date:"2026-03-30",cum:1.1874},
+  {date:"2026-04-01",cum:0.0877},{date:"2026-04-02",cum:-0.0104},{date:"2026-04-06",cum:-0.6371},
+  {date:"2026-04-07",cum:-1.1666},{date:"2026-04-08",cum:-1.2362},{date:"2026-04-09",cum:-1.2449},
+  {date:"2026-04-13",cum:-0.8437},{date:"2026-04-14",cum:-0.993},{date:"2026-04-15",cum:-3.1394},
+  {date:"2026-04-17",cum:-3.0279},{date:"2026-04-20",cum:-2.9724},{date:"2026-04-22",cum:-3.0384},
+  {date:"2026-04-23",cum:-4.2741},{date:"2026-04-24",cum:-4.4841},{date:"2026-04-27",cum:-3.8706},
+  {date:"2026-04-28",cum:-3.9636},{date:"2026-04-29",cum:-3.9084},{date:"2026-05-04",cum:-2.9958},
+  {date:"2026-05-05",cum:-3.2033},{date:"2026-05-08",cum:-3.1823},{date:"2026-05-12",cum:-3.2804},
+  {date:"2026-05-13",cum:-3.2804},{date:"2026-05-15",cum:-3.2404},{date:"2026-05-19",cum:-3.387},
+  {date:"2026-05-21",cum:-3.3799},{date:"2026-05-28",cum:-0.5157},{date:"2026-05-29",cum:-0.9688},
+  {date:"2026-06-01",cum:-1.0076},{date:"2026-06-02",cum:0.2482},{date:"2026-06-03",cum:0.2382},
+  {date:"2026-06-04",cum:-0.0918},{date:"2026-06-05",cum:-0.8046},{date:"2026-06-09",cum:2.3785},
+  {date:"2026-06-10",cum:1.2985},{date:"2026-06-11",cum:0.7149}
+];
+
+// Daily P&L derived from cumulative (first day relative to 0)
+const DAILY_DATA = CUM_DATA.map((d,i)=>({
+  date: d.date,
+  month: d.date.slice(0,7),
+  week: weekKey(d.date),
+  pnl: i===0 ? d.cum : +(d.cum - CUM_DATA[i-1].cum).toFixed(4)
+}));
+
+const ALL_TRADES = [
+  {date:"2026-06-11",ticker:"PPCB",buy:6.14,sell:5.96,shares:1,pnl:-0.18,result:"loss"},
+  {date:"2026-06-11",ticker:"WTO", buy:1.97,sell:1.91,shares:1,pnl:-0.06,result:"loss"},
+  {date:"2026-06-11",ticker:"GLXG",buy:4.54,sell:4.38,shares:1,pnl:-0.16,result:"loss"},
+  {date:"2026-06-11",ticker:"GLXG",buy:4.06,sell:4.16,shares:1,pnl: 0.10,result:"win"},
+  {date:"2026-06-11",ticker:"GLXG",buy:3.71,sell:3.86,shares:1,pnl: 0.15,result:"win"},
+  {date:"2026-06-11",ticker:"PPCB",buy:6.09,sell:5.95,shares:1,pnl:-0.14,result:"loss"},
+  {date:"2026-06-11",ticker:"PPCB",buy:6.17,sell:6.03,shares:1,pnl:-0.14,result:"loss"},
+  {date:"2026-06-11",ticker:"GLXG",buy:3.20,sell:3.40,shares:1,pnl: 0.20,result:"win"},
+  {date:"2026-06-11",ticker:"PPCB",buy:4.93,sell:4.94,shares:1,pnl: 0.01,result:"win"},
+  {date:"2026-06-11",ticker:"PPCB",buy:4.41,sell:4.43,shares:1,pnl: 0.02,result:"win"}
+];
+
+function weekKey(dateStr){
+  const d = new Date(dateStr+'T12:00:00');
+  const day = d.getDay();
+  const mon = new Date(d);
+  mon.setDate(d.getDate() - (day===0?6:day-1));
+  return mon.toISOString().slice(0,10);
+}
+function weekLabel(k){
+  const d = new Date(k+'T12:00:00');
+  return 'Week of '+d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+}
+function monthLabel(k){
+  const [y,m]=k.split('-');
+  return new Date(y,m-1,1).toLocaleDateString('en-US',{month:'long',year:'numeric'});
+}
+function fmt(v,decimals=2){
+  const s=(v>=0?'+':'')+v.toFixed(decimals);
+  return '$'+s;
+}
+function colorClass(v){return v>0?'green':v<0?'red':'';}
+
+// ── Build period dropdown ───────────────────────────────────────
+function buildPeriodSelect(){
+  const sel = document.getElementById('period-select');
+  const months=[...new Set(DAILY_DATA.map(d=>d.month))].sort().reverse();
+  const weeks=[...new Set(DAILY_DATA.map(d=>d.week))].sort().reverse();
+
+  let html='<option value="all">All Time</option>';
+  html+='<optgroup label="─── Monthly ───">';
+  months.forEach(m=>{ html+=`<option value="month:${m}">${monthLabel(m)}</option>`; });
+  html+='</optgroup>';
+  html+='<optgroup label="─── Weekly ───">';
+  weeks.forEach(w=>{ html+=`<option value="week:${w}">${weekLabel(w)}</option>`; });
+  html+='</optgroup>';
+  sel.innerHTML=html;
+}
+
+// ── Filter data by period ───────────────────────────────────────
+function filterDaily(period){
+  if(period==='all') return DAILY_DATA;
+  const [type,key]=period.split(':');
+  return DAILY_DATA.filter(d=>type==='month'?d.month===key:d.week===key);
+}
+function filterTrades(period){
+  if(period==='all') return ALL_TRADES;
+  const [type,key]=period.split(':');
+  return ALL_TRADES.filter(t=>type==='month'?t.date.slice(0,7)===key:weekKey(t.date)===key);
+}
+
+// ── Compute stats from daily data ───────────────────────────────
+function computeStats(days, trades, period){
+  const totalPnl = days.reduce((s,d)=>s+d.pnl,0);
+  const tradingDays = days.length;
+  const avgDaily = tradingDays>0 ? totalPnl/tradingDays : 0;
+  const bestDay = days.length>0 ? Math.max(...days.map(d=>d.pnl)) : 0;
+  const worstDay = days.length>0 ? Math.min(...days.map(d=>d.pnl)) : 0;
+  const wins = trades.filter(t=>t.result==='win');
+  const losses = trades.filter(t=>t.result==='loss');
+  const winRate = trades.length>0 ? (wins.length/trades.length*100) : null;
+  const avgWin = wins.length>0 ? wins.reduce((s,t)=>s+t.pnl,0)/wins.length : null;
+  const avgLoss = losses.length>0 ? losses.reduce((s,t)=>s+t.pnl,0)/losses.length : null;
+  const bestTrade = trades.length>0 ? Math.max(...trades.map(t=>t.pnl)) : null;
+  const worstTrade = trades.length>0 ? Math.min(...trades.map(t=>t.pnl)) : null;
+
+  // for all-time use hardcoded totals since we don't have every trade
+  if(period==='all'){
+    return {
+      totalPnl:0.7149, tradingDays:50, avgDaily:0.01,
+      bestDay:+(Math.max(...days.map(d=>d.pnl))).toFixed(2),
+      worstDay:+(Math.min(...days.map(d=>d.pnl))).toFixed(2),
+      totalTrades:263, wins:129, losses:129,
+      winRate:49.0, avgWin:0.26, avgLoss:-0.25,
+      bestTrade:1.67, worstTrade:-1.91
+    };
   }
-});
+  return {
+    totalPnl:+totalPnl.toFixed(2), tradingDays, avgDaily:+avgDaily.toFixed(2),
+    bestDay:+bestDay.toFixed(2), worstDay:+worstDay.toFixed(2),
+    totalTrades:trades.length, wins:wins.length, losses:losses.length,
+    winRate, avgWin:avgWin?+avgWin.toFixed(2):null,
+    avgLoss:avgLoss?+avgLoss.toFixed(2):null,
+    bestTrade:bestTrade?+bestTrade.toFixed(2):null,
+    worstTrade:worstTrade?+worstTrade.toFixed(2):null
+  };
+}
+
+// ── Render KPI cards ────────────────────────────────────────────
+function renderKPIs(s, period){
+  const na='<span style="color:var(--muted);font-size:14px">—</span>';
+  const pnlColor = s.totalPnl>=0?'':'red';
+  const pnlCls = s.totalPnl>=0?'':'red';
+  const wrColor = s.winRate===null?'white':s.winRate>=50?'':'red';
+  const wrCls = s.winRate===null?'white':s.winRate>=50?'':'red';
+
+  document.getElementById('kpi-grid').innerHTML=`
+    <div class="kpi">
+      <div class="kpi-accent blue"></div>
+      <div class="kpi-label">Total Trades</div>
+      <div class="kpi-value blue">${s.totalTrades||na}</div>
+      <div class="kpi-sub">${s.totalTrades&&s.wins!=null?s.wins+'W / '+s.losses+'L':''}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-accent ${pnlCls}"></div>
+      <div class="kpi-label">Total P&L</div>
+      <div class="kpi-value ${pnlCls}">${fmt(s.totalPnl)}</div>
+      <div class="kpi-sub">${period==='all'?'all time':''}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-accent ${wrCls}"></div>
+      <div class="kpi-label">Win Rate</div>
+      <div class="kpi-value ${wrCls}">${s.winRate!=null?s.winRate.toFixed(1)+'%':na}</div>
+      <div class="kpi-sub">${s.winRate!=null?(s.winRate>=50?'at/above breakeven':'below breakeven'):period==='all'?'':'limited trade data'}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-accent yellow"></div>
+      <div class="kpi-label">Avg Win / Avg Loss</div>
+      <div class="kpi-value yellow">${s.avgWin!=null?fmt(s.avgWin):na}</div>
+      <div class="kpi-sub" style="color:var(--red)">${s.avgLoss!=null?fmt(s.avgLoss)+' avg loss':''}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-accent"></div>
+      <div class="kpi-label">Best Trade</div>
+      <div class="kpi-value">${s.bestTrade!=null?fmt(s.bestTrade):na}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-accent red"></div>
+      <div class="kpi-label">Worst Trade</div>
+      <div class="kpi-value red">${s.worstTrade!=null?fmt(s.worstTrade):na}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-accent blue"></div>
+      <div class="kpi-label">Best Day</div>
+      <div class="kpi-value ${s.bestDay>=0?'':'red'}">${fmt(s.bestDay)}</div>
+      <div class="kpi-sub">${s.tradingDays} trading day${s.tradingDays!==1?'s':''}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-accent red"></div>
+      <div class="kpi-label">Avg Daily P&L</div>
+      <div class="kpi-value ${s.avgDaily>=0?'':'red'}">${fmt(s.avgDaily)}</div>
+      <div class="kpi-sub">worst day: ${fmt(s.worstDay)}</div>
+    </div>`;
+}
+
+// ── Render P&L summary ──────────────────────────────────────────
+function renderPnlSummary(s){
+  const na='—';
+  document.getElementById('pnl-summary').innerHTML=`
+    <div class="stat-row"><span class="stat-label">Total wins</span><span class="stat-val green">${s.wins!=null?s.wins:na}</span></div>
+    <div class="stat-row"><span class="stat-label">Total losses</span><span class="stat-val red">${s.losses!=null?s.losses:na}</span></div>
+    <div class="stat-row"><span class="stat-label">Best trade</span><span class="stat-val green">${s.bestTrade!=null?fmt(s.bestTrade):na}</span></div>
+    <div class="stat-row"><span class="stat-label">Worst trade</span><span class="stat-val red">${s.worstTrade!=null?fmt(s.worstTrade):na}</span></div>`;
+}
+
+// ── Render trades table ─────────────────────────────────────────
+function renderTradesTable(trades, period){
+  const label = period==='all'?'Recent Trades':'Trades';
+  document.getElementById('trades-panel-title').textContent=label;
+  const shown = period==='all' ? trades.slice(0,10) : trades;
+  if(!shown.length){
+    document.getElementById('trades-tbody').innerHTML='<tr><td colspan="8" style="color:var(--muted);text-align:center;padding:20px">No trade data for this period</td></tr>';
+    return;
+  }
+  document.getElementById('trades-tbody').innerHTML=shown.map(t=>{
+    const pnlStr=(t.pnl>=0?'+':'')+t.pnl.toFixed(2);
+    const pct=((t.pnl/t.buy)*100);
+    const pctStr=(pct>=0?'+':'')+pct.toFixed(2)+'%';
+    const cls=t.result;
+    return `<tr>
+      <td>${t.date}</td><td><b>${t.ticker}</b></td><td>$${t.buy.toFixed(2)}</td>
+      <td>$${t.sell.toFixed(2)}</td><td>${t.shares}</td>
+      <td class="${cls}">$${pnlStr}</td><td class="${cls}">${pctStr}</td>
+      <td><span class="badge ${cls}">${t.result.charAt(0).toUpperCase()+t.result.slice(1)}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Chart instance ──────────────────────────────────────────────
+let pnlChart = null;
+function initChart(days, period){
+  if(pnlChart){ pnlChart.destroy(); pnlChart=null; }
+  const isAll = period==='all';
+  // For all-time use cumulative; for periods use running total within period
+  let labels, data;
+  if(isAll){
+    labels = CUM_DATA.map(d=>d.date);
+    data = CUM_DATA.map(d=>d.cum);
+    document.getElementById('chart-title').textContent='Cumulative P&L — All Time';
+  } else {
+    labels = days.map(d=>d.date);
+    let running=0;
+    data = days.map(d=>{ running+=d.pnl; return +running.toFixed(4); });
+    const [type,key]=period.split(':');
+    document.getElementById('chart-title').textContent='P&L — '+(type==='month'?monthLabel(key):weekLabel(key));
+  }
+  const lastVal = data[data.length-1]||0;
+  const lineColor = lastVal>=0?'#00e676':'#ff4455';
+  const fillColor = lastVal>=0?'#00e67615':'#ff445510';
+
+  const ctx = document.getElementById('pnlChart').getContext('2d');
+  pnlChart = new Chart(ctx,{
+    type:'line',
+    data:{
+      labels,
+      datasets:[{
+        data, borderColor:lineColor, backgroundColor:fillColor,
+        borderWidth:2, pointRadius:2, pointHoverRadius:4, fill:true, tension:0.3
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#162032', borderColor:'#1e2e45', borderWidth:1,
+          callbacks:{label:c=>' $'+c.parsed.y.toFixed(2)}
+        }
+      },
+      scales:{
+        x:{ticks:{color:'#5b7a99',font:{size:10},maxTicksLimit:6},grid:{color:'#1e2e45'}},
+        y:{ticks:{color:'#5b7a99',font:{size:10},callback:v=>'$'+v.toFixed(2)},grid:{color:'#1e2e45'}}
+      }
+    }
+  });
+}
+
+// ── Set period (main entry point) ───────────────────────────────
+function setPeriod(period){
+  localStorage.setItem('trading-period', period);
+  const days = filterDaily(period);
+  const trades = filterTrades(period);
+  const stats = computeStats(days, trades, period);
+  renderKPIs(stats, period);
+  renderPnlSummary(stats);
+  renderTradesTable(trades, period);
+  initChart(days, period);
+
+  const lbl = document.getElementById('period-label');
+  if(period==='all'){ lbl.textContent=''; }
+  else {
+    const [type,key]=period.split(':');
+    lbl.textContent=(type==='month'?monthLabel(key):weekLabel(key))+' · '+days.length+' trading day'+(days.length!==1?'s':'');
+  }
 }
 </script>
 </body></html>
