@@ -107,25 +107,41 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 .cl-progress-lbl{font-size:12px;color:var(--muted);white-space:nowrap}
 .cl-section{background:var(--card);border:1px solid var(--border);border-radius:6px;margin-bottom:12px;overflow:hidden}
 .cl-section-hdr{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
-.cl-section-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted)}
+.cl-section-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);flex:1}
 .cl-section-badge{font-size:10px;padding:1px 7px;border-radius:10px;background:rgba(0,230,118,0.1);color:var(--accent);font-weight:600}
+.cl-section-del{background:transparent;border:none;color:var(--muted);font-size:13px;padding:2px 5px;cursor:pointer;opacity:0;transition:opacity .15s;line-height:1;border-radius:3px}
+.cl-section:hover .cl-section-del{opacity:0.5}
+.cl-section-del:hover{opacity:1!important;color:var(--red)!important}
 .cl-item{border-bottom:1px solid var(--border)}
 .cl-item:last-child{border-bottom:none}
-.cl-row{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;transition:background .1s}
+.cl-row{display:flex;align-items:center;gap:10px;padding:10px 14px;transition:background .1s}
 .cl-row:hover{background:rgba(255,255,255,0.03)}
-.cl-box{width:18px;height:18px;border-radius:4px;border:1.5px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.cl-box{width:18px;height:18px;border-radius:4px;border:1.5px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s;cursor:pointer}
 .cl-box.on{background:var(--accent);border-color:var(--accent)}
 .cl-check-icon{width:10px;height:10px;opacity:0;transition:opacity .15s}
 .cl-box.on .cl-check-icon{opacity:1}
-.cl-label{flex:1;font-size:13px;color:var(--text);line-height:1.4;user-select:none}
+.cl-label{flex:1;font-size:13px;color:var(--text);line-height:1.4;user-select:none;cursor:pointer}
 .cl-label.done{color:var(--muted);text-decoration:line-through}
-.cl-note-btn{background:transparent;border:none;color:var(--muted);font-size:14px;padding:2px 4px;cursor:pointer;flex-shrink:0;opacity:0.5;transition:opacity .15s;line-height:1}
+.cl-item-actions{display:flex;gap:1px;opacity:0;transition:opacity .15s;flex-shrink:0}
+.cl-item:hover .cl-item-actions{opacity:1}
+.cl-act-btn{background:transparent;border:none;color:var(--muted);font-size:11px;padding:3px 5px;cursor:pointer;border-radius:3px;font-family:'Inter',sans-serif;line-height:1;transition:all .1s}
+.cl-act-btn:hover{background:var(--panel);color:var(--text)}
+.cl-act-del:hover{color:var(--red)!important}
+.cl-note-btn{background:transparent;border:none;color:var(--muted);font-size:13px;padding:2px 4px;cursor:pointer;flex-shrink:0;opacity:0.4;transition:opacity .15s;line-height:1}
 .cl-note-btn:hover{opacity:1;color:var(--blue)}
 .cl-note-btn.has-note{opacity:1;color:var(--blue)}
 .cl-note-area{padding:0 14px 10px 42px}
 .cl-note-textarea{width:100%;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:'Inter',sans-serif;font-size:12px;padding:8px 10px;outline:none;resize:none;min-height:52px;line-height:1.5}
 .cl-note-textarea:focus{border-color:var(--blue)}
 .cl-note-textarea::placeholder{color:var(--muted)}
+.cl-edit-inp{flex:1;background:transparent;border:none;border-bottom:1px solid var(--accent);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;padding:0 2px;line-height:1.4}
+.cl-add-row{padding:4px 14px 8px}
+.cl-add-inp{width:100%;background:transparent;border:none;border-bottom:1px dashed var(--border);color:var(--muted);font-family:'Inter',sans-serif;font-size:12px;padding:5px 0;outline:none;transition:border-color .15s}
+.cl-add-inp:focus{border-bottom-color:var(--accent);color:var(--text)}
+.cl-add-inp::placeholder{color:var(--border)}
+.cl-add-inp:focus::placeholder{color:var(--muted)}
+.cl-add-sec-btn{width:100%;background:transparent;border:1px dashed var(--border);border-radius:6px;color:var(--muted);font-family:'Inter',sans-serif;font-size:12px;padding:9px;cursor:pointer;margin-top:4px;margin-bottom:16px;transition:all .15s}
+.cl-add-sec-btn:hover{border-color:var(--accent);color:var(--accent)}
 </style>
 </head>
 <body>
@@ -348,82 +364,160 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 </div><!-- end dashboard -->
 
 <script>
-// ── Checklist data ──────────────────────────────────────────────
-const CHECKLISTS = {
+// ── Checklist definitions (defaults + user edits via localStorage) ──
+const DEFAULT_CHECKLISTS = {
   pre: [
-    {
-      title: 'Core',
-      items: [
-        {id:'pre-wake',   label:'Wake up on time (no snooze)'},
-        {id:'pre-platform',label:'Open trading platform + data feeds'},
-        {id:'pre-scan',   label:'Scan premarket movers (volume, % gain, news)'},
-        {id:'pre-5pillar',label:'Apply your 5-pillar filter (no exceptions)'},
-      ]
-    },
-    {
-      title: 'Setup Nuances (per stock)',
-      items: [
-        {id:'pre-daily',  label:'Check daily chart context (trend vs chop)'},
-        {id:'pre-bluesky',label:'Is this a blue-sky / all-time-high setup?'},
-        {id:'pre-cleanair',label:'Is there clean air above (no nearby daily resistance)?'},
-        {id:'pre-float',  label:'Float size appropriate for setup type?'},
-        {id:'pre-pmvol',  label:'Premarket volume meaningful relative to float?'},
-        {id:'pre-vwap',   label:'Is price holding above VWAP premarket?'},
-        {id:'pre-news',   label:'Is the move news-driven or sympathy only?'},
-        {id:'pre-pullback',label:'Does the first pullback form cleanly?'},
-        {id:'pre-spread', label:'Is spread tight enough for size?'},
-        {id:'pre-hod',    label:'Is there a clear HOD level everyone sees?'},
-      ]
-    },
-    {
-      title: 'Decision',
-      items: [
-        {id:'pre-plan',   label:'Define entry, stop, and first target in advance'},
-        {id:'pre-handsoff',label:'Hands off until setup appears'},
-      ]
-    }
+    { title:'Core', items:[
+      {id:'pre-wake',      label:'Wake up on time (no snooze)'},
+      {id:'pre-platform',  label:'Open trading platform + data feeds'},
+      {id:'pre-scan',      label:'Scan premarket movers (volume, % gain, news)'},
+      {id:'pre-5pillar',   label:'Apply your 5-pillar filter (no exceptions)'},
+    ]},
+    { title:'Setup Nuances (per stock)', items:[
+      {id:'pre-daily',     label:'Check daily chart context (trend vs chop)'},
+      {id:'pre-bluesky',   label:'Is this a blue-sky / all-time-high setup?'},
+      {id:'pre-cleanair',  label:'Is there clean air above (no nearby daily resistance)?'},
+      {id:'pre-float',     label:'Float size appropriate for setup type?'},
+      {id:'pre-pmvol',     label:'Premarket volume meaningful relative to float?'},
+      {id:'pre-vwap',      label:'Is price holding above VWAP premarket?'},
+      {id:'pre-news',      label:'Is the move news-driven or sympathy only?'},
+      {id:'pre-pullback',  label:'Does the first pullback form cleanly?'},
+      {id:'pre-spread',    label:'Is spread tight enough for size?'},
+      {id:'pre-hod',       label:'Is there a clear HOD level everyone sees?'},
+    ]},
+    { title:'Decision', items:[
+      {id:'pre-plan',      label:'Define entry, stop, and first target in advance'},
+      {id:'pre-handsoff',  label:'Hands off until setup appears'},
+    ]},
+    { title:'Level 2 Confirmation', items:[
+      {id:'pre-l2-1',  label:'Bid stepping up repeatedly (higher bids replacing lower bids)'},
+      {id:'pre-l2-2',  label:'Buyers reload the bid after getting hit (true support)'},
+      {id:'pre-l2-3',  label:'Large bids appear and HOLD without pulling'},
+      {id:'pre-l2-4',  label:'Bid size increases as price approaches resistance'},
+      {id:'pre-l2-5',  label:'Ask sizes get hit and do NOT refill'},
+      {id:'pre-l2-6',  label:'Large asks get absorbed without price dropping'},
+      {id:'pre-l2-7',  label:'Ask liquidity thins above current price'},
+      {id:'pre-l2-8',  label:'Spread tightens as price pushes upward'},
+      {id:'pre-l2-9',  label:'Tape shows aggressive market buys printing at/above ask'},
+      {id:'pre-l2-10', label:'Buy prints continue even when ask looks heavy'},
+      {id:'pre-l2-11', label:'Price holds after large buy prints (no immediate fade)'},
+      {id:'pre-l2-12', label:'Sellers pull asks as price approaches them'},
+      {id:'pre-l2-13', label:'Hidden buyers suspected (price rises on thin visible bids)'},
+      {id:'pre-l2-14', label:'Level 2 remains orderly during pullbacks'},
+      {id:'pre-l2-15', label:'Pullbacks occur on low volume'},
+      {id:'pre-l2-16', label:'VWAP/HOD buyers show on the bid'},
+      {id:'pre-l2-17', label:'No sudden bid collapse or stair-step fade'},
+      {id:'pre-l2-18', label:'No spoof orders appearing and vanishing on bid'},
+    ]},
+    { title:'Core Tape Questions', items:[
+      {id:'pre-tape-1', label:'Is the bid stepping up?'},
+      {id:'pre-tape-2', label:'Are asks being absorbed or pulled?'},
+      {id:'pre-tape-3', label:'Does price hold after aggressive buying?'},
+    ]},
+    { title:'Runner Eligibility (All Must Be True)', items:[
+      {id:'pre-run-1',  label:'Stock meets 9/9 selection score'},
+      {id:'pre-run-2',  label:'Stock meets all 5 pillars (no exceptions)'},
+      {id:'pre-run-3',  label:'Name is fresh OR has proven clean base hits today'},
+      {id:'pre-run-4',  label:'Move is not the first breakout attempt'},
+      {id:'pre-run-5',  label:'Price is above VWAP or reclaiming VWAP with speed'},
+      {id:'pre-run-6',  label:'Compression is tight and orderly (no sloppy wicks)'},
+      {id:'pre-run-7',  label:'Relative volume is expanding, not fading'},
+      {id:'pre-run-8',  label:'Level 2 shows real absorption (not flickering bids)'},
+      {id:'pre-run-9',  label:'Ask thins and does NOT immediately reload'},
+      {id:'pre-run-10', label:'Tape prints multiple greens through the ask'},
+      {id:'pre-run-11', label:'Clear air to next resistance (≥ $0.75–$1.50)'},
+      {id:'pre-run-12', label:'You are fully present (no multitasking)'},
+      {id:'pre-run-13', label:'Trade is labeled RUNNER before entry'},
+    ]},
   ],
   live: [
-    {
-      title: 'Trading Checklist',
-      items: [
-        {id:'live-reflection', label:'30-minute day trading reflection (night before) done'},
-        {id:'live-nuclear',    label:'Nuclear option defined'},
-        {id:'live-nodistractions', label:'No visual distractions'},
-        {id:'live-phone',      label:'Phone off until 9:30'},
-        {id:'live-recording',  label:'Recording on'},
-        {id:'live-hotkeys',    label:'Hotkeys on'},
-        {id:'live-edge',       label:'Edge desktop open'},
-        {id:'live-5pillars',   label:'Ready to analyze 5 pillars and entry before going in'},
-      ]
-    }
+    { title:'Trading Checklist', items:[
+      {id:'live-reflection',    label:'30-minute day trading reflection (night before) done'},
+      {id:'live-nuclear',       label:'Nuclear option defined'},
+      {id:'live-nodistractions',label:'No visual distractions'},
+      {id:'live-phone',         label:'Phone off until 9:30'},
+      {id:'live-recording',     label:'Recording on'},
+      {id:'live-hotkeys',       label:'Hotkeys on'},
+      {id:'live-edge',          label:'Edge desktop open'},
+      {id:'live-5pillars',      label:'Ready to analyze 5 pillars and entry before going in'},
+    ]},
+    { title:'Identity — Operator Mode', items:[
+      {id:'live-id-1', label:'From 6:55 AM to 10:00 AM I am in Operator Mode'},
+      {id:'live-id-2', label:'Operator does not journal'},
+      {id:'live-id-3', label:'Operator does not watch videos'},
+      {id:'live-id-4', label:'Operator does not optimize spreadsheets'},
+      {id:'live-id-5', label:'Operator only scans and executes'},
+    ]},
+    { title:'Environment Lock', items:[
+      {id:'live-env-1', label:'6:55 AM nuclear option ON'},
+      {id:'live-env-2', label:'All entertainment blocked'},
+      {id:'live-env-3', label:'Phone face down'},
+      {id:'live-env-4', label:'Only scanner + charts visible'},
+      {id:'live-env-5', label:'No tab switching'},
+    ]},
+    { title:'Top of Hour Protocol', items:[
+      {id:'live-toh-1', label:'X:58 — stop everything'},
+      {id:'live-toh-2', label:'X:59 — cycle active tickers'},
+      {id:'live-toh-3', label:'X:00–X:02 — full attention on break levels'},
+      {id:'live-toh-4', label:'Repeat at half hour'},
+    ]},
+    { title:'Signal Win Rule', items:[
+      {id:'live-sig-1', label:'Signal win appears AND 5/5 + 9/9 confirm'},
+      {id:'live-sig-2', label:'Prepare immediately'},
+      {id:'live-sig-3', label:'Take next A+ setup with predefined stop'},
+      {id:'live-sig-4', label:'No internal debate during the move'},
+    ]},
+    { title:'Rules', items:[
+      {id:'live-rule-1', label:'No typing notes while a stock is moving'},
+      {id:'live-rule-2', label:'All journaling happens after 10:00 AM'},
+      {id:'live-rule-3', label:'Hesitation filter: if long top wick, only enter on reclaim + tight stop + controlled pullback'},
+      {id:'live-rule-4', label:'If unclear stop, pass without regret'},
+      {id:'live-rule-5', label:'If I open YouTube or journal mid-move before 10:00 AM: no trading for rest of session'},
+    ]},
+    { title:'Goal', items:[
+      {id:'live-goal-1', label:'Zero preventable misses'},
+      {id:'live-goal-2', label:'Presence over perfection'},
+      {id:'live-goal-3', label:'Execution over analysis'},
+    ]},
   ],
   post: [
-    {
-      title: 'Non-Negotiable',
-      items: [
-        {id:'post-gym',      label:'Gym (train, not max out)'},
-        {id:'post-sauna',    label:'Sauna (parasympathetic downshift)'},
-        {id:'post-shower',   label:'Shower (signal sleep mode)'},
-        {id:'post-mag',      label:'Magnesium before bed'},
-        {id:'post-nofood',   label:'No eating 3 hours before bed'},
-        {id:'post-nocoffee', label:'No coffee 10 hours before bed'},
-        {id:'post-noblue',   label:'No blue light 2 hours before bed'},
-        {id:'post-wakeup',   label:'Set wake-up time aligned with premarket'},
-        {id:'post-sleep',    label:'Sleep'},
-      ]
-    },
-    {
-      title: 'Trading Review (Core Only)',
-      items: [
-        {id:'post-review',   label:'Review today\'s trades (entries, exits, mistakes, missed trades)'},
-        {id:'post-tag',      label:'Tag mistakes by category (late entry, stop discipline, hesitation, overconfidence)'},
-        {id:'post-screenshot',label:'Screenshot + save key charts (winners, losers, missed A+ setups)'},
-        {id:'post-rules',    label:'Review rules (what NOT to trade)'},
-      ]
-    }
+    { title:'Non-Negotiable', items:[
+      {id:'post-gym',      label:'Gym (train, not max out)'},
+      {id:'post-sauna',    label:'Sauna (parasympathetic downshift)'},
+      {id:'post-shower',   label:'Shower (signal sleep mode)'},
+      {id:'post-mag',      label:'Magnesium before bed'},
+      {id:'post-nofood',   label:'No eating 3 hours before bed'},
+      {id:'post-nocoffee', label:'No coffee 10 hours before bed'},
+      {id:'post-noblue',   label:'No blue light 2 hours before bed'},
+      {id:'post-wakeup',   label:'Set wake-up time aligned with premarket'},
+      {id:'post-bed',      label:'In bed by 11:30 PM'},
+      {id:'post-sleep',    label:'Sleep'},
+    ]},
+    { title:'Trading Review (Core Only)', items:[
+      {id:'post-review',      label:"Review today's trades (entries, exits, mistakes, missed trades)"},
+      {id:'post-tag',         label:'Tag mistakes by category (late entry, stop discipline, hesitation, overconfidence)'},
+      {id:'post-screenshot',  label:'Screenshot + save key charts (winners, losers, missed A+ setups)'},
+      {id:'post-rules',       label:'Review rules (what NOT to trade)'},
+    ]},
+    { title:'Feedback for Tomorrow', items:[
+      {id:'post-fb-1', label:'What to repeat (add note ↓)'},
+      {id:'post-fb-2', label:'What to improve (add note ↓)'},
+      {id:'post-fb-3', label:'One rule to focus on (add note ↓)'},
+    ]},
   ]
 };
+
+// ── Definition storage ──────────────────────────────────────────
+let CL_DEFS = null;
+function loadDefs(){
+  try{const v=localStorage.getItem('trading-cl-defs');return v?JSON.parse(v):null;}catch(e){return null;}
+}
+function saveDefs(){
+  try{localStorage.setItem('trading-cl-defs',JSON.stringify(CL_DEFS));}catch(e){}
+}
+function initDefs(){
+  CL_DEFS = loadDefs() || JSON.parse(JSON.stringify(DEFAULT_CHECKLISTS));
+}
 
 // ── Storage helpers ─────────────────────────────────────────────
 function todayKey(){
@@ -439,50 +533,54 @@ function saveData(tab,data){
 
 // ── Render a checklist ──────────────────────────────────────────
 function renderChecklist(tab, containerId){
-  const sections = CHECKLISTS[tab];
+  const sections = CL_DEFS[tab];
   const data = loadData(tab);
   const container = document.getElementById(containerId);
   let total=0, done=0;
+  const SVG = `<svg class="cl-check-icon" viewBox="0 0 10 10" fill="none"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="#0b1120" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
   let html='';
-  sections.forEach(sec=>{
+  sections.forEach((sec, si)=>{
     let secDone=0;
     sec.items.forEach(it=>{if(data[it.id]?.checked)secDone++;});
-    total+=sec.items.length;
-    done+=secDone;
+    total+=sec.items.length; done+=secDone;
     html+=`<div class="cl-section">
       <div class="cl-section-hdr">
         <div class="cl-section-title">${sec.title}</div>
         <div class="cl-section-badge">${secDone}/${sec.items.length}</div>
+        <button class="cl-section-del" onclick="deleteSection('${tab}',${si})" title="Remove section">✕</button>
       </div>`;
-    sec.items.forEach(it=>{
+    sec.items.forEach((it, ii)=>{
       const checked=!!data[it.id]?.checked;
       const note=data[it.id]?.note||'';
       const noteOpen=!!data[it.id]?.noteOpen;
       html+=`<div class="cl-item" id="item-${it.id}">
-        <div class="cl-row" onclick="toggleItem('${tab}','${it.id}')">
-          <div class="cl-box${checked?' on':''}" id="box-${it.id}">
-            <svg class="cl-check-icon" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M1.5 5L4 7.5L8.5 2.5" stroke="#0b1120" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
+        <div class="cl-row">
+          <div class="cl-box${checked?' on':''}" onclick="toggleItem('${tab}','${it.id}')">${SVG}</div>
+          <div class="cl-label${checked?' done':''}" id="lbl-${it.id}" onclick="toggleItem('${tab}','${it.id}')">${it.label}</div>
+          <div class="cl-item-actions">
+            <button class="cl-note-btn${note?' has-note':''}" id="notebtn-${it.id}" onclick="toggleNote('${tab}','${it.id}')" title="Note">📝</button>
+            <button class="cl-act-btn" onclick="editItem('${tab}',${si},${ii})" title="Edit">✎</button>
+            <button class="cl-act-btn cl-act-del" onclick="deleteItem('${tab}',${si},${ii})" title="Remove">✕</button>
           </div>
-          <div class="cl-label${checked?' done':''}" id="lbl-${it.id}">${it.label}</div>
-          <button class="cl-note-btn${note?' has-note':''}" id="notebtn-${it.id}" onclick="event.stopPropagation();toggleNote('${tab}','${it.id}')" title="Add note">✏️</button>
         </div>
         <div class="cl-note-area" id="notearea-${it.id}" style="display:${noteOpen?'block':'none'}">
           <textarea class="cl-note-textarea" id="notetxt-${it.id}" placeholder="Add a note..." oninput="saveNote('${tab}','${it.id}',this.value)">${note}</textarea>
         </div>
       </div>`;
     });
-    html+='</div>';
+    html+=`<div class="cl-add-row">
+      <input class="cl-add-inp" placeholder="+ Add item…" onkeydown="if(event.key==='Enter'&&this.value.trim()){addItem('${tab}',${si},this.value.trim());this.value='';}">
+    </div></div>`;
   });
+  html+=`<button class="cl-add-sec-btn" onclick="addSection('${tab}')">+ Add section</button>`;
 
   container.innerHTML=html;
   updateProgress(tab, done, total);
 }
 
 function updateProgress(tab, done, total){
-  const pct = total>0 ? Math.round(done/total*100) : 0;
+  const pct=total>0?Math.round(done/total*100):0;
   document.getElementById(`${tab}-bar`).style.width=pct+'%';
   document.getElementById(`${tab}-lbl`).textContent=`${done} / ${total}`;
 }
@@ -492,7 +590,7 @@ function toggleItem(tab, id){
   if(!data[id])data[id]={};
   data[id].checked=!data[id].checked;
   saveData(tab,data);
-  renderChecklist(tab, `${tab}-checklist`);
+  renderChecklist(tab,`${tab}-checklist`);
 }
 
 function toggleNote(tab, id){
@@ -501,10 +599,9 @@ function toggleNote(tab, id){
   data[id].noteOpen=!data[id].noteOpen;
   saveData(tab,data);
   const area=document.getElementById(`notearea-${id}`);
+  if(!area)return;
   area.style.display=data[id].noteOpen?'block':'none';
-  if(data[id].noteOpen){
-    setTimeout(()=>{const t=document.getElementById(`notetxt-${id}`);if(t)t.focus();},50);
-  }
+  if(data[id].noteOpen) setTimeout(()=>{const t=document.getElementById(`notetxt-${id}`);if(t)t.focus();},50);
 }
 
 function saveNote(tab, id, val){
@@ -513,13 +610,63 @@ function saveNote(tab, id, val){
   data[id].note=val;
   saveData(tab,data);
   const btn=document.getElementById(`notebtn-${id}`);
-  if(btn){btn.classList.toggle('has-note',val.trim().length>0);}
+  if(btn) btn.classList.toggle('has-note',val.trim().length>0);
+}
+
+// ── Edit / add / delete items ───────────────────────────────────
+function editItem(tab, si, ii){
+  const item=CL_DEFS[tab][si].items[ii];
+  const lbl=document.getElementById(`lbl-${item.id}`);
+  if(!lbl)return;
+  const cur=item.label;
+  lbl.outerHTML=`<input class="cl-edit-inp" id="editinp-${item.id}" value="${cur.replace(/"/g,'&quot;')}"
+    onblur="saveEditItem('${tab}',${si},${ii},this.value)"
+    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.dataset.cancel='1';this.blur();}">`;
+  const inp=document.getElementById(`editinp-${item.id}`);
+  if(inp){inp.focus();inp.select();}
+}
+
+function saveEditItem(tab, si, ii, val){
+  const inp=document.getElementById(`editinp-${CL_DEFS[tab][si].items[ii].id}`);
+  if(inp&&inp.dataset.cancel==='1'){renderChecklist(tab,`${tab}-checklist`);return;}
+  val=val.trim();
+  if(val) CL_DEFS[tab][si].items[ii].label=val;
+  saveDefs();
+  renderChecklist(tab,`${tab}-checklist`);
+}
+
+function deleteItem(tab, si, ii){
+  CL_DEFS[tab][si].items.splice(ii,1);
+  saveDefs();
+  renderChecklist(tab,`${tab}-checklist`);
+}
+
+function addItem(tab, si, label){
+  const id=`${tab}-c-${Date.now()}`;
+  CL_DEFS[tab][si].items.push({id, label});
+  saveDefs();
+  renderChecklist(tab,`${tab}-checklist`);
+}
+
+function addSection(tab){
+  const name=prompt('Section name:');
+  if(!name||!name.trim())return;
+  CL_DEFS[tab].push({title:name.trim(), items:[]});
+  saveDefs();
+  renderChecklist(tab,`${tab}-checklist`);
+}
+
+function deleteSection(tab, si){
+  if(CL_DEFS[tab][si].items.length>0&&!confirm(`Delete section "${CL_DEFS[tab][si].title}" and all its items?`))return;
+  CL_DEFS[tab].splice(si,1);
+  saveDefs();
+  renderChecklist(tab,`${tab}-checklist`);
 }
 
 function resetTab(tab){
   if(!confirm('Reset all checkboxes and notes for today?'))return;
   localStorage.removeItem(`trading-cl-${tab}-${todayKey()}`);
-  renderChecklist(tab, `${tab}-checklist`);
+  renderChecklist(tab,`${tab}-checklist`);
 }
 
 // ── Tabs ────────────────────────────────────────────────────────
@@ -552,6 +699,7 @@ function unlock(){
     document.getElementById('lock-screen').style.display='none';
     document.getElementById('dashboard').style.display='block';
     setDates();
+    initDefs();
     buildPeriodSelect();
     const savedPeriod = localStorage.getItem('trading-period')||'all';
     document.getElementById('period-select').value = savedPeriod;
