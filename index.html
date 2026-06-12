@@ -161,7 +161,10 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 <div id="dashboard">
 <div class="topbar">
   <div class="topbar-title">DALE <span>TRADING</span> DASHBOARD</div>
-  <div class="topbar-meta" id="topbar-date"></div>
+  <div style="display:flex;align-items:center;gap:16px">
+    <div id="sync-badge" style="font-size:10px;padding:3px 8px;border-radius:4px;display:none"></div>
+    <div class="topbar-meta" id="topbar-date"></div>
+  </div>
 </div>
 <div class="tabbar">
   <button class="tab-btn active" onclick="switchTab('home')">Home</button>
@@ -693,11 +696,43 @@ function setDates(){
 }
 
 // ── Unlock ──────────────────────────────────────────────────────
-function unlock(){
+async function unlock(){
   const pw = document.getElementById('pw').value;
   if(pw === 'r3d'){
     document.getElementById('lock-screen').style.display='none';
     document.getElementById('dashboard').style.display='block';
+
+    // Try Supabase first
+    const badge = document.getElementById('sync-badge');
+    badge.style.display='inline-block';
+    badge.style.background='#1e2e45';
+    badge.style.color='#5b7a99';
+    badge.textContent='⏳ Syncing...';
+
+    const live = await loadSupabaseTrades();
+    if(live){
+      ALL_TRADES = live.trades;
+      DAILY_DATA.length = 0;
+      live.cumData.forEach((d,i)=>{
+        DAILY_DATA.push({
+          date:  d.date,
+          month: d.date.slice(0,7),
+          week:  weekKey(d.date),
+          pnl:   i===0 ? d.cum : +(d.cum - live.cumData[i-1].cum).toFixed(4)
+        });
+      });
+      const t = new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+      badge.style.background='#0d2010';
+      badge.style.color='#00e676';
+      badge.style.border='1px solid #1e6020';
+      badge.textContent=`● Live · ${t}`;
+    } else {
+      badge.style.background='#25180a';
+      badge.style.color='#ffc300';
+      badge.style.border='1px solid #7a4810';
+      badge.textContent='⚠ Offline · cached data';
+    }
+
     setDates();
     initDefs();
     buildPeriodSelect();
@@ -715,7 +750,46 @@ function unlock(){
   }
 }
 
-// ── Trade & daily data ──────────────────────────────────────────
+// ── Supabase config ─────────────────────────────────────────────
+const SUPABASE_URL = 'https://mjsutoiamrjnotbyhdyh.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qc3V0b2lhbXJqbm90YnloZHloIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NjMyMTEsImV4cCI6MjA5NTEzOTIxMX0.oBeFaYYuroi5c96vVBC0GbBNNGgIsOI3Ja1ovd9Q2aw';
+
+async function loadSupabaseTrades() {
+  try {
+    const resp = await fetch(
+      `${SUPABASE_URL}/rest/v1/trades?select=*&order=buy_time.asc`,
+      { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+    );
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const rows = await resp.json();
+    if (!rows.length) return null;
+
+    // Map Supabase rows → ALL_TRADES format
+    const trades = rows.map(r => ({
+      date:   r.trade_date,
+      ticker: r.ticker,
+      buy:    +r.buy_price,
+      sell:   +r.sell_price,
+      shares: r.shares,
+      pnl:    +r.pnl,
+      result: +r.pnl >= 0 ? 'win' : 'loss'
+    }));
+
+    // Build CUM_DATA by grouping daily pnl and computing cumulative sum
+    const byDate = {};
+    trades.forEach(t => { byDate[t.date] = (byDate[t.date] || 0) + t.pnl; });
+    const dates = Object.keys(byDate).sort();
+    let cum = 0;
+    const cumData = dates.map(d => ({ date: d, cum: +(cum += byDate[d]).toFixed(4) }));
+
+    return { trades, cumData };
+  } catch(e) {
+    console.warn('Supabase fetch failed, using hardcoded data:', e);
+    return null;
+  }
+}
+
+// ── Trade & daily data (fallback hardcoded) ──────────────────────
 const CUM_DATA = [
   {date:"2026-02-02",cum:0.2343},{date:"2026-02-03",cum:0.2449},{date:"2026-02-06",cum:0.1158},
   {date:"2026-02-09",cum:0.2238},{date:"2026-02-13",cum:0.3438},{date:"2026-03-04",cum:0.7438},
@@ -737,14 +811,14 @@ const CUM_DATA = [
 ];
 
 // Daily P&L derived from cumulative (first day relative to 0)
-const DAILY_DATA = CUM_DATA.map((d,i)=>({
+let DAILY_DATA = CUM_DATA.map((d,i)=>({
   date: d.date,
   month: d.date.slice(0,7),
   week: weekKey(d.date),
   pnl: i===0 ? d.cum : +(d.cum - CUM_DATA[i-1].cum).toFixed(4)
 }));
 
-const ALL_TRADES = [
+let ALL_TRADES = [
   {date:"2026-06-11",ticker:"PPCB",buy:6.14,sell:5.96,shares:1,pnl:-0.18,result:"loss"},
   {date:"2026-06-11",ticker:"WTO", buy:1.97,sell:1.91,shares:1,pnl:-0.06,result:"loss"},
   {date:"2026-06-11",ticker:"GLXG",buy:4.54,sell:4.38,shares:1,pnl:-0.16,result:"loss"},
