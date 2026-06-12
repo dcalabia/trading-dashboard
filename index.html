@@ -37,6 +37,15 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .topbar-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;letter-spacing:1px;color:var(--text);text-transform:uppercase}
 .topbar-title span{color:var(--accent)}
 .topbar-meta{font-size:11px;color:var(--muted)}
+
+/* Tab bar */
+.tabbar{background:var(--header);border-bottom:1px solid var(--border);padding:0 24px;display:flex;gap:0}
+.tab-btn{padding:0 20px;height:40px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase;cursor:pointer;transition:all .15s;white-space:nowrap}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+
 .main{padding:20px 24px}
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
 @media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
@@ -84,6 +93,55 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 .badge.win{background:rgba(0,230,118,0.12);color:var(--accent)}
 .badge.loss{background:rgba(255,68,85,0.12);color:var(--red)}
 .badge.be{background:rgba(255,195,0,0.12);color:var(--yellow)}
+
+/* Checklist styles */
+.cl-page{padding:20px 24px;max-width:800px}
+.cl-date-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.cl-date{font-size:13px;color:var(--muted)}
+.cl-reset{background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--muted);font-size:11px;padding:4px 10px;cursor:pointer;font-family:'Inter',sans-serif}
+.cl-reset:hover{border-color:var(--red);color:var(--red)}
+.cl-progress-wrap{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:14px 16px;margin-bottom:20px}
+.cl-progress-row{display:flex;align-items:center;gap:12px}
+.cl-progress-track{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.cl-progress-fill{height:100%;background:var(--accent);border-radius:3px;transition:width .3s}
+.cl-progress-lbl{font-size:12px;color:var(--muted);white-space:nowrap}
+.cl-section{background:var(--card);border:1px solid var(--border);border-radius:6px;margin-bottom:12px;overflow:hidden}
+.cl-section-hdr{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.cl-section-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);flex:1}
+.cl-section-badge{font-size:10px;padding:1px 7px;border-radius:10px;background:rgba(0,230,118,0.1);color:var(--accent);font-weight:600}
+.cl-section-del{background:transparent;border:none;color:var(--muted);font-size:13px;padding:2px 5px;cursor:pointer;opacity:0;transition:opacity .15s;line-height:1;border-radius:3px}
+.cl-section:hover .cl-section-del{opacity:0.5}
+.cl-section-del:hover{opacity:1!important;color:var(--red)!important}
+.cl-item{border-bottom:1px solid var(--border)}
+.cl-item:last-child{border-bottom:none}
+.cl-row{display:flex;align-items:center;gap:10px;padding:10px 14px;transition:background .1s}
+.cl-row:hover{background:rgba(255,255,255,0.03)}
+.cl-box{width:18px;height:18px;border-radius:4px;border:1.5px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s;cursor:pointer}
+.cl-box.on{background:var(--accent);border-color:var(--accent)}
+.cl-check-icon{width:10px;height:10px;opacity:0;transition:opacity .15s}
+.cl-box.on .cl-check-icon{opacity:1}
+.cl-label{flex:1;font-size:13px;color:var(--text);line-height:1.4;user-select:none;cursor:pointer}
+.cl-label.done{color:var(--muted);text-decoration:line-through}
+.cl-item-actions{display:flex;gap:1px;opacity:0;transition:opacity .15s;flex-shrink:0}
+.cl-item:hover .cl-item-actions{opacity:1}
+.cl-act-btn{background:transparent;border:none;color:var(--muted);font-size:11px;padding:3px 5px;cursor:pointer;border-radius:3px;font-family:'Inter',sans-serif;line-height:1;transition:all .1s}
+.cl-act-btn:hover{background:var(--panel);color:var(--text)}
+.cl-act-del:hover{color:var(--red)!important}
+.cl-note-btn{background:transparent;border:none;color:var(--muted);font-size:13px;padding:2px 4px;cursor:pointer;flex-shrink:0;opacity:0.4;transition:opacity .15s;line-height:1}
+.cl-note-btn:hover{opacity:1;color:var(--blue)}
+.cl-note-btn.has-note{opacity:1;color:var(--blue)}
+.cl-note-area{padding:0 14px 10px 42px}
+.cl-note-textarea{width:100%;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:'Inter',sans-serif;font-size:12px;padding:8px 10px;outline:none;resize:none;min-height:52px;line-height:1.5}
+.cl-note-textarea:focus{border-color:var(--blue)}
+.cl-note-textarea::placeholder{color:var(--muted)}
+.cl-edit-inp{flex:1;background:transparent;border:none;border-bottom:1px solid var(--accent);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;padding:0 2px;line-height:1.4}
+.cl-add-row{padding:4px 14px 8px}
+.cl-add-inp{width:100%;background:transparent;border:none;border-bottom:1px dashed var(--border);color:var(--muted);font-family:'Inter',sans-serif;font-size:12px;padding:5px 0;outline:none;transition:border-color .15s}
+.cl-add-inp:focus{border-bottom-color:var(--accent);color:var(--text)}
+.cl-add-inp::placeholder{color:var(--border)}
+.cl-add-inp:focus::placeholder{color:var(--muted)}
+.cl-add-sec-btn{width:100%;background:transparent;border:1px dashed var(--border);border-radius:6px;color:var(--muted);font-family:'Inter',sans-serif;font-size:12px;padding:9px;cursor:pointer;margin-top:4px;margin-bottom:16px;transition:all .15s}
+.cl-add-sec-btn:hover{border-color:var(--accent);color:var(--accent)}
 </style>
 </head>
 <body>
@@ -103,179 +161,139 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 <div id="dashboard">
 <div class="topbar">
   <div class="topbar-title">DALE <span>TRADING</span> DASHBOARD</div>
-  <div class="topbar-meta">Updated Jun 12 2026 01:28 PM</div>
+  <div style="display:flex;align-items:center;gap:16px">
+    <div id="sync-badge" style="font-size:10px;padding:3px 8px;border-radius:4px;display:none"></div>
+    <div class="topbar-meta" id="topbar-date"></div>
+  </div>
 </div>
+<div class="tabbar">
+  <button class="tab-btn active" onclick="switchTab('home')">Home</button>
+  <button class="tab-btn" onclick="switchTab('presession')">Pre-Session</button>
+  <button class="tab-btn" onclick="switchTab('live')">Live Session</button>
+  <button class="tab-btn" onclick="switchTab('postsession')">Post-Session</button>
+  <button class="tab-btn" onclick="switchTab('bedtime')">Bedtime</button>
+</div>
+
+<!-- HOME TAB -->
+<div class="tab-pane active" id="tab-home">
 <div class="main">
 
-<div class="kpi-grid">
-  <div class="kpi">
-    <div class="kpi-accent blue"></div>
-    <div class="kpi-label">Total Trades</div>
-    <div class="kpi-value blue">276</div>
-    <div class="kpi-sub">133W / 138L</div>
-  </div>
-  <div class="kpi">
-    <div class="kpi-accent red"></div>
-    <div class="kpi-label">Total P&L</div>
-    <div class="kpi-value red">$-0.20</div>
-    <div class="kpi-sub">all time</div>
-  </div>
-  <div class="kpi">
-    <div class="kpi-accent red"></div>
-    <div class="kpi-label">Win Rate</div>
-    <div class="kpi-value red">48.2%</div>
-    <div class="kpi-sub">below breakeven</div>
-  </div>
-  <div class="kpi">
-    <div class="kpi-accent yellow"></div>
-    <div class="kpi-label">Avg Win / Avg Loss</div>
-    <div class="kpi-value yellow">$0.26</div>
-    <div class="kpi-sub" style="color:var(--red)">$-0.25 avg loss</div>
-  </div>
-  <div class="kpi">
-    <div class="kpi-accent"></div>
-    <div class="kpi-label">Best Trade</div>
-    <div class="kpi-value">$+1.67</div>
-  </div>
-  <div class="kpi">
-    <div class="kpi-accent red"></div>
-    <div class="kpi-label">Worst Trade</div>
-    <div class="kpi-value red">$-1.91</div>
-  </div>
-  <div class="kpi">
-    <div class="kpi-accent blue"></div>
-    <div class="kpi-label">$2–$5 Win Rate</div>
-    <div class="kpi-value red">48%</div>
-    <div class="kpi-sub">114 trades</div>
-  </div>
-  <div class="kpi">
-    <div class="kpi-accent blue"></div>
-    <div class="kpi-label">$5–$8 Win Rate</div>
-    <div class="kpi-value blue">52%</div>
-    <div class="kpi-sub">102 trades</div>
-  </div>
+<!-- Period selector -->
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
+  <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;white-space:nowrap">Viewing period</div>
+  <select id="period-select" onchange="setPeriod(this.value)" style="background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:7px 12px;outline:none;cursor:pointer;flex:0 0 auto;min-width:200px">
+    <option value="all">All Time</option>
+  </select>
+  <div id="period-label" style="font-size:11px;color:var(--muted)"></div>
 </div>
+
+<!-- Dynamic KPI cards -->
+<div class="kpi-grid" id="kpi-grid"></div>
 
 <div class="grid-2">
   <div class="panel">
-    <div class="panel-title">Cumulative P&L</div>
+    <div class="panel-title" id="chart-title">Cumulative P&L</div>
     <div class="chart-wrap">
       <canvas id="pnlChart"></canvas>
     </div>
   </div>
   <div class="panel">
-    <div class="panel-title">Win Rate by Price</div>
+    <div class="panel-title">Win Rate by Price <span style="font-size:9px;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(all time)</span></div>
     <div style="padding-top:4px">
       <div class="bar-row">
         <div class="bar-label">$2 – $5</div>
-        <div class="bar-track"><div class="bar-fill red" style="width:48%"></div></div>
-        <div class="bar-pct">48%</div>
-        <div class="bar-n">114t</div>
+        <div class="bar-track"><div class="bar-fill red" style="width:50%"></div></div>
+        <div class="bar-pct">50%</div>
+        <div class="bar-n">107t</div>
       </div>
       <div class="bar-row">
         <div class="bar-label">$5 – $8</div>
-        <div class="bar-track"><div class="bar-fill " style="width:52%"></div></div>
-        <div class="bar-pct">52%</div>
-        <div class="bar-n">102t</div>
+        <div class="bar-track"><div class="bar-fill" style="width:53%"></div></div>
+        <div class="bar-pct">53%</div>
+        <div class="bar-n">99t</div>
       </div>
       <div class="bar-row">
         <div class="bar-label">$8 – $20</div>
-        <div class="bar-track"><div class="bar-fill red" style="width:44%"></div></div>
-        <div class="bar-pct">44%</div>
-        <div class="bar-n">54t</div>
+        <div class="bar-track"><div class="bar-fill red" style="width:45%"></div></div>
+        <div class="bar-pct">45%</div>
+        <div class="bar-n">51t</div>
       </div>
     </div>
     <div style="margin-top:20px">
       <div class="panel-title">P&L Summary</div>
-      <div class="stat-row"><span class="stat-label">Total wins</span><span class="stat-val green">133</span></div>
-      <div class="stat-row"><span class="stat-label">Total losses</span><span class="stat-val red">138</span></div>
-      <div class="stat-row"><span class="stat-label">Best trade</span><span class="stat-val green">$+1.67</span></div>
-      <div class="stat-row"><span class="stat-label">Worst trade</span><span class="stat-val red">$-1.91</span></div>
+      <div id="pnl-summary"></div>
     </div>
   </div>
 </div>
 
 <div class="panel" style="margin-bottom:16px">
-  <div class="panel-title">Advanced Stats</div>
+  <div class="panel-title">Advanced Stats <span style="font-size:9px;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(all time)</span></div>
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0">
-
     <div style="padding:10px 14px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)">
       <div class="kpi-label">Avg Daily P&L</div>
-      <div class="kpi-value red" style="font-size:18px">$-0.00</div>
-      <div class="kpi-sub">51 trading days</div>
+      <div class="kpi-value" style="font-size:18px">$+0.01</div>
+      <div class="kpi-sub">50 trading days</div>
     </div>
-
     <div style="padding:10px 14px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)">
       <div class="kpi-label">Avg Per-Share G/L</div>
-      <div class="kpi-value red" style="font-size:18px">$-0.0007</div>
+      <div class="kpi-value" style="font-size:18px">$+0.0027</div>
       <div class="kpi-sub">per share traded</div>
     </div>
-
     <div style="padding:10px 14px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)">
       <div class="kpi-label">Profit Factor</div>
-      <div class="kpi-value red" style="font-size:18px">0.99</div>
+      <div class="kpi-value yellow" style="font-size:18px">1.02</div>
       <div class="kpi-sub">gross wins / gross losses</div>
     </div>
-
     <div style="padding:10px 14px;border-bottom:1px solid var(--border)">
       <div class="kpi-label">P&L Std Deviation</div>
       <div class="kpi-value white" style="font-size:18px">$0.38</div>
       <div class="kpi-sub">trade consistency</div>
     </div>
-
     <div style="padding:10px 14px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)">
       <div class="kpi-label">Kelly %</div>
       <div class="kpi-value yellow" style="font-size:18px">0.0%</div>
       <div class="kpi-sub">optimal position size</div>
     </div>
-
     <div style="padding:10px 14px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)">
       <div class="kpi-label">SQN</div>
-      <div class="kpi-value red" style="font-size:18px">-0.03</div>
+      <div class="kpi-value red" style="font-size:18px">0.11</div>
       <div class="kpi-sub">poor system quality</div>
     </div>
-
     <div style="padding:10px 14px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)">
       <div class="kpi-label">K-Ratio</div>
-      <div class="kpi-value white" style="font-size:18px">-0.043</div>
+      <div class="kpi-value white" style="font-size:18px">-0.048</div>
       <div class="kpi-sub">equity curve quality</div>
     </div>
-
     <div style="padding:10px 14px;border-bottom:1px solid var(--border)">
       <div class="kpi-label">Scratch Trades</div>
       <div class="kpi-value white" style="font-size:18px">5</div>
       <div class="kpi-sub">break-even outcomes</div>
     </div>
-
     <div style="padding:10px 14px;border-right:1px solid var(--border)">
       <div class="kpi-label">Max Consec. Wins</div>
       <div class="kpi-value" style="font-size:18px">9</div>
       <div class="kpi-sub">best streak</div>
     </div>
-
     <div style="padding:10px 14px;border-right:1px solid var(--border)">
       <div class="kpi-label">Max Consec. Losses</div>
       <div class="kpi-value red" style="font-size:18px">6</div>
       <div class="kpi-sub">worst streak</div>
     </div>
-
     <div style="padding:10px 14px;border-right:1px solid var(--border)">
       <div class="kpi-label">Avg Hold — Winners</div>
       <div class="kpi-value white" style="font-size:18px">0.6 min</div>
       <div class="kpi-sub">winning trade duration</div>
     </div>
-
     <div style="padding:10px 14px">
       <div class="kpi-label">Avg Hold — Losers</div>
       <div class="kpi-value red" style="font-size:18px">0.7 min</div>
       <div class="kpi-sub">losing trade duration</div>
     </div>
-
   </div>
 </div>
 
 <div class="panel" style="margin-bottom:16px">
-  <div class="panel-title">Recent Trades</div>
+  <div class="panel-title" id="trades-panel-title">Trades</div>
   <div style="overflow-x:auto">
   <table>
     <thead>
@@ -285,71 +303,708 @@ tr:hover td{background:rgba(255,255,255,0.025)}
         <th>P&L $</th><th>P&L %</th><th>Result</th>
       </tr>
     </thead>
-    <tbody>
-<tr><td>2026-06-12</td><td><b>CUPR</b></td><td>$5.70</td><td>$5.59</td><td>1</td><td class='loss'>$-0.11</td><td class='loss'>-1.93%</td><td><span class='badge loss'>Loss</span></td></tr>
-<tr><td>2026-06-12</td><td><b>CUPR</b></td><td>$5.01</td><td>$5.34</td><td>1</td><td class='win'>$+0.33</td><td class='win'>+6.56%</td><td><span class='badge win'>Win</span></td></tr>
-<tr><td>2026-06-12</td><td><b>CUPR</b></td><td>$4.72</td><td>$4.46</td><td>1</td><td class='loss'>$-0.26</td><td class='loss'>-5.58%</td><td><span class='badge loss'>Loss</span></td></tr>
-<tr><td>2026-06-12</td><td><b>CUPR</b></td><td>$3.96</td><td>$4.37</td><td>1</td><td class='win'>$+0.41</td><td class='win'>+10.32%</td><td><span class='badge win'>Win</span></td></tr>
-<tr><td>2026-06-12</td><td><b>CUPR</b></td><td>$4.85</td><td>$4.75</td><td>1</td><td class='loss'>$-0.10</td><td class='loss'>-2.15%</td><td><span class='badge loss'>Loss</span></td></tr>
-<tr><td>2026-06-12</td><td><b>CUPR</b></td><td>$4.20</td><td>$4.31</td><td>1</td><td class='win'>$+0.11</td><td class='win'>+2.69%</td><td><span class='badge win'>Win</span></td></tr>
-<tr><td>2026-06-12</td><td><b>CUPR</b></td><td>$3.60</td><td>$3.39</td><td>1</td><td class='loss'>$-0.21</td><td class='loss'>-5.83%</td><td><span class='badge loss'>Loss</span></td></tr>
-<tr><td>2026-06-12</td><td><b>CUPR</b></td><td>$3.37</td><td>$2.73</td><td>1</td><td class='loss'>$-0.64</td><td class='loss'>-19.03%</td><td><span class='badge loss'>Loss</span></td></tr>
-<tr><td>2026-06-12</td><td><b>BYAH</b></td><td>$3.10</td><td>$3.02</td><td>1</td><td class='loss'>$-0.07</td><td class='loss'>-2.40%</td><td><span class='badge loss'>Loss</span></td></tr>
-<tr><td>2026-06-12</td><td><b>DSY</b></td><td>$8.15</td><td>$7.97</td><td>1</td><td class='loss'>$-0.18</td><td class='loss'>-2.21%</td><td><span class='badge loss'>Loss</span></td></tr>
-    </tbody>
+    <tbody id="trades-tbody"></tbody>
   </table>
   </div>
 </div>
 
 </div>
+</div><!-- end home tab -->
+
+<!-- PRE-SESSION TAB -->
+<div class="tab-pane" id="tab-presession">
+<div class="cl-page">
+  <div class="cl-date-bar">
+    <div class="cl-date" id="pre-date"></div>
+    <button class="cl-reset" onclick="resetTab('pre')">Reset</button>
+  </div>
+  <div class="cl-progress-wrap">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Pre-Session Progress</div>
+    <div class="cl-progress-row">
+      <div class="cl-progress-track"><div class="cl-progress-fill" id="pre-bar" style="width:0%"></div></div>
+      <div class="cl-progress-lbl" id="pre-lbl">0 / 0</div>
+    </div>
+  </div>
+  <div id="pre-checklist"></div>
 </div>
+</div>
+
+<!-- LIVE SESSION TAB -->
+<div class="tab-pane" id="tab-live">
+<div class="cl-page">
+  <div class="cl-date-bar">
+    <div class="cl-date" id="live-date"></div>
+    <button class="cl-reset" onclick="resetTab('live')">Reset</button>
+  </div>
+  <div class="cl-progress-wrap">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Live Session Progress</div>
+    <div class="cl-progress-row">
+      <div class="cl-progress-track"><div class="cl-progress-fill" id="live-bar" style="width:0%"></div></div>
+      <div class="cl-progress-lbl" id="live-lbl">0 / 0</div>
+    </div>
+  </div>
+  <div id="live-checklist"></div>
+</div>
+</div>
+
+<!-- POST-SESSION TAB -->
+<div class="tab-pane" id="tab-postsession">
+<div class="cl-page">
+  <div class="cl-date-bar">
+    <div class="cl-date" id="post-date"></div>
+    <button class="cl-reset" onclick="resetTab('post')">Reset</button>
+  </div>
+  <div class="cl-progress-wrap">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Post-Session Progress</div>
+    <div class="cl-progress-row">
+      <div class="cl-progress-track"><div class="cl-progress-fill" id="post-bar" style="width:0%"></div></div>
+      <div class="cl-progress-lbl" id="post-lbl">0 / 0</div>
+    </div>
+  </div>
+  <div id="post-checklist"></div>
+</div>
+</div>
+
+<!-- BEDTIME TAB -->
+<div class="tab-pane" id="tab-bedtime">
+<div class="cl-page">
+  <div class="cl-date-bar">
+    <div class="cl-date" id="bed-date"></div>
+    <button class="cl-reset" onclick="resetTab('bed')">Reset</button>
+  </div>
+  <div class="cl-progress-wrap">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Bedtime Progress</div>
+    <div class="cl-progress-row">
+      <div class="cl-progress-track"><div class="cl-progress-fill" id="bed-bar" style="width:0%"></div></div>
+      <div class="cl-progress-lbl" id="bed-lbl">0 / 0</div>
+    </div>
+  </div>
+  <div id="bed-checklist"></div>
+</div>
+</div>
+
+</div><!-- end dashboard -->
+
 <script>
-function unlock(){
+// ── Checklist definitions (defaults + user edits via localStorage) ──
+const DEFAULT_CHECKLISTS = {
+  pre: [
+    { title:'Pre-Market', items:[
+      {id:'pre-wake',    label:'Wake up by 6:25am / Ensure you went to bed and got 7 hours of sleep'},
+      {id:'pre-record',  label:'Start recording at 6:35:00am exactly everyday consistently'},
+      {id:'pre-review',  label:'Review all trade slides + journal analysis log'},
+    ]},
+  ],
+  live: [
+    { title:'Live Session', items:[
+      {id:'live-1',  label:'DO NOT CHASE HIGHS — THIS IS MY NUMBER ONE RULE TO FOLLOW'},
+      {id:'live-2',  label:'Let stocks running into highs be your indicator to pay attention'},
+      {id:'live-3',  label:'Only trade micropullbacks that curl back up long bottom wick and are within 2 candles of the opening'},
+      {id:'live-4',  label:'Pay attention to # of missed trades'},
+      {id:'live-5',  label:'DO NOT get distracted by journaling — only journal ticker symbol and arrow + arrow number of graph'},
+      {id:'live-6',  label:'When a stock pops up on your scanner — pay attention to it within 2 seconds'},
+      {id:'live-7',  label:'Trade clean set ups only — Minimum 6/9 and 4/5 score — Clean candlestick pattern — Clean level 2'},
+      {id:'live-8',  label:'Candle patterns: 1 Micropullback, 2 Inverted head and shoulders, 3 Engulfing green candle'},
+      {id:'live-9',  label:'Define your stop loss before going in as well'},
+      {id:'live-10', label:'Trading algorithm: First $63 / Second $125 / Third $250 / Fourth $250+gains / Fifth $250+gains and beyond'},
+      {id:'live-11', label:'Check for blue sky set ups / No multitasking — stay super present — no videos'},
+      {id:'live-12', label:'DO NOT GO BACK TO BED / 100% attention 6:30am to 10:15am'},
+      {id:'live-13', label:'Prioritize stocks with news / Only trade stocks on your hot list'},
+      {id:'live-14', label:'Stop trading at 10:00 — hard cut off at 10:30am'},
+      {id:'live-15', label:"If you're working on something — drop it quickly — better to not work on anything at all"},
+    ]},
+  ],
+  post: [
+    { title:'Post Session', items:[
+      {id:'post-1', label:'Journal missed trades — Screenshots + analysis'},
+      {id:'post-2', label:'Journal all current trades'},
+      {id:'post-3', label:'Ensure all scripts running optimally — fix bugs'},
+      {id:'post-4', label:'Hit trading journal fill hotkeys: 1 Numb pad mult, 2 Numb pad div, 3 Pause Break'},
+      {id:'post-5', label:'Track if you actually improved on the list of improvements you made the night before'},
+      {id:'post-6', label:'Make sure you\'re tiring yourself out throughout the day'},
+      {id:'post-7', label:'Take a break from trading before looking at it again — before bed'},
+    ]},
+  ],
+  bed: [
+    { title:'Pre-Bedtime', items:[
+      {id:'bed-1',  label:'Review all the trades for the day'},
+      {id:'bed-2',  label:'Watch film of every single trade'},
+      {id:'bed-3',  label:'Make a list of what to improve for tomorrow'},
+      {id:'bed-4',  label:'Score if you actually improved it'},
+      {id:'bed-5',  label:'Sauna, magnesium and massage'},
+      {id:'bed-6',  label:'Sleep early — Ideal bed time is by 10:45pm'},
+      {id:'bed-7',  label:'Make sure you exercised throughout the day'},
+      {id:'bed-8',  label:'No food 5 hours before bed'},
+      {id:'bed-9',  label:'No water 3 hours before bed'},
+      {id:'bed-10', label:'No screens 1 hour before bed'},
+    ]},
+  ],
+};
+
+// ── Definition storage ──────────────────────────────────────────
+let CL_DEFS = null;
+function loadDefs(){
+  try{const v=localStorage.getItem('trading-cl-defs');return v?JSON.parse(v):null;}catch(e){return null;}
+}
+function saveDefs(){
+  try{localStorage.setItem('trading-cl-defs',JSON.stringify(CL_DEFS));}catch(e){}
+}
+function initDefs(){
+  CL_DEFS = loadDefs() || JSON.parse(JSON.stringify(DEFAULT_CHECKLISTS));
+}
+
+// ── Storage helpers ─────────────────────────────────────────────
+function todayKey(){
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function loadData(tab){
+  try{const v=localStorage.getItem(`trading-cl-${tab}-${todayKey()}`);return v?JSON.parse(v):{}}catch(e){return{}}
+}
+function saveData(tab,data){
+  try{localStorage.setItem(`trading-cl-${tab}-${todayKey()}`,JSON.stringify(data))}catch(e){}
+}
+
+// ── Render a checklist ──────────────────────────────────────────
+function renderChecklist(tab, containerId){
+  const sections = CL_DEFS[tab];
+  const data = loadData(tab);
+  const container = document.getElementById(containerId);
+  let total=0, done=0;
+  const SVG = `<svg class="cl-check-icon" viewBox="0 0 10 10" fill="none"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="#0b1120" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+  let html='';
+  sections.forEach((sec, si)=>{
+    let secDone=0;
+    sec.items.forEach(it=>{if(data[it.id]?.checked)secDone++;});
+    total+=sec.items.length; done+=secDone;
+    html+=`<div class="cl-section">
+      <div class="cl-section-hdr">
+        <div class="cl-section-title">${sec.title}</div>
+        <div class="cl-section-badge">${secDone}/${sec.items.length}</div>
+        <button class="cl-section-del" onclick="deleteSection('${tab}',${si})" title="Remove section">✕</button>
+      </div>`;
+    sec.items.forEach((it, ii)=>{
+      const checked=!!data[it.id]?.checked;
+      const note=data[it.id]?.note||'';
+      const noteOpen=!!data[it.id]?.noteOpen;
+      html+=`<div class="cl-item" id="item-${it.id}">
+        <div class="cl-row">
+          <div class="cl-box${checked?' on':''}" onclick="toggleItem('${tab}','${it.id}')">${SVG}</div>
+          <div class="cl-label${checked?' done':''}" id="lbl-${it.id}" onclick="toggleItem('${tab}','${it.id}')">${it.label}</div>
+          <div class="cl-item-actions">
+            <button class="cl-note-btn${note?' has-note':''}" id="notebtn-${it.id}" onclick="toggleNote('${tab}','${it.id}')" title="Note">📝</button>
+            <button class="cl-act-btn" onclick="editItem('${tab}',${si},${ii})" title="Edit">✎</button>
+            <button class="cl-act-btn cl-act-del" onclick="deleteItem('${tab}',${si},${ii})" title="Remove">✕</button>
+          </div>
+        </div>
+        <div class="cl-note-area" id="notearea-${it.id}" style="display:${noteOpen?'block':'none'}">
+          <textarea class="cl-note-textarea" id="notetxt-${it.id}" placeholder="Add a note..." oninput="saveNote('${tab}','${it.id}',this.value)">${note}</textarea>
+        </div>
+      </div>`;
+    });
+    html+=`<div class="cl-add-row">
+      <input class="cl-add-inp" placeholder="+ Add item…" onkeydown="if(event.key==='Enter'&&this.value.trim()){addItem('${tab}',${si},this.value.trim());this.value='';}">
+    </div></div>`;
+  });
+  html+=`<button class="cl-add-sec-btn" onclick="addSection('${tab}')">+ Add section</button>`;
+
+  container.innerHTML=html;
+  updateProgress(tab, done, total);
+}
+
+function updateProgress(tab, done, total){
+  const pct=total>0?Math.round(done/total*100):0;
+  document.getElementById(`${tab}-bar`).style.width=pct+'%';
+  document.getElementById(`${tab}-lbl`).textContent=`${done} / ${total}`;
+}
+
+function toggleItem(tab, id){
+  const data=loadData(tab);
+  if(!data[id])data[id]={};
+  data[id].checked=!data[id].checked;
+  saveData(tab,data);
+  renderChecklist(tab,`${tab}-checklist`);
+}
+
+function toggleNote(tab, id){
+  const data=loadData(tab);
+  if(!data[id])data[id]={};
+  data[id].noteOpen=!data[id].noteOpen;
+  saveData(tab,data);
+  const area=document.getElementById(`notearea-${id}`);
+  if(!area)return;
+  area.style.display=data[id].noteOpen?'block':'none';
+  if(data[id].noteOpen) setTimeout(()=>{const t=document.getElementById(`notetxt-${id}`);if(t)t.focus();},50);
+}
+
+function saveNote(tab, id, val){
+  const data=loadData(tab);
+  if(!data[id])data[id]={};
+  data[id].note=val;
+  saveData(tab,data);
+  const btn=document.getElementById(`notebtn-${id}`);
+  if(btn) btn.classList.toggle('has-note',val.trim().length>0);
+}
+
+// ── Edit / add / delete items ───────────────────────────────────
+function editItem(tab, si, ii){
+  const item=CL_DEFS[tab][si].items[ii];
+  const lbl=document.getElementById(`lbl-${item.id}`);
+  if(!lbl)return;
+  const cur=item.label;
+  lbl.outerHTML=`<input class="cl-edit-inp" id="editinp-${item.id}" value="${cur.replace(/"/g,'&quot;')}"
+    onblur="saveEditItem('${tab}',${si},${ii},this.value)"
+    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.dataset.cancel='1';this.blur();}">`;
+  const inp=document.getElementById(`editinp-${item.id}`);
+  if(inp){inp.focus();inp.select();}
+}
+
+function saveEditItem(tab, si, ii, val){
+  const inp=document.getElementById(`editinp-${CL_DEFS[tab][si].items[ii].id}`);
+  if(inp&&inp.dataset.cancel==='1'){renderChecklist(tab,`${tab}-checklist`);return;}
+  val=val.trim();
+  if(val) CL_DEFS[tab][si].items[ii].label=val;
+  saveDefs();
+  renderChecklist(tab,`${tab}-checklist`);
+}
+
+function deleteItem(tab, si, ii){
+  CL_DEFS[tab][si].items.splice(ii,1);
+  saveDefs();
+  renderChecklist(tab,`${tab}-checklist`);
+}
+
+function addItem(tab, si, label){
+  const id=`${tab}-c-${Date.now()}`;
+  CL_DEFS[tab][si].items.push({id, label});
+  saveDefs();
+  renderChecklist(tab,`${tab}-checklist`);
+}
+
+function addSection(tab){
+  const name=prompt('Section name:');
+  if(!name||!name.trim())return;
+  CL_DEFS[tab].push({title:name.trim(), items:[]});
+  saveDefs();
+  renderChecklist(tab,`${tab}-checklist`);
+}
+
+function deleteSection(tab, si){
+  if(CL_DEFS[tab][si].items.length>0&&!confirm(`Delete section "${CL_DEFS[tab][si].title}" and all its items?`))return;
+  CL_DEFS[tab].splice(si,1);
+  saveDefs();
+  renderChecklist(tab,`${tab}-checklist`);
+}
+
+function resetTab(tab){
+  if(!confirm('Reset all checkboxes and notes for today?'))return;
+  localStorage.removeItem(`trading-cl-${tab}-${todayKey()}`);
+  renderChecklist(tab,`${tab}-checklist`);
+}
+
+// ── Tabs ────────────────────────────────────────────────────────
+const TAB_IDS=['home','presession','live','postsession','bedtime'];
+function switchTab(id){
+  TAB_IDS.forEach(t=>{
+    document.getElementById(`tab-${t}`).classList.toggle('active',t===id);
+  });
+  document.querySelectorAll('.tab-btn').forEach((btn,i)=>{
+    btn.classList.toggle('active',TAB_IDS[i]===id);
+  });
+  localStorage.setItem('trading-active-tab',id);
+}
+
+// ── Date display ────────────────────────────────────────────────
+function setDates(){
+  const d=new Date();
+  const str=d.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  document.getElementById('topbar-date').textContent=str;
+  ['pre','live','post','bed'].forEach(t=>{
+    const el=document.getElementById(`${t}-date`);
+    if(el)el.textContent=str;
+  });
+}
+
+// ── Unlock ──────────────────────────────────────────────────────
+async function unlock(){
   const pw = document.getElementById('pw').value;
   if(pw === 'r3d'){
     document.getElementById('lock-screen').style.display='none';
     document.getElementById('dashboard').style.display='block';
-    initChart();
+
+    // Try Supabase first
+    const badge = document.getElementById('sync-badge');
+    badge.style.display='inline-block';
+    badge.style.background='#1e2e45';
+    badge.style.color='#5b7a99';
+    badge.textContent='⏳ Syncing...';
+
+    const live = await loadSupabaseTrades();
+    if(live){
+      ALL_TRADES = live.trades;
+      DAILY_DATA.length = 0;
+      live.cumData.forEach((d,i)=>{
+        DAILY_DATA.push({
+          date:  d.date,
+          month: d.date.slice(0,7),
+          week:  weekKey(d.date),
+          pnl:   i===0 ? d.cum : +(d.cum - live.cumData[i-1].cum).toFixed(4)
+        });
+      });
+      const t = new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+      badge.style.background='#0d2010';
+      badge.style.color='#00e676';
+      badge.style.border='1px solid #1e6020';
+      badge.textContent=`● Live · ${t}`;
+    } else {
+      badge.style.background='#25180a';
+      badge.style.color='#ffc300';
+      badge.style.border='1px solid #7a4810';
+      badge.textContent='⚠ Offline · cached data';
+    }
+
+    setDates();
+    initDefs();
+    buildPeriodSelect();
+    const savedPeriod = localStorage.getItem('trading-period')||'all';
+    document.getElementById('period-select').value = savedPeriod;
+    setPeriod(savedPeriod);
+    renderChecklist('pre','pre-checklist');
+    renderChecklist('live','live-checklist');
+    renderChecklist('post','post-checklist');
+    renderChecklist('bed','bed-checklist');
+    const saved=localStorage.getItem('trading-active-tab');
+    if(saved&&TAB_IDS.includes(saved))switchTab(saved);
   } else {
     document.getElementById('pw-err').textContent='Incorrect password.';
     document.getElementById('pw').value='';
   }
 }
-function initChart(){
-const ctx = document.getElementById('pnlChart').getContext('2d');
-new Chart(ctx, {
-  type: 'line',
-  data: {
-    labels: ["2026-02-02", "2026-02-03", "2026-02-06", "2026-02-09", "2026-02-13", "2026-03-04", "2026-03-05", "2026-03-13", "2026-03-16", "2026-03-17", "2026-03-20", "2026-03-23", "2026-03-24", "2026-03-26", "2026-03-30", "2026-04-01", "2026-04-02", "2026-04-06", "2026-04-07", "2026-04-08", "2026-04-09", "2026-04-13", "2026-04-14", "2026-04-15", "2026-04-17", "2026-04-20", "2026-04-22", "2026-04-23", "2026-04-24", "2026-04-27", "2026-04-28", "2026-04-29", "2026-05-04", "2026-05-05", "2026-05-08", "2026-05-12", "2026-05-13", "2026-05-15", "2026-05-19", "2026-05-21", "2026-05-28", "2026-05-29", "2026-06-01", "2026-06-02", "2026-06-03", "2026-06-04", "2026-06-05", "2026-06-09", "2026-06-10", "2026-06-11", "2026-06-12"],
-    datasets: [{
-      data: [0.2343, 0.2449, 0.1158, 0.2238, 0.3438, 0.7438, 0.6995, 0.6807, 0.6322, 0.4613, 0.4327, 0.792, 0.5245, 1.3071, 1.1874, 0.0877, -0.0104, -0.6371, -1.1666, -1.2362, -1.2449, -0.8437, -0.993, -3.1394, -3.0279, -2.9724, -3.0384, -4.2741, -4.4841, -3.8706, -3.9636, -3.9084, -2.9958, -3.2033, -3.1823, -3.2804, -3.2804, -3.2404, -3.387, -3.3799, -0.5157, -0.9688, -1.0076, 0.2482, 0.2382, -0.0918, -0.8046, 2.3785, 1.2985, 0.7149, -0.2035],
-      borderColor: '#ff4455',
-      backgroundColor: '#ff445515',
-      borderWidth: 2,
-      pointRadius: 2,
-      pointHoverRadius: 4,
-      fill: true,
-      tension: 0.3
-    }]
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {display: false},
-      tooltip: {
-        backgroundColor: '#162032',
-        borderColor: '#1e2e45',
-        borderWidth: 1,
-        callbacks: {label: c => ' $' + c.parsed.y.toFixed(2)}
-      }
-    },
-    scales: {
-      x: {ticks: {color:'#5b7a99',font:{size:10},maxTicksLimit:6},grid:{color:'#1e2e45'}},
-      y: {ticks: {color:'#5b7a99',font:{size:10},callback: v => '$' + v.toFixed(2)},grid:{color:'#1e2e45'}}
-    }
+
+// ── Supabase config ─────────────────────────────────────────────
+const SUPABASE_URL = 'https://mjsutoiamrjnotbyhdyh.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qc3V0b2lhbXJqbm90YnloZHloIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NjMyMTEsImV4cCI6MjA5NTEzOTIxMX0.oBeFaYYuroi5c96vVBC0GbBNNGgIsOI3Ja1ovd9Q2aw';
+
+async function loadSupabaseTrades() {
+  try {
+    const resp = await fetch(
+      `${SUPABASE_URL}/rest/v1/trades?select=*&order=buy_time.asc`,
+      { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+    );
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const rows = await resp.json();
+    if (!rows.length) return null;
+
+    // Map Supabase rows → ALL_TRADES format
+    const trades = rows.map(r => ({
+      date:   r.trade_date,
+      ticker: r.ticker,
+      buy:    +r.buy_price,
+      sell:   +r.sell_price,
+      shares: r.shares,
+      pnl:    +r.pnl,
+      result: +r.pnl >= 0 ? 'win' : 'loss'
+    }));
+
+    // Build CUM_DATA by grouping daily pnl and computing cumulative sum
+    const byDate = {};
+    trades.forEach(t => { byDate[t.date] = (byDate[t.date] || 0) + t.pnl; });
+    const dates = Object.keys(byDate).sort();
+    let cum = 0;
+    const cumData = dates.map(d => ({ date: d, cum: +(cum += byDate[d]).toFixed(4) }));
+
+    return { trades, cumData };
+  } catch(e) {
+    console.warn('Supabase fetch failed, using hardcoded data:', e);
+    return null;
   }
-});
+}
+
+// ── Trade & daily data (fallback hardcoded) ──────────────────────
+const CUM_DATA = [
+  {date:"2026-02-02",cum:0.2343},{date:"2026-02-03",cum:0.2449},{date:"2026-02-06",cum:0.1158},
+  {date:"2026-02-09",cum:0.2238},{date:"2026-02-13",cum:0.3438},{date:"2026-03-04",cum:0.7438},
+  {date:"2026-03-05",cum:0.6995},{date:"2026-03-13",cum:0.6807},{date:"2026-03-16",cum:0.6322},
+  {date:"2026-03-17",cum:0.4613},{date:"2026-03-20",cum:0.4327},{date:"2026-03-23",cum:0.792},
+  {date:"2026-03-24",cum:0.5245},{date:"2026-03-26",cum:1.3071},{date:"2026-03-30",cum:1.1874},
+  {date:"2026-04-01",cum:0.0877},{date:"2026-04-02",cum:-0.0104},{date:"2026-04-06",cum:-0.6371},
+  {date:"2026-04-07",cum:-1.1666},{date:"2026-04-08",cum:-1.2362},{date:"2026-04-09",cum:-1.2449},
+  {date:"2026-04-13",cum:-0.8437},{date:"2026-04-14",cum:-0.993},{date:"2026-04-15",cum:-3.1394},
+  {date:"2026-04-17",cum:-3.0279},{date:"2026-04-20",cum:-2.9724},{date:"2026-04-22",cum:-3.0384},
+  {date:"2026-04-23",cum:-4.2741},{date:"2026-04-24",cum:-4.4841},{date:"2026-04-27",cum:-3.8706},
+  {date:"2026-04-28",cum:-3.9636},{date:"2026-04-29",cum:-3.9084},{date:"2026-05-04",cum:-2.9958},
+  {date:"2026-05-05",cum:-3.2033},{date:"2026-05-08",cum:-3.1823},{date:"2026-05-12",cum:-3.2804},
+  {date:"2026-05-13",cum:-3.2804},{date:"2026-05-15",cum:-3.2404},{date:"2026-05-19",cum:-3.387},
+  {date:"2026-05-21",cum:-3.3799},{date:"2026-05-28",cum:-0.5157},{date:"2026-05-29",cum:-0.9688},
+  {date:"2026-06-01",cum:-1.0076},{date:"2026-06-02",cum:0.2482},{date:"2026-06-03",cum:0.2382},
+  {date:"2026-06-04",cum:-0.0918},{date:"2026-06-05",cum:-0.8046},{date:"2026-06-09",cum:2.3785},
+  {date:"2026-06-10",cum:1.2985},{date:"2026-06-11",cum:0.7149}
+];
+
+// Daily P&L derived from cumulative (first day relative to 0)
+let DAILY_DATA = CUM_DATA.map((d,i)=>({
+  date: d.date,
+  month: d.date.slice(0,7),
+  week: weekKey(d.date),
+  pnl: i===0 ? d.cum : +(d.cum - CUM_DATA[i-1].cum).toFixed(4)
+}));
+
+let ALL_TRADES = [
+  {date:"2026-06-11",ticker:"PPCB",buy:6.14,sell:5.96,shares:1,pnl:-0.18,result:"loss"},
+  {date:"2026-06-11",ticker:"WTO", buy:1.97,sell:1.91,shares:1,pnl:-0.06,result:"loss"},
+  {date:"2026-06-11",ticker:"GLXG",buy:4.54,sell:4.38,shares:1,pnl:-0.16,result:"loss"},
+  {date:"2026-06-11",ticker:"GLXG",buy:4.06,sell:4.16,shares:1,pnl: 0.10,result:"win"},
+  {date:"2026-06-11",ticker:"GLXG",buy:3.71,sell:3.86,shares:1,pnl: 0.15,result:"win"},
+  {date:"2026-06-11",ticker:"PPCB",buy:6.09,sell:5.95,shares:1,pnl:-0.14,result:"loss"},
+  {date:"2026-06-11",ticker:"PPCB",buy:6.17,sell:6.03,shares:1,pnl:-0.14,result:"loss"},
+  {date:"2026-06-11",ticker:"GLXG",buy:3.20,sell:3.40,shares:1,pnl: 0.20,result:"win"},
+  {date:"2026-06-11",ticker:"PPCB",buy:4.93,sell:4.94,shares:1,pnl: 0.01,result:"win"},
+  {date:"2026-06-11",ticker:"PPCB",buy:4.41,sell:4.43,shares:1,pnl: 0.02,result:"win"}
+];
+
+function weekKey(dateStr){
+  const d = new Date(dateStr+'T12:00:00');
+  const day = d.getDay();
+  const mon = new Date(d);
+  mon.setDate(d.getDate() - (day===0?6:day-1));
+  return mon.toISOString().slice(0,10);
+}
+function weekLabel(k){
+  const d = new Date(k+'T12:00:00');
+  return 'Week of '+d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+}
+function monthLabel(k){
+  const [y,m]=k.split('-');
+  return new Date(y,m-1,1).toLocaleDateString('en-US',{month:'long',year:'numeric'});
+}
+function fmt(v,decimals=2){
+  const s=(v>=0?'+':'')+v.toFixed(decimals);
+  return '$'+s;
+}
+function colorClass(v){return v>0?'green':v<0?'red':'';}
+
+// ── Build period dropdown ───────────────────────────────────────
+function buildPeriodSelect(){
+  const sel = document.getElementById('period-select');
+  const months=[...new Set(DAILY_DATA.map(d=>d.month))].sort().reverse();
+  const weeks=[...new Set(DAILY_DATA.map(d=>d.week))].sort().reverse();
+
+  let html='<option value="all">All Time</option>';
+  html+='<optgroup label="─── Monthly ───">';
+  months.forEach(m=>{ html+=`<option value="month:${m}">${monthLabel(m)}</option>`; });
+  html+='</optgroup>';
+  html+='<optgroup label="─── Weekly ───">';
+  weeks.forEach(w=>{ html+=`<option value="week:${w}">${weekLabel(w)}</option>`; });
+  html+='</optgroup>';
+  sel.innerHTML=html;
+}
+
+// ── Filter data by period ───────────────────────────────────────
+function filterDaily(period){
+  if(period==='all') return DAILY_DATA;
+  const [type,key]=period.split(':');
+  return DAILY_DATA.filter(d=>type==='month'?d.month===key:d.week===key);
+}
+function filterTrades(period){
+  if(period==='all') return ALL_TRADES;
+  const [type,key]=period.split(':');
+  return ALL_TRADES.filter(t=>type==='month'?t.date.slice(0,7)===key:weekKey(t.date)===key);
+}
+
+// ── Compute stats from daily data ───────────────────────────────
+function computeStats(days, trades, period){
+  const totalPnl = days.reduce((s,d)=>s+d.pnl,0);
+  const tradingDays = days.length;
+  const avgDaily = tradingDays>0 ? totalPnl/tradingDays : 0;
+  const bestDay = days.length>0 ? Math.max(...days.map(d=>d.pnl)) : 0;
+  const worstDay = days.length>0 ? Math.min(...days.map(d=>d.pnl)) : 0;
+  const wins = trades.filter(t=>t.result==='win');
+  const losses = trades.filter(t=>t.result==='loss');
+  const winRate = trades.length>0 ? (wins.length/trades.length*100) : null;
+  const avgWin = wins.length>0 ? wins.reduce((s,t)=>s+t.pnl,0)/wins.length : null;
+  const avgLoss = losses.length>0 ? losses.reduce((s,t)=>s+t.pnl,0)/losses.length : null;
+  const bestTrade = trades.length>0 ? Math.max(...trades.map(t=>t.pnl)) : null;
+  const worstTrade = trades.length>0 ? Math.min(...trades.map(t=>t.pnl)) : null;
+
+  // for all-time use hardcoded totals since we don't have every trade
+  if(period==='all'){
+    return {
+      totalPnl:0.7149, tradingDays:50, avgDaily:0.01,
+      bestDay:+(Math.max(...days.map(d=>d.pnl))).toFixed(2),
+      worstDay:+(Math.min(...days.map(d=>d.pnl))).toFixed(2),
+      totalTrades:263, wins:129, losses:129,
+      winRate:49.0, avgWin:0.26, avgLoss:-0.25,
+      bestTrade:1.67, worstTrade:-1.91
+    };
+  }
+  return {
+    totalPnl:+totalPnl.toFixed(2), tradingDays, avgDaily:+avgDaily.toFixed(2),
+    bestDay:+bestDay.toFixed(2), worstDay:+worstDay.toFixed(2),
+    totalTrades:trades.length, wins:wins.length, losses:losses.length,
+    winRate, avgWin:avgWin?+avgWin.toFixed(2):null,
+    avgLoss:avgLoss?+avgLoss.toFixed(2):null,
+    bestTrade:bestTrade?+bestTrade.toFixed(2):null,
+    worstTrade:worstTrade?+worstTrade.toFixed(2):null
+  };
+}
+
+// ── Render KPI cards ────────────────────────────────────────────
+function renderKPIs(s, period){
+  const na='<span style="color:var(--muted);font-size:14px">—</span>';
+  const pnlColor = s.totalPnl>=0?'':'red';
+  const pnlCls = s.totalPnl>=0?'':'red';
+  const wrColor = s.winRate===null?'white':s.winRate>=50?'':'red';
+  const wrCls = s.winRate===null?'white':s.winRate>=50?'':'red';
+
+  document.getElementById('kpi-grid').innerHTML=`
+    <div class="kpi">
+      <div class="kpi-accent blue"></div>
+      <div class="kpi-label">Total Trades</div>
+      <div class="kpi-value blue">${s.totalTrades||na}</div>
+      <div class="kpi-sub">${s.totalTrades&&s.wins!=null?s.wins+'W / '+s.losses+'L':''}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-accent ${pnlCls}"></div>
+      <div class="kpi-label">Total P&L</div>
+      <div class="kpi-value ${pnlCls}">${fmt(s.totalPnl)}</div>
+      <div class="kpi-sub">${period==='all'?'all time':''}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-accent ${wrCls}"></div>
+      <div class="kpi-label">Win Rate</div>
+      <div class="kpi-value ${wrCls}">${s.winRate!=null?s.winRate.toFixed(1)+'%':na}</div>
+      <div class="kpi-sub">${s.winRate!=null?(s.winRate>=50?'at/above breakeven':'below breakeven'):period==='all'?'':'limited trade data'}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-accent yellow"></div>
+      <div class="kpi-label">Avg Win / Avg Loss</div>
+      <div class="kpi-value yellow">${s.avgWin!=null?fmt(s.avgWin):na}</div>
+      <div class="kpi-sub" style="color:var(--red)">${s.avgLoss!=null?fmt(s.avgLoss)+' avg loss':''}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-accent"></div>
+      <div class="kpi-label">Best Trade</div>
+      <div class="kpi-value">${s.bestTrade!=null?fmt(s.bestTrade):na}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-accent red"></div>
+      <div class="kpi-label">Worst Trade</div>
+      <div class="kpi-value red">${s.worstTrade!=null?fmt(s.worstTrade):na}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-accent blue"></div>
+      <div class="kpi-label">Best Day</div>
+      <div class="kpi-value ${s.bestDay>=0?'':'red'}">${fmt(s.bestDay)}</div>
+      <div class="kpi-sub">${s.tradingDays} trading day${s.tradingDays!==1?'s':''}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-accent red"></div>
+      <div class="kpi-label">Avg Daily P&L</div>
+      <div class="kpi-value ${s.avgDaily>=0?'':'red'}">${fmt(s.avgDaily)}</div>
+      <div class="kpi-sub">worst day: ${fmt(s.worstDay)}</div>
+    </div>`;
+}
+
+// ── Render P&L summary ──────────────────────────────────────────
+function renderPnlSummary(s){
+  const na='—';
+  document.getElementById('pnl-summary').innerHTML=`
+    <div class="stat-row"><span class="stat-label">Total wins</span><span class="stat-val green">${s.wins!=null?s.wins:na}</span></div>
+    <div class="stat-row"><span class="stat-label">Total losses</span><span class="stat-val red">${s.losses!=null?s.losses:na}</span></div>
+    <div class="stat-row"><span class="stat-label">Best trade</span><span class="stat-val green">${s.bestTrade!=null?fmt(s.bestTrade):na}</span></div>
+    <div class="stat-row"><span class="stat-label">Worst trade</span><span class="stat-val red">${s.worstTrade!=null?fmt(s.worstTrade):na}</span></div>`;
+}
+
+// ── Render trades table ─────────────────────────────────────────
+function renderTradesTable(trades, period){
+  const label = period==='all'?'Recent Trades':'Trades';
+  document.getElementById('trades-panel-title').textContent=label;
+  const shown = period==='all' ? trades.slice(0,10) : trades;
+  if(!shown.length){
+    document.getElementById('trades-tbody').innerHTML='<tr><td colspan="8" style="color:var(--muted);text-align:center;padding:20px">No trade data for this period</td></tr>';
+    return;
+  }
+  document.getElementById('trades-tbody').innerHTML=shown.map(t=>{
+    const pnlStr=(t.pnl>=0?'+':'')+t.pnl.toFixed(2);
+    const pct=((t.pnl/t.buy)*100);
+    const pctStr=(pct>=0?'+':'')+pct.toFixed(2)+'%';
+    const cls=t.result;
+    return `<tr>
+      <td>${t.date}</td><td><b>${t.ticker}</b></td><td>$${t.buy.toFixed(2)}</td>
+      <td>$${t.sell.toFixed(2)}</td><td>${t.shares}</td>
+      <td class="${cls}">$${pnlStr}</td><td class="${cls}">${pctStr}</td>
+      <td><span class="badge ${cls}">${t.result.charAt(0).toUpperCase()+t.result.slice(1)}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Chart instance ──────────────────────────────────────────────
+let pnlChart = null;
+function initChart(days, period){
+  if(pnlChart){ pnlChart.destroy(); pnlChart=null; }
+  const isAll = period==='all';
+  // For all-time use cumulative; for periods use running total within period
+  let labels, data;
+  if(isAll){
+    labels = CUM_DATA.map(d=>d.date);
+    data = CUM_DATA.map(d=>d.cum);
+    document.getElementById('chart-title').textContent='Cumulative P&L — All Time';
+  } else {
+    labels = days.map(d=>d.date);
+    let running=0;
+    data = days.map(d=>{ running+=d.pnl; return +running.toFixed(4); });
+    const [type,key]=period.split(':');
+    document.getElementById('chart-title').textContent='P&L — '+(type==='month'?monthLabel(key):weekLabel(key));
+  }
+  const lastVal = data[data.length-1]||0;
+  const lineColor = lastVal>=0?'#00e676':'#ff4455';
+  const fillColor = lastVal>=0?'#00e67615':'#ff445510';
+
+  const ctx = document.getElementById('pnlChart').getContext('2d');
+  pnlChart = new Chart(ctx,{
+    type:'line',
+    data:{
+      labels,
+      datasets:[{
+        data, borderColor:lineColor, backgroundColor:fillColor,
+        borderWidth:2, pointRadius:2, pointHoverRadius:4, fill:true, tension:0.3
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#162032', borderColor:'#1e2e45', borderWidth:1,
+          callbacks:{label:c=>' $'+c.parsed.y.toFixed(2)}
+        }
+      },
+      scales:{
+        x:{ticks:{color:'#5b7a99',font:{size:10},maxTicksLimit:6},grid:{color:'#1e2e45'}},
+        y:{ticks:{color:'#5b7a99',font:{size:10},callback:v=>'$'+v.toFixed(2)},grid:{color:'#1e2e45'}}
+      }
+    }
+  });
+}
+
+// ── Set period (main entry point) ───────────────────────────────
+function setPeriod(period){
+  localStorage.setItem('trading-period', period);
+  const days = filterDaily(period);
+  const trades = filterTrades(period);
+  const stats = computeStats(days, trades, period);
+  renderKPIs(stats, period);
+  renderPnlSummary(stats);
+  renderTradesTable(trades, period);
+  initChart(days, period);
+
+  const lbl = document.getElementById('period-label');
+  if(period==='all'){ lbl.textContent=''; }
+  else {
+    const [type,key]=period.split(':');
+    lbl.textContent=(type==='month'?monthLabel(key):weekLabel(key))+' · '+days.length+' trading day'+(days.length!==1?'s':'');
+  }
 }
 </script>
 </body></html>
