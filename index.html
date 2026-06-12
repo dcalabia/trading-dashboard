@@ -171,6 +171,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
   <button class="tab-btn" onclick="switchTab('presession')">Pre-Session</button>
   <button class="tab-btn" onclick="switchTab('live')">Live Session</button>
   <button class="tab-btn" onclick="switchTab('postsession')">Post-Session</button>
+  <button class="tab-btn" onclick="switchTab('bedtime')">Bedtime</button>
 </div>
 
 <!-- HOME TAB -->
@@ -364,150 +365,80 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 </div>
 </div>
 
+<!-- BEDTIME TAB -->
+<div class="tab-pane" id="tab-bedtime">
+<div class="cl-page">
+  <div class="cl-date-bar">
+    <div class="cl-date" id="bed-date"></div>
+    <button class="cl-reset" onclick="resetTab('bed')">Reset</button>
+  </div>
+  <div class="cl-progress-wrap">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Bedtime Progress</div>
+    <div class="cl-progress-row">
+      <div class="cl-progress-track"><div class="cl-progress-fill" id="bed-bar" style="width:0%"></div></div>
+      <div class="cl-progress-lbl" id="bed-lbl">0 / 0</div>
+    </div>
+  </div>
+  <div id="bed-checklist"></div>
+</div>
+</div>
+
 </div><!-- end dashboard -->
 
 <script>
 // ── Checklist definitions (defaults + user edits via localStorage) ──
 const DEFAULT_CHECKLISTS = {
   pre: [
-    { title:'Core', items:[
-      {id:'pre-wake',      label:'Wake up on time (no snooze)'},
-      {id:'pre-platform',  label:'Open trading platform + data feeds'},
-      {id:'pre-scan',      label:'Scan premarket movers (volume, % gain, news)'},
-      {id:'pre-5pillar',   label:'Apply your 5-pillar filter (no exceptions)'},
-    ]},
-    { title:'Setup Nuances (per stock)', items:[
-      {id:'pre-daily',     label:'Check daily chart context (trend vs chop)'},
-      {id:'pre-bluesky',   label:'Is this a blue-sky / all-time-high setup?'},
-      {id:'pre-cleanair',  label:'Is there clean air above (no nearby daily resistance)?'},
-      {id:'pre-float',     label:'Float size appropriate for setup type?'},
-      {id:'pre-pmvol',     label:'Premarket volume meaningful relative to float?'},
-      {id:'pre-vwap',      label:'Is price holding above VWAP premarket?'},
-      {id:'pre-news',      label:'Is the move news-driven or sympathy only?'},
-      {id:'pre-pullback',  label:'Does the first pullback form cleanly?'},
-      {id:'pre-spread',    label:'Is spread tight enough for size?'},
-      {id:'pre-hod',       label:'Is there a clear HOD level everyone sees?'},
-    ]},
-    { title:'Decision', items:[
-      {id:'pre-plan',      label:'Define entry, stop, and first target in advance'},
-      {id:'pre-handsoff',  label:'Hands off until setup appears'},
-    ]},
-    { title:'Level 2 Confirmation', items:[
-      {id:'pre-l2-1',  label:'Bid stepping up repeatedly (higher bids replacing lower bids)'},
-      {id:'pre-l2-2',  label:'Buyers reload the bid after getting hit (true support)'},
-      {id:'pre-l2-3',  label:'Large bids appear and HOLD without pulling'},
-      {id:'pre-l2-4',  label:'Bid size increases as price approaches resistance'},
-      {id:'pre-l2-5',  label:'Ask sizes get hit and do NOT refill'},
-      {id:'pre-l2-6',  label:'Large asks get absorbed without price dropping'},
-      {id:'pre-l2-7',  label:'Ask liquidity thins above current price'},
-      {id:'pre-l2-8',  label:'Spread tightens as price pushes upward'},
-      {id:'pre-l2-9',  label:'Tape shows aggressive market buys printing at/above ask'},
-      {id:'pre-l2-10', label:'Buy prints continue even when ask looks heavy'},
-      {id:'pre-l2-11', label:'Price holds after large buy prints (no immediate fade)'},
-      {id:'pre-l2-12', label:'Sellers pull asks as price approaches them'},
-      {id:'pre-l2-13', label:'Hidden buyers suspected (price rises on thin visible bids)'},
-      {id:'pre-l2-14', label:'Level 2 remains orderly during pullbacks'},
-      {id:'pre-l2-15', label:'Pullbacks occur on low volume'},
-      {id:'pre-l2-16', label:'VWAP/HOD buyers show on the bid'},
-      {id:'pre-l2-17', label:'No sudden bid collapse or stair-step fade'},
-      {id:'pre-l2-18', label:'No spoof orders appearing and vanishing on bid'},
-    ]},
-    { title:'Core Tape Questions', items:[
-      {id:'pre-tape-1', label:'Is the bid stepping up?'},
-      {id:'pre-tape-2', label:'Are asks being absorbed or pulled?'},
-      {id:'pre-tape-3', label:'Does price hold after aggressive buying?'},
-    ]},
-    { title:'Runner Eligibility (All Must Be True)', items:[
-      {id:'pre-run-1',  label:'Stock meets 9/9 selection score'},
-      {id:'pre-run-2',  label:'Stock meets all 5 pillars (no exceptions)'},
-      {id:'pre-run-3',  label:'Name is fresh OR has proven clean base hits today'},
-      {id:'pre-run-4',  label:'Move is not the first breakout attempt'},
-      {id:'pre-run-5',  label:'Price is above VWAP or reclaiming VWAP with speed'},
-      {id:'pre-run-6',  label:'Compression is tight and orderly (no sloppy wicks)'},
-      {id:'pre-run-7',  label:'Relative volume is expanding, not fading'},
-      {id:'pre-run-8',  label:'Level 2 shows real absorption (not flickering bids)'},
-      {id:'pre-run-9',  label:'Ask thins and does NOT immediately reload'},
-      {id:'pre-run-10', label:'Tape prints multiple greens through the ask'},
-      {id:'pre-run-11', label:'Clear air to next resistance (≥ $0.75–$1.50)'},
-      {id:'pre-run-12', label:'You are fully present (no multitasking)'},
-      {id:'pre-run-13', label:'Trade is labeled RUNNER before entry'},
+    { title:'Pre-Market', items:[
+      {id:'pre-wake',    label:'Wake up by 6:25am / Ensure you went to bed and got 7 hours of sleep'},
+      {id:'pre-record',  label:'Start recording at 6:35:00am exactly everyday consistently'},
+      {id:'pre-review',  label:'Review all trade slides + journal analysis log'},
     ]},
   ],
   live: [
-    { title:'Trading Checklist', items:[
-      {id:'live-reflection',    label:'30-minute day trading reflection (night before) done'},
-      {id:'live-nuclear',       label:'Nuclear option defined'},
-      {id:'live-nodistractions',label:'No visual distractions'},
-      {id:'live-phone',         label:'Phone off until 9:30'},
-      {id:'live-recording',     label:'Recording on'},
-      {id:'live-hotkeys',       label:'Hotkeys on'},
-      {id:'live-edge',          label:'Edge desktop open'},
-      {id:'live-5pillars',      label:'Ready to analyze 5 pillars and entry before going in'},
-    ]},
-    { title:'Identity — Operator Mode', items:[
-      {id:'live-id-1', label:'From 6:55 AM to 10:00 AM I am in Operator Mode'},
-      {id:'live-id-2', label:'Operator does not journal'},
-      {id:'live-id-3', label:'Operator does not watch videos'},
-      {id:'live-id-4', label:'Operator does not optimize spreadsheets'},
-      {id:'live-id-5', label:'Operator only scans and executes'},
-    ]},
-    { title:'Environment Lock', items:[
-      {id:'live-env-1', label:'6:55 AM nuclear option ON'},
-      {id:'live-env-2', label:'All entertainment blocked'},
-      {id:'live-env-3', label:'Phone face down'},
-      {id:'live-env-4', label:'Only scanner + charts visible'},
-      {id:'live-env-5', label:'No tab switching'},
-    ]},
-    { title:'Top of Hour Protocol', items:[
-      {id:'live-toh-1', label:'X:58 — stop everything'},
-      {id:'live-toh-2', label:'X:59 — cycle active tickers'},
-      {id:'live-toh-3', label:'X:00–X:02 — full attention on break levels'},
-      {id:'live-toh-4', label:'Repeat at half hour'},
-    ]},
-    { title:'Signal Win Rule', items:[
-      {id:'live-sig-1', label:'Signal win appears AND 5/5 + 9/9 confirm'},
-      {id:'live-sig-2', label:'Prepare immediately'},
-      {id:'live-sig-3', label:'Take next A+ setup with predefined stop'},
-      {id:'live-sig-4', label:'No internal debate during the move'},
-    ]},
-    { title:'Rules', items:[
-      {id:'live-rule-1', label:'No typing notes while a stock is moving'},
-      {id:'live-rule-2', label:'All journaling happens after 10:00 AM'},
-      {id:'live-rule-3', label:'Hesitation filter: if long top wick, only enter on reclaim + tight stop + controlled pullback'},
-      {id:'live-rule-4', label:'If unclear stop, pass without regret'},
-      {id:'live-rule-5', label:'If I open YouTube or journal mid-move before 10:00 AM: no trading for rest of session'},
-    ]},
-    { title:'Goal', items:[
-      {id:'live-goal-1', label:'Zero preventable misses'},
-      {id:'live-goal-2', label:'Presence over perfection'},
-      {id:'live-goal-3', label:'Execution over analysis'},
+    { title:'Live Session', items:[
+      {id:'live-1',  label:'DO NOT CHASE HIGHS — THIS IS MY NUMBER ONE RULE TO FOLLOW'},
+      {id:'live-2',  label:'Let stocks running into highs be your indicator to pay attention'},
+      {id:'live-3',  label:'Only trade micropullbacks that curl back up long bottom wick and are within 2 candles of the opening'},
+      {id:'live-4',  label:'Pay attention to # of missed trades'},
+      {id:'live-5',  label:'DO NOT get distracted by journaling — only journal ticker symbol and arrow + arrow number of graph'},
+      {id:'live-6',  label:'When a stock pops up on your scanner — pay attention to it within 2 seconds'},
+      {id:'live-7',  label:'Trade clean set ups only — Minimum 6/9 and 4/5 score — Clean candlestick pattern — Clean level 2'},
+      {id:'live-8',  label:'Candle patterns: 1 Micropullback, 2 Inverted head and shoulders, 3 Engulfing green candle'},
+      {id:'live-9',  label:'Define your stop loss before going in as well'},
+      {id:'live-10', label:'Trading algorithm: First $63 / Second $125 / Third $250 / Fourth $250+gains / Fifth $250+gains and beyond'},
+      {id:'live-11', label:'Check for blue sky set ups / No multitasking — stay super present — no videos'},
+      {id:'live-12', label:'DO NOT GO BACK TO BED / 100% attention 6:30am to 10:15am'},
+      {id:'live-13', label:'Prioritize stocks with news / Only trade stocks on your hot list'},
+      {id:'live-14', label:'Stop trading at 10:00 — hard cut off at 10:30am'},
+      {id:'live-15', label:"If you're working on something — drop it quickly — better to not work on anything at all"},
     ]},
   ],
   post: [
-    { title:'Non-Negotiable', items:[
-      {id:'post-gym',      label:'Gym (train, not max out)'},
-      {id:'post-sauna',    label:'Sauna (parasympathetic downshift)'},
-      {id:'post-shower',   label:'Shower (signal sleep mode)'},
-      {id:'post-mag',      label:'Magnesium before bed'},
-      {id:'post-nofood',   label:'No eating 3 hours before bed'},
-      {id:'post-nocoffee', label:'No coffee 10 hours before bed'},
-      {id:'post-noblue',   label:'No blue light 2 hours before bed'},
-      {id:'post-wakeup',   label:'Set wake-up time aligned with premarket'},
-      {id:'post-bed',      label:'In bed by 11:30 PM'},
-      {id:'post-sleep',    label:'Sleep'},
+    { title:'Post Session', items:[
+      {id:'post-1', label:'Journal missed trades — Screenshots + analysis'},
+      {id:'post-2', label:'Journal all current trades'},
+      {id:'post-3', label:'Ensure all scripts running optimally — fix bugs'},
+      {id:'post-4', label:'Hit trading journal fill hotkeys: 1 Numb pad mult, 2 Numb pad div, 3 Pause Break'},
+      {id:'post-5', label:'Track if you actually improved on the list of improvements you made the night before'},
+      {id:'post-6', label:'Make sure you\'re tiring yourself out throughout the day'},
+      {id:'post-7', label:'Take a break from trading before looking at it again — before bed'},
     ]},
-    { title:'Trading Review (Core Only)', items:[
-      {id:'post-review',      label:"Review today's trades (entries, exits, mistakes, missed trades)"},
-      {id:'post-tag',         label:'Tag mistakes by category (late entry, stop discipline, hesitation, overconfidence)'},
-      {id:'post-screenshot',  label:'Screenshot + save key charts (winners, losers, missed A+ setups)'},
-      {id:'post-rules',       label:'Review rules (what NOT to trade)'},
+  ],
+  bed: [
+    { title:'Pre-Bedtime', items:[
+      {id:'bed-1',  label:'Review all the trades for the day'},
+      {id:'bed-2',  label:'Watch film of every single trade'},
+      {id:'bed-3',  label:'Make a list of what to improve for tomorrow'},
+      {id:'bed-4',  label:'Score if you actually improved it'},
+      {id:'bed-5',  label:'Sauna, magnesium and massage'},
+      {id:'bed-6',  label:'Sleep early — Ideal bed time is by 10:45pm'},
+      {id:'bed-7',  label:'Make sure you exercised throughout the day'},
+      {id:'bed-8',  label:'No food 5 hours before bed'},
+      {id:'bed-9',  label:'No water 3 hours before bed'},
+      {id:'bed-10', label:'No screens 1 hour before bed'},
     ]},
-    { title:'Feedback for Tomorrow', items:[
-      {id:'post-fb-1', label:'What to repeat (add note ↓)'},
-      {id:'post-fb-2', label:'What to improve (add note ↓)'},
-      {id:'post-fb-3', label:'One rule to focus on (add note ↓)'},
-    ]},
-  ]
+  ],
 };
 
 // ── Definition storage ──────────────────────────────────────────
@@ -673,7 +604,7 @@ function resetTab(tab){
 }
 
 // ── Tabs ────────────────────────────────────────────────────────
-const TAB_IDS=['home','presession','live','postsession'];
+const TAB_IDS=['home','presession','live','postsession','bedtime'];
 function switchTab(id){
   TAB_IDS.forEach(t=>{
     document.getElementById(`tab-${t}`).classList.toggle('active',t===id);
@@ -689,7 +620,7 @@ function setDates(){
   const d=new Date();
   const str=d.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   document.getElementById('topbar-date').textContent=str;
-  ['pre','live','post'].forEach(t=>{
+  ['pre','live','post','bed'].forEach(t=>{
     const el=document.getElementById(`${t}-date`);
     if(el)el.textContent=str;
   });
@@ -742,6 +673,7 @@ async function unlock(){
     renderChecklist('pre','pre-checklist');
     renderChecklist('live','live-checklist');
     renderChecklist('post','post-checklist');
+    renderChecklist('bed','bed-checklist');
     const saved=localStorage.getItem('trading-active-tab');
     if(saved&&TAB_IDS.includes(saved))switchTab(saved);
   } else {
