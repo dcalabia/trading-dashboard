@@ -392,46 +392,59 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 
 <script>
 // ── Checklist definitions (defaults + user edits via localStorage) ──
+const CL_VERSION = 3;
 const DEFAULT_CHECKLISTS = {
   pre: [
-    { title:'Pre-Market', items:[
-      {id:'pre-wake',    label:'Wake up by 6:25am / Ensure you went to bed and got 7 hours of sleep'},
-      {id:'pre-record',  label:'Start recording at 6:35:00am exactly everyday consistently'},
-      {id:'pre-review',  label:'Review all trade slides + journal analysis log'},
+    { title:'Pre-market checklist/analysis', items:[
+      {id:'pre-wake',   label:'Wake up by 6:25am — Ensure you went to bed and got 7 hours of sleep'},
+      {id:'pre-record', label:'Start recording at 6:35:00am exactly everyday consistently'},
+      {id:'pre-review', label:'Review all trade slides + journal analysis log'},
     ]},
   ],
   live: [
-    { title:'Live Session', items:[
-      {id:'live-1',  label:'DO NOT CHASE HIGHS — THIS IS MY NUMBER ONE RULE TO FOLLOW'},
-      {id:'live-2',  label:'Let stocks running into highs be your indicator to pay attention'},
-      {id:'live-3',  label:'Only trade micropullbacks that curl back up long bottom wick and are within 2 candles of the opening'},
-      {id:'live-4',  label:'Pay attention to # of missed trades'},
-      {id:'live-5',  label:'DO NOT get distracted by journaling — only journal ticker symbol and arrow + arrow number of graph'},
-      {id:'live-6',  label:'When a stock pops up on your scanner — pay attention to it within 2 seconds'},
-      {id:'live-7',  label:'Trade clean set ups only — Minimum 6/9 and 4/5 score — Clean candlestick pattern — Clean level 2'},
-      {id:'live-8',  label:'Candle patterns: 1 Micropullback, 2 Inverted head and shoulders, 3 Engulfing green candle'},
-      {id:'live-9',  label:'Define your stop loss before going in as well'},
-      {id:'live-10', label:'Trading algorithm: First $63 / Second $125 / Third $250 / Fourth $250+gains / Fifth $250+gains and beyond'},
-      {id:'live-11', label:'Check for blue sky set ups / No multitasking — stay super present — no videos'},
-      {id:'live-12', label:'DO NOT GO BACK TO BED / 100% attention 6:30am to 10:15am'},
-      {id:'live-13', label:'Prioritize stocks with news / Only trade stocks on your hot list'},
-      {id:'live-14', label:'Stop trading at 10:00 — hard cut off at 10:30am'},
-      {id:'live-15', label:"If you're working on something — drop it quickly — better to not work on anything at all"},
+    { title:'Rules', items:[
+      {id:'live-1', label:'DO NOT CHASE HIGHS — THIS IS MY NUMBER ONE RULE TO FOLLOW'},
+      {id:'live-2', label:'Let stocks running into highs be your indicator to pay attention'},
+      {id:'live-3', label:'Only trade micropullbacks that curl back up long bottom wick and are within 2 candles of the opening'},
+      {id:'live-4', label:'Pay attention to # of missed trades — if they had many opportunities before, they\'ll have more before market opens'},
+      {id:'live-5', label:'DO NOT get distracted by journaling — only journal ticker symbol and arrow + arrow number of graph'},
+    ]},
+    { title:'Scanner', items:[
+      {id:'live-6', label:'When a stock pops up on your scanner — pay attention to it within 2 seconds'},
+    ]},
+    { title:'Set Up Criteria', items:[
+      {id:'live-7', label:'Trade clean set ups only — Minimum 6/9 and 4/5 score — Clean candlestick pattern — Clean level 2'},
+      {id:'live-8', label:'Only trade these candle stick patterns: 1 Micropullback  2 Inverted head and shoulders  3 Engulfing green candle'},
+      {id:'live-9', label:'Define your stop loss before going in as well'},
+    ]},
+    { title:'Trading Algorithm', items:[
+      {id:'live-10', label:'First trade: $63'},
+      {id:'live-11', label:'Second trade: $125'},
+      {id:'live-12', label:'Third trade: $250'},
+      {id:'live-13', label:'Fourth trade: $250 + gains'},
+      {id:'live-14', label:'Fifth trade: $250 + gains and beyond'},
+    ]},
+    { title:'Environment', items:[
+      {id:'live-15', label:'Check for blue sky set ups — No multitasking — stay super present — no videos'},
+      {id:'live-16', label:'DO NOT GO BACK TO BED — 100% attention in the market from 6:30am to 10:15am'},
+      {id:'live-17', label:'Prioritize stocks with news — Only trade stocks on your hot list'},
+      {id:'live-18', label:'Stop trading at 10:00 — hard cut off at 10:30am'},
+      {id:'live-19', label:"If you're working on something — make sure that you drop whatever you're doing quickly — better to not work on anything at all"},
     ]},
   ],
   post: [
-    { title:'Post Session', items:[
-      {id:'post-1', label:'Journal missed trades — Screenshots + analysis'},
+    { title:'Post session (immediately after) / post-nap afternoon checklist/analysis', items:[
+      {id:'post-1', label:'Journal missed trades — Screenshots + analysis — Activate Trade Marker indicator on Trading View'},
       {id:'post-2', label:'Journal all current trades'},
-      {id:'post-3', label:'Ensure all scripts running optimally — fix bugs'},
-      {id:'post-4', label:'Hit trading journal fill hotkeys: 1 Numb pad mult, 2 Numb pad div, 3 Pause Break'},
+      {id:'post-3', label:'Ensure all of your scripts are running optimally — chance to fix bugs in the code — since market is still open'},
+      {id:'post-4', label:'Hit all of your trading journal fill hotkeys: 1 Numb pad mult  2 Numb pad div  3 Pause Break'},
       {id:'post-5', label:'Track if you actually improved on the list of improvements you made the night before'},
-      {id:'post-6', label:'Make sure you\'re tiring yourself out throughout the day'},
+      {id:'post-6', label:'Make sure you\'re tiring yourself out throughout the day :)'},
       {id:'post-7', label:'Take a break from trading before looking at it again — before bed'},
     ]},
   ],
   bed: [
-    { title:'Pre-Bedtime', items:[
+    { title:'Pre-bedtime checklist/analysis', items:[
       {id:'bed-1',  label:'Review all the trades for the day'},
       {id:'bed-2',  label:'Watch film of every single trade'},
       {id:'bed-3',  label:'Make a list of what to improve for tomorrow'},
@@ -455,7 +468,13 @@ function saveDefs(){
   try{localStorage.setItem('trading-cl-defs',JSON.stringify(CL_DEFS));}catch(e){}
 }
 function initDefs(){
-  CL_DEFS = loadDefs() || JSON.parse(JSON.stringify(DEFAULT_CHECKLISTS));
+  const saved = loadDefs();
+  const savedVer = saved ? (localStorage.getItem('trading-cl-ver')||0) : 0;
+  if(saved && +savedVer === CL_VERSION){ CL_DEFS = saved; }
+  else{
+    CL_DEFS = JSON.parse(JSON.stringify(DEFAULT_CHECKLISTS));
+    try{ localStorage.setItem('trading-cl-ver', CL_VERSION); }catch(e){}
+  }
 }
 
 // ── Storage helpers ─────────────────────────────────────────────
