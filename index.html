@@ -297,10 +297,15 @@ tr:hover td{background:rgba(255,255,255,0.025)}
   <div style="overflow-x:auto">
   <table>
     <thead>
-      <tr>
-        <th>Date</th><th>Ticker</th><th>Buy</th>
-        <th>Sell</th><th>Shares</th>
-        <th>P&L $</th><th>P&L %</th><th>Result</th>
+      <tr id="trades-thead">
+        <th onclick="sortTrades('date')"    style="cursor:pointer">Date <span id="sort-date">▼</span></th>
+        <th onclick="sortTrades('ticker')"  style="cursor:pointer">Ticker <span id="sort-ticker"></span></th>
+        <th onclick="sortTrades('buy')"     style="cursor:pointer">Buy <span id="sort-buy"></span></th>
+        <th onclick="sortTrades('sell')"    style="cursor:pointer">Sell <span id="sort-sell"></span></th>
+        <th onclick="sortTrades('shares')"  style="cursor:pointer">Shares <span id="sort-shares"></span></th>
+        <th onclick="sortTrades('pnl')"     style="cursor:pointer">P&L $ <span id="sort-pnl"></span></th>
+        <th onclick="sortTrades('pct')"     style="cursor:pointer">P&L % <span id="sort-pct"></span></th>
+        <th onclick="sortTrades('result')"  style="cursor:pointer">Result <span id="sort-result"></span></th>
       </tr>
     </thead>
     <tbody id="trades-tbody"></tbody>
@@ -917,6 +922,43 @@ function renderPnlSummary(s){
 }
 
 // ── Render trades table ─────────────────────────────────────────
+let _sortCol = 'date', _sortAsc = false;
+
+function sortTrades(col){
+  if(_sortCol === col){ _sortAsc = !_sortAsc; }
+  else { _sortCol = col; _sortAsc = col === 'ticker' || col === 'result'; }
+  ['date','ticker','buy','sell','shares','pnl','pct','result'].forEach(c=>{
+    const el = document.getElementById('sort-'+c);
+    if(el) el.textContent = c===_sortCol ? (_sortAsc?'▲':'▼') : '';
+  });
+  const period = localStorage.getItem('trading-active-tab') || 'home';
+  const trades = getFilteredTrades(period);
+  renderTradesTable(trades, period==='home'?'all':period);
+}
+
+function getFilteredTrades(period){
+  const sel = document.getElementById('period-select');
+  const val = sel ? sel.value : 'all';
+  let trades = val==='all' ? ALL_TRADES : ALL_TRADES.filter(t=>{
+    const type = val.length===7?'month':'week';
+    return type==='month'?t.date.slice(0,7)===val:weekKey(t.date)===val;
+  });
+  return trades.slice().sort((a,b)=>{
+    let av, bv;
+    if(_sortCol==='date')   { av=a.date; bv=b.date; }
+    else if(_sortCol==='ticker') { av=a.ticker; bv=b.ticker; }
+    else if(_sortCol==='buy')    { av=a.buy;  bv=b.buy; }
+    else if(_sortCol==='sell')   { av=a.sell; bv=b.sell; }
+    else if(_sortCol==='shares') { av=a.shares; bv=b.shares; }
+    else if(_sortCol==='pnl')    { av=a.pnl;  bv=b.pnl; }
+    else if(_sortCol==='pct')    { av=a.pnl/a.buy; bv=b.pnl/b.buy; }
+    else if(_sortCol==='result') { av=a.result; bv=b.result; }
+    if(av<bv) return _sortAsc?-1:1;
+    if(av>bv) return _sortAsc?1:-1;
+    return 0;
+  });
+}
+
 function renderTradesTable(trades, period){
   const label = period==='all'?'Recent Trades':'Trades';
   document.getElementById('trades-panel-title').textContent=label;
