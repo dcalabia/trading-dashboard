@@ -717,7 +717,8 @@ async function unlock(){
     const saved=localStorage.getItem('trading-active-tab');
     if(saved&&TAB_IDS.includes(saved))switchTab(saved);
 
-    // Auto-sync every 5 minutes
+    // Sync immediately on load, then every 5 minutes
+    syncSupabase();
     setInterval(syncSupabase, 5 * 60 * 1000);
 
     // Re-sync when tab becomes visible again
@@ -741,7 +742,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 async function loadSupabaseTrades() {
   try {
     const resp = await fetch(
-      `${SUPABASE_URL}/rest/v1/trades?select=*&order=buy_time.asc`,
+      `${SUPABASE_URL}/rest/v1/trades?select=*&order=trade_date.asc,buy_time.asc&limit=10000`,
       { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
     );
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
