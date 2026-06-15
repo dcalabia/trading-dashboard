@@ -135,11 +135,12 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 .cl-note-textarea:focus{border-color:var(--blue)}
 .cl-note-textarea::placeholder{color:var(--muted)}
 .cl-edit-inp{flex:1;background:transparent;border:none;border-bottom:1px solid var(--accent);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;padding:0 2px;line-height:1.4}
-.cl-add-row{padding:4px 14px 8px}
-.cl-add-inp{width:100%;background:transparent;border:none;border-bottom:1px dashed var(--border);color:var(--muted);font-family:'Inter',sans-serif;font-size:12px;padding:5px 0;outline:none;transition:border-color .15s}
-.cl-add-inp:focus{border-bottom-color:var(--accent);color:var(--text)}
-.cl-add-inp::placeholder{color:var(--border)}
-.cl-add-inp:focus::placeholder{color:var(--muted)}
+.cl-add-row{padding:6px 14px 10px;display:flex;gap:6px;align-items:center}
+.cl-add-inp{flex:1;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:7px 10px;outline:none;transition:border-color .15s}
+.cl-add-inp:focus{border-color:var(--accent)}
+.cl-add-inp::placeholder{color:var(--muted)}
+.cl-add-btn{background:var(--accent);border:none;border-radius:6px;color:#0b1120;font-size:18px;font-weight:700;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .15s}
+.cl-add-btn:hover{opacity:.8}
 .cl-add-sec-btn{width:100%;background:transparent;border:1px dashed var(--border);border-radius:6px;color:var(--muted);font-family:'Inter',sans-serif;font-size:12px;padding:9px;cursor:pointer;margin-top:4px;margin-bottom:16px;transition:all .15s}
 .cl-add-sec-btn:hover{border-color:var(--accent);color:var(--accent)}
 </style>
@@ -528,7 +529,8 @@ function renderChecklist(tab, containerId){
       </div>`;
     });
     html+=`<div class="cl-add-row">
-      <input class="cl-add-inp" placeholder="+ Add item…" onkeydown="if(event.key==='Enter'&&this.value.trim()){addItem('${tab}',${si},this.value.trim());this.value='';}">
+      <input class="cl-add-inp" id="add-inp-${tab}-${si}" placeholder="Add item…" onkeydown="if(event.key==='Enter'&&this.value.trim()){addItem('${tab}',${si},this.value.trim());this.value='';}">
+      <button class="cl-add-btn" onclick="(function(){const inp=document.getElementById('add-inp-${tab}-${si}');if(inp&&inp.value.trim()){addItem('${tab}',${si},inp.value.trim());inp.value='';}})()">+</button>
     </div></div>`;
   });
   html+=`<button class="cl-add-sec-btn" onclick="addSection('${tab}')">+ Add section</button>`;
