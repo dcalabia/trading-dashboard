@@ -180,10 +180,12 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 <div class="main">
 
 <!-- Period selector -->
-<div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap">
   <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;white-space:nowrap">Viewing period</div>
-  <select id="period-select" onchange="setPeriod(this.value)" style="background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:7px 12px;outline:none;cursor:pointer;flex:0 0 auto;min-width:200px">
+  <select id="period-select" onchange="onMonthSelect(this.value)" style="background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:7px 12px;outline:none;cursor:pointer;min-width:180px">
     <option value="all">All Time</option>
+  </select>
+  <select id="week-select" onchange="setPeriod(this.value)" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:7px 12px;outline:none;cursor:pointer;min-width:180px">
   </select>
   <div id="period-label" style="font-size:11px;color:var(--muted)"></div>
 </div>
@@ -694,8 +696,20 @@ async function unlock(){
     initDefs();
     buildPeriodSelect();
     const savedPeriod = localStorage.getItem('trading-period')||'all';
-    document.getElementById('period-select').value = savedPeriod;
-    setPeriod(savedPeriod);
+    if(savedPeriod.startsWith('month:')){
+      document.getElementById('period-select').value = savedPeriod;
+      onMonthSelect(savedPeriod);
+    } else if(savedPeriod.startsWith('week:')){
+      // restore month dropdown to the right month, then select the week
+      const weekDate = savedPeriod.split(':')[1];
+      const month = weekDate.slice(0,7);
+      document.getElementById('period-select').value = `month:${month}`;
+      onMonthSelect(`month:${month}`);
+      document.getElementById('week-select').value = savedPeriod;
+      setPeriod(savedPeriod);
+    } else {
+      setPeriod('all');
+    }
     renderChecklist('pre','pre-checklist');
     renderChecklist('live','live-checklist');
     renderChecklist('post','post-checklist');
@@ -780,8 +794,12 @@ async function syncSupabase(){
     badge.style.border='1px solid #1e6020';
     badge.textContent=`● Live · ${t}`;
   }
+  buildPeriodSelect();
   const sel = document.getElementById('period-select');
-  if(sel) setPeriod(sel.value);
+  const wsel = document.getElementById('week-select');
+  const activePeriod = (wsel && wsel.style.display!=='none' && wsel.value) ? wsel.value : (sel ? sel.value : 'all');
+  if(sel && sel.value.startsWith('month:')) onMonthSelect(sel.value);
+  else setPeriod(activePeriod);
 }
 
 // ── Trade & daily data (fallback hardcoded) ──────────────────────
@@ -851,16 +869,29 @@ function colorClass(v){return v>0?'green':v<0?'red':'';}
 function buildPeriodSelect(){
   const sel = document.getElementById('period-select');
   const months=[...new Set(DAILY_DATA.map(d=>d.month))].sort().reverse();
-  const weeks=[...new Set(DAILY_DATA.map(d=>d.week))].sort().reverse();
-
   let html='<option value="all">All Time</option>';
-  html+='<optgroup label="─── Monthly ───">';
   months.forEach(m=>{ html+=`<option value="month:${m}">${monthLabel(m)}</option>`; });
-  html+='</optgroup>';
-  html+='<optgroup label="─── Weekly ───">';
-  weeks.forEach(w=>{ html+=`<option value="week:${w}">${weekLabel(w)}</option>`; });
-  html+='</optgroup>';
   sel.innerHTML=html;
+  document.getElementById('week-select').style.display='none';
+}
+
+function onMonthSelect(val){
+  const weekSel = document.getElementById('week-select');
+  if(val==='all' || !val.startsWith('month:')){
+    weekSel.style.display='none';
+    setPeriod(val);
+    return;
+  }
+  const month = val.split(':')[1];
+  const weeks=[...new Set(
+    DAILY_DATA.filter(d=>d.month===month).map(d=>d.week)
+  )].sort().reverse();
+  let html=`<option value="month:${month}">All of ${monthLabel(month)}</option>`;
+  weeks.forEach(w=>{ html+=`<option value="week:${w}">${weekLabel(w)}</option>`; });
+  weekSel.innerHTML=html;
+  weekSel.style.display='';
+  weekSel.value=`month:${month}`;
+  setPeriod(`month:${month}`);
 }
 
 // ── Filter data by period ───────────────────────────────────────
