@@ -700,6 +700,18 @@ async function unlock(){
     renderChecklist('bed','bed-checklist');
     const saved=localStorage.getItem('trading-active-tab');
     if(saved&&TAB_IDS.includes(saved))switchTab(saved);
+
+    // Auto-sync every 5 minutes
+    setInterval(syncSupabase, 5 * 60 * 1000);
+
+    // Re-sync when tab becomes visible again
+    document.addEventListener('visibilitychange', () => {
+      if(document.visibilityState === 'visible') syncSupabase();
+    });
+
+    // Final sync attempt before close
+    window.addEventListener('beforeunload', () => { syncSupabase(); });
+
   } else {
     document.getElementById('pw-err').textContent='Incorrect password.';
     document.getElementById('pw').value='';
@@ -743,6 +755,31 @@ async function loadSupabaseTrades() {
     console.warn('Supabase fetch failed, using hardcoded data:', e);
     return null;
   }
+}
+
+async function syncSupabase(){
+  const live = await loadSupabaseTrades();
+  if(!live) return;
+  ALL_TRADES = live.trades;
+  DAILY_DATA.length = 0;
+  live.cumData.forEach((d,i)=>{
+    DAILY_DATA.push({
+      date:  d.date,
+      month: d.date.slice(0,7),
+      week:  weekKey(d.date),
+      pnl:   i===0 ? d.cum : +(d.cum - live.cumData[i-1].cum).toFixed(4)
+    });
+  });
+  const badge = document.getElementById('sync-badge');
+  if(badge){
+    const t = new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    badge.style.background='#0d2010';
+    badge.style.color='#00e676';
+    badge.style.border='1px solid #1e6020';
+    badge.textContent=`● Live · ${t}`;
+  }
+  const sel = document.getElementById('period-select');
+  if(sel) setPeriod(sel.value);
 }
 
 // ── Trade & daily data (fallback hardcoded) ──────────────────────
