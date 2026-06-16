@@ -853,6 +853,9 @@ function buildPeriodSelect(){
   const sel = document.getElementById('period-select');
   const months=[...new Set(DAILY_DATA.map(d=>d.month))].sort().reverse();
   let html='<option value="all">All Time</option>';
+  html+='<option value="ytd">Year to Date</option>';
+  html+='<option value="last2w">Last 2 Weeks</option>';
+  html+='<option value="yesterday">Yesterday</option>';
   months.forEach(m=>{ html+=`<option value="month:${m}">${monthLabel(m)}</option>`; });
   sel.innerHTML=html;
   document.getElementById('week-select').style.display='none';
@@ -860,7 +863,7 @@ function buildPeriodSelect(){
 
 function onMonthSelect(val){
   const weekSel = document.getElementById('week-select');
-  if(val==='all' || !val.startsWith('month:')){
+  if(val==='all' || val==='ytd' || val==='last2w' || val==='yesterday' || !val.startsWith('month:')){
     weekSel.style.display='none';
     setPeriod(val);
     return;
@@ -880,11 +883,39 @@ function onMonthSelect(val){
 // ── Filter data by period ───────────────────────────────────────
 function filterDaily(period){
   if(period==='all') return DAILY_DATA;
+  if(period==='ytd'){
+    const yr = new Date().getFullYear().toString();
+    return DAILY_DATA.filter(d=>d.date.startsWith(yr));
+  }
+  if(period==='last2w'){
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-14);
+    const cutStr = cutoff.toISOString().slice(0,10);
+    return DAILY_DATA.filter(d=>d.date>=cutStr);
+  }
+  if(period==='yesterday'){
+    const yest = new Date(); yest.setDate(yest.getDate()-1);
+    const yStr = yest.toISOString().slice(0,10);
+    return DAILY_DATA.filter(d=>d.date===yStr);
+  }
   const [type,key]=period.split(':');
   return DAILY_DATA.filter(d=>type==='month'?d.month===key:d.week===key);
 }
 function filterTrades(period){
   if(period==='all') return ALL_TRADES;
+  if(period==='ytd'){
+    const yr = new Date().getFullYear().toString();
+    return ALL_TRADES.filter(t=>t.date.startsWith(yr));
+  }
+  if(period==='last2w'){
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-14);
+    const cutStr = cutoff.toISOString().slice(0,10);
+    return ALL_TRADES.filter(t=>t.date>=cutStr);
+  }
+  if(period==='yesterday'){
+    const yest = new Date(); yest.setDate(yest.getDate()-1);
+    const yStr = yest.toISOString().slice(0,10);
+    return ALL_TRADES.filter(t=>t.date===yStr);
+  }
   const [type,key]=period.split(':');
   return ALL_TRADES.filter(t=>type==='month'?t.date.slice(0,7)===key:weekKey(t.date)===key);
 }
