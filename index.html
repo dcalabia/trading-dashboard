@@ -856,6 +856,7 @@ function buildPeriodSelect(){
   html+='<option value="ytd">Year to Date</option>';
   html+='<option value="last2w">Last 2 Weeks</option>';
   html+='<option value="yesterday">Yesterday</option>';
+  html+='<option value="today">Today</option>';
   months.forEach(m=>{ html+=`<option value="month:${m}">${monthLabel(m)}</option>`; });
   sel.innerHTML=html;
   document.getElementById('week-select').style.display='none';
@@ -863,7 +864,7 @@ function buildPeriodSelect(){
 
 function onMonthSelect(val){
   const weekSel = document.getElementById('week-select');
-  if(val==='all' || val==='ytd' || val==='last2w' || val==='yesterday' || !val.startsWith('month:')){
+  if(val==='all' || val==='ytd' || val==='last2w' || val==='yesterday' || val==='today' || !val.startsWith('month:')){
     weekSel.style.display='none';
     setPeriod(val);
     return;
@@ -897,6 +898,10 @@ function filterDaily(period){
     const yStr = yest.toISOString().slice(0,10);
     return DAILY_DATA.filter(d=>d.date===yStr);
   }
+  if(period==='today'){
+    const tStr = new Date().toISOString().slice(0,10);
+    return DAILY_DATA.filter(d=>d.date===tStr);
+  }
   const [type,key]=period.split(':');
   return DAILY_DATA.filter(d=>type==='month'?d.month===key:d.week===key);
 }
@@ -915,6 +920,10 @@ function filterTrades(period){
     const yest = new Date(); yest.setDate(yest.getDate()-1);
     const yStr = yest.toISOString().slice(0,10);
     return ALL_TRADES.filter(t=>t.date===yStr);
+  }
+  if(period==='today'){
+    const tStr = new Date().toISOString().slice(0,10);
+    return ALL_TRADES.filter(t=>t.date===tStr);
   }
   const [type,key]=period.split(':');
   return ALL_TRADES.filter(t=>type==='month'?t.date.slice(0,7)===key:weekKey(t.date)===key);
