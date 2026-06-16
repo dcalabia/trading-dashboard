@@ -904,17 +904,6 @@ function computeStats(days, trades, period){
   const bestTrade = trades.length>0 ? Math.max(...trades.map(t=>t.pnl)) : null;
   const worstTrade = trades.length>0 ? Math.min(...trades.map(t=>t.pnl)) : null;
 
-  // for all-time use hardcoded totals since we don't have every trade
-  if(period==='all'){
-    return {
-      totalPnl:0.7149, tradingDays:50, avgDaily:0.01,
-      bestDay:+(Math.max(...days.map(d=>d.pnl))).toFixed(2),
-      worstDay:+(Math.min(...days.map(d=>d.pnl))).toFixed(2),
-      totalTrades:263, wins:129, losses:129,
-      winRate:49.0, avgWin:0.26, avgLoss:-0.25,
-      bestTrade:1.67, worstTrade:-1.91
-    };
-  }
   return {
     totalPnl:+totalPnl.toFixed(2), tradingDays, avgDaily:+avgDaily.toFixed(2),
     bestDay:+bestDay.toFixed(2), worstDay:+worstDay.toFixed(2),
