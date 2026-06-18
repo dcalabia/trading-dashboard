@@ -463,10 +463,19 @@ function saveDefs(){
 function initDefs(){
   const saved = loadDefs();
   const savedVer = saved ? (localStorage.getItem('trading-cl-ver')||0) : 0;
-  if(saved && +savedVer === CL_VERSION){ CL_DEFS = saved; }
-  else{
+  if(saved && +savedVer === CL_VERSION){
+    // Merge: add any tabs that exist in defaults but are missing from saved data
+    const merged = JSON.parse(JSON.stringify(saved));
+    Object.keys(DEFAULT_CHECKLISTS).forEach(tab => {
+      if(!merged[tab]) merged[tab] = JSON.parse(JSON.stringify(DEFAULT_CHECKLISTS[tab]));
+    });
+    CL_DEFS = merged;
+  } else {
     CL_DEFS = JSON.parse(JSON.stringify(DEFAULT_CHECKLISTS));
-    try{ localStorage.setItem('trading-cl-ver', CL_VERSION); }catch(e){}
+    try{
+      localStorage.setItem('trading-cl-ver', CL_VERSION);
+      localStorage.setItem('trading-cl-defs', JSON.stringify(CL_DEFS));
+    }catch(e){}
   }
 }
 
