@@ -534,7 +534,11 @@ function initDefs(){
     });
     CL_DEFS = merged;
   } else {
-    CL_DEFS = JSON.parse(JSON.stringify(DEFAULT_CHECKLISTS));
+    const base = JSON.parse(JSON.stringify(DEFAULT_CHECKLISTS));
+    if(saved){
+      Object.keys(base).forEach(tab => { if(saved[tab]) base[tab] = saved[tab]; });
+    }
+    CL_DEFS = base;
     try{
       localStorage.setItem('trading-cl-ver', CL_VERSION);
       localStorage.setItem('trading-cl-defs', JSON.stringify(CL_DEFS));
