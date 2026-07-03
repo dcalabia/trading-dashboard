@@ -1332,7 +1332,9 @@ function setPeriod(period){
 (function(){
   const LS='hbt-reminders';let open=false;
   function load(){try{return JSON.parse(localStorage.getItem(LS)||'[]')}catch(e){return[]}}
-  function save(a){localStorage.setItem(LS,JSON.stringify(a))}
+  function save(a){localStorage.setItem(LS,JSON.stringify(a));pushRem(a)}
+  async function pushRem(a){try{await fetch(`${SUPABASE_URL}/rest/v1/dashboard_data`,{method:'POST',headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},body:JSON.stringify({key:LS,value:JSON.stringify(a),updated_at:new Date().toISOString()})})}catch(e){}}
+  async function pullRem(){try{const r=await fetch(`${SUPABASE_URL}/rest/v1/dashboard_data?key=eq.${LS}&select=value`,{headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}});const rows=await r.json();if(rows&&rows[0]&&rows[0].value){localStorage.setItem(LS,rows[0].value);render()}}catch(e){}}
   function render(){const a=load();document.getElementById('rem-badge').textContent=a.length;const l=document.getElementById('rem-list');l.innerHTML=a.length?a.map((r,i)=>`<div class="rem-item"><div class="rem-dot"></div><div class="rem-text">${r.replace(/</g,'&lt;')}</div><button class="rem-del" onclick="window._remDel(${i})">✕</button></div>`).join(''):'<div class="rem-empty">No reminders yet</div>'}
   window.toggleRemPanel=function(){open=!open;document.getElementById('rem-panel').style.display=open?'block':'none';document.getElementById('rem-chevron').style.transform=open?'rotate(180deg)':'';if(open)render()};
   window.addReminder=function(){const i=document.getElementById('rem-inp');const v=i.value.trim();if(!v)return;const a=load();a.push(v);save(a);i.value='';render()};
@@ -1340,6 +1342,8 @@ function setPeriod(period){
   const el=document.createElement('div');el.className='rem-float';
   el.innerHTML=`<div class="rem-toggle" onclick="toggleRemPanel()"><span class="rem-toggle-left">📌 Reminders <span class="rem-badge" id="rem-badge">0</span></span><span class="rem-chevron" id="rem-chevron">▼</span></div><div class="rem-panel" id="rem-panel" style="display:none"><div class="rem-list" id="rem-list"></div><div class="rem-add-row"><input class="rem-inp" id="rem-inp" placeholder="Add a reminder…" onkeydown="if(event.key==='Enter')addReminder()"><button class="rem-add-btn" onclick="addReminder()">+</button></div></div>`;
   document.body.appendChild(el);render();
+  pullRem().then(()=>pushRem(load()));setInterval(pullRem,60000);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')pullRem()});
 })();
 </script>
 </body></html>
