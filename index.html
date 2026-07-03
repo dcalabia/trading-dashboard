@@ -336,6 +336,18 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 </div>
 
 <div class="panel" style="margin-bottom:16px">
+  <div class="panel-title">Setup Performance <span style="font-size:9px;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(selected period)</span></div>
+  <div style="overflow-x:auto">
+  <table>
+    <thead>
+      <tr><th>Setup</th><th>Trades</th><th>Win %</th><th>Total P&amp;L</th><th>Avg P&amp;L</th></tr>
+    </thead>
+    <tbody id="setup-tbody"></tbody>
+  </table>
+  </div>
+</div>
+
+<div class="panel" style="margin-bottom:16px">
   <div class="panel-title" id="trades-panel-title">Trades</div>
   <div style="overflow-x:auto">
   <table>
@@ -816,7 +828,9 @@ async function loadSupabaseTrades() {
       sell:   +r.sell_price,
       shares: r.shares,
       pnl:    +r.pnl,
-      result: +r.pnl >= 0 ? 'win' : 'loss'
+      result: +r.pnl >= 0 ? 'win' : 'loss',
+      setup:  r.setup || null,
+      grade:  r.grade || null
     }));
 
     // Build CUM_DATA by grouping daily pnl and computing cumulative sum
@@ -1309,6 +1323,35 @@ function initChart(days, period){
   });
 }
 
+// ── Setup performance panel ─────────────────────────────────────
+function renderSetupPanel(trades){
+  const tb = document.getElementById('setup-tbody');
+  if(!tb) return;
+  const tagged = trades.filter(t=>t.setup);
+  if(!tagged.length){
+    tb.innerHTML='<tr><td colspan="5" style="color:var(--muted);text-align:center;padding:16px">No setup data for this period yet</td></tr>';
+    return;
+  }
+  const groups = {};
+  tagged.forEach(t=>{ (groups[t.setup] = groups[t.setup] || []).push(t); });
+  const rows = Object.entries(groups).map(([setup, ts])=>{
+    const wins  = ts.filter(t=>t.pnl>=0).length;
+    const total = ts.reduce((s,t)=>s+t.pnl,0);
+    return { setup, n:ts.length, winPct:wins/ts.length*100, total, avg:total/ts.length };
+  }).sort((a,b)=>b.n-a.n);
+  const untagged = trades.length - tagged.length;
+  tb.innerHTML = rows.map(r=>{
+    const cls  = r.total>=0?'win':'loss';
+    const wcls = r.winPct>=65?'win':(r.winPct>=50?'be':'loss');
+    return `<tr>
+      <td><b>${r.setup}</b></td><td>${r.n}</td>
+      <td class="${wcls}">${r.winPct.toFixed(0)}%</td>
+      <td class="${cls}">$${(r.total>=0?'+':'')+r.total.toFixed(2)}</td>
+      <td class="${cls}">$${(r.avg>=0?'+':'')+r.avg.toFixed(2)}</td>
+    </tr>`;
+  }).join('') + (untagged?`<tr><td colspan="5" style="color:var(--muted);font-size:11px;padding:6px 10px">${untagged} trade(s) without setup data</td></tr>`:'');
+}
+
 // ── Set period (main entry point) ───────────────────────────────
 function setPeriod(period){
   localStorage.setItem('trading-period', period);
@@ -1318,6 +1361,7 @@ function setPeriod(period){
   renderKPIs(stats, period);
   renderPnlSummary(stats);
   renderTradesTable(trades, period);
+  renderSetupPanel(trades);
   initChart(days, period);
 
   const lbl = document.getElementById('period-label');
