@@ -83,7 +83,18 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .rev-pnl{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700}
 .rev-pnl.win{color:var(--accent)}
 .rev-pnl.loss{color:var(--red)}
-.rev-sub{font-size:12px;color:var(--muted);margin-bottom:14px}
+.rev-sub{font-size:12px;color:var(--muted);margin-bottom:8px}
+.rev-tags{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:12px}
+.rev-tag{background:var(--panel);border:1px solid var(--border);border-radius:12px;color:var(--text);padding:3px 10px;font-size:11px;display:inline-flex;align-items:center;gap:6px}
+.rev-tag b{color:var(--muted);cursor:pointer;font-weight:400}
+.rev-tag b:hover{color:var(--red)}
+.rev-tag.mm-btn{cursor:pointer;color:var(--muted);border-style:dashed}
+.rev-tag.mm-btn.on{color:#ffd54a;border:1px solid #ffd54a;border-style:solid;background:rgba(255,213,74,0.08)}
+.rev-tag-inp{background:transparent;border:1px dashed var(--border);border-radius:12px;color:var(--text);padding:3px 10px;font-size:11px;width:70px}
+.rev-tag-inp:focus{outline:none;border-color:var(--accent);width:120px}
+.rev-date-row.mm{border:1px solid #ffd54a;border-radius:6px}
+.rev-date-row.mm .t{color:#ffd54a}
+.rev-date-row .tags{color:var(--muted);font-size:10px;font-style:normal}
 .rev-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:6px;margin-bottom:12px}
 .rev-cell{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:4px 8px}
 .rev-cell .k{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:1px;white-space:nowrap}
@@ -131,7 +142,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .main{padding:20px 24px}
 
 /* ── Calendar ── */
-.cal-wrap{padding:20px 24px;max-width:1100px}
+.cal-wrap{padding:20px 24px;max-width:1100px;margin:0 auto}
 .cal-nav{display:flex;align-items:center;gap:14px;margin-bottom:20px}
 .cal-nav-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--text);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
 .cal-nav-btn:hover{border-color:var(--accent);color:var(--accent)}
@@ -965,6 +976,7 @@ async function loadSupabaseTrades() {
       score9:      r.score_9 ?? null,
       score5:      r.score_5 ?? null,
       reviewNote:  r.review_note || '',
+      tags:        r.tags ? String(r.tags).split(',').map(s=>s.trim()).filter(Boolean) : [],
       esNote:      r.es_note || null,
       exsNote:     r.exs_note || null,
       improveNote: r.improve_note || null,
@@ -1574,6 +1586,12 @@ function renderReview(){
       <div class="rev-pnl ${t.result}">${(t.pnl>=0?'+':'−')}$${Math.abs(t.pnl).toFixed(2)}</div>
     </div>
     <div class="rev-sub">${t.result==='win'?'Win':'Loss'} · ${pct}% · ${esc(t.date)}</div>
+    <div class="rev-tags" id="rev-tags">
+      <button class="rev-tag mm-btn${(t.tags||[]).includes('MM')?' on':''}" onclick="toggleMM()" title="Money maker — gets a gold border in the date list">★ MM</button>
+      ${(t.tags||[]).filter(x=>x!=='MM').map(x=>
+        `<span class="rev-tag">${esc(x)}<b onclick="removeTag('${esc(x).replace(/'/g,"\\'")}')">✕</b></span>`).join('')}
+      <input class="rev-tag-inp" id="rev-tag-inp" placeholder="+ tag" list="dl-tags">
+    </div>
     <div class="rev-grid">${cells.map(([k,v,f])=>
       k==='Date'
         ? `<div class="rev-cell date-cell" onclick="showCalendar('${esc(v)}')"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`
@@ -1613,6 +1631,20 @@ function renderReview(){
   ta.addEventListener('blur',()=>{
     if((ta.value||'')!==(t.reviewNote||'')) saveReviewNote();
   });
+  // Tag input: Enter adds; datalist of all known tags
+  if(!document.getElementById('dl-tags')){
+    const dl=document.createElement('datalist'); dl.id='dl-tags';
+    document.body.appendChild(dl);
+  }
+  const dl=document.getElementById('dl-tags');
+  dl.innerHTML=[...new Set(ALL_TRADES.flatMap(x=>x.tags||[]))].sort()
+    .map(x=>`<option value="${String(x).replace(/</g,'&lt;')}">`).join('');
+  const ti=document.getElementById('rev-tag-inp');
+  ti.addEventListener('keydown',e=>{
+    e.stopPropagation();
+    if(e.key==='Enter'&&ti.value.trim()) addTag(ti.value.trim());
+  });
+  ti.addEventListener('change',()=>{ if(ti.value.trim()) addTag(ti.value.trim()); });
 
   // Touch/pointer swipe
   const card=document.getElementById('rev-card');
@@ -1697,6 +1729,33 @@ async function patchTradeField(t,payload){
     });
     return r.ok;
   }catch(e){ return false; }
+}
+
+async function saveTags(t,tags){
+  // De-dupe, keep MM first for readability
+  tags=[...new Set(tags)].sort((a,b)=>(a==='MM'?-1:b==='MM'?1:a.localeCompare(b)));
+  const ok=await patchTradeField(t,{tags:tags.join(',')});
+  if(ok){
+    t.tags=tags;
+    const m=ALL_TRADES.find(x=>x.date===t.date&&x.ticker===t.ticker&&x.buyTime===t.buyTime&&x.buy===t.buy);
+    if(m) m.tags=tags;
+  }
+  renderReview();
+}
+function toggleMM(){
+  const t=revTrades()[REV_IDX];
+  const tags=(t.tags||[]).slice();
+  const i=tags.indexOf('MM');
+  if(i>=0) tags.splice(i,1); else tags.push('MM');
+  saveTags(t,tags);
+}
+function addTag(tag){
+  const t=revTrades()[REV_IDX];
+  saveTags(t,(t.tags||[]).concat(tag));
+}
+function removeTag(tag){
+  const t=revTrades()[REV_IDX];
+  saveTags(t,(t.tags||[]).filter(x=>x!==tag));
 }
 
 function ytId(url){
@@ -1814,8 +1873,8 @@ function showDateList(date){
   overlay.onclick=(e)=>{ if(e.target===overlay) overlay.remove(); };
   overlay.innerHTML=`<div class="rev-date-modal">
     <h4>Trades on ${esc(date)}</h4>
-    ${rows.map(({t,i})=>`<div class="rev-date-row${i===REV_IDX?' active':''}" onclick="jumpToTrade(${i})">
-      <span class="t">${esc(t.ticker)} · ${fmtET(t.buyTime)}</span>
+    ${rows.map(({t,i})=>`<div class="rev-date-row${i===REV_IDX?' active':''}${(t.tags||[]).includes('MM')?' mm':''}" onclick="jumpToTrade(${i})">
+      <span class="t">${(t.tags||[]).includes('MM')?'★ ':''}${esc(t.ticker)} · ${fmtET(t.buyTime)}${(t.tags||[]).filter(x=>x!=='MM').length?` <i class="tags">${esc((t.tags||[]).filter(x=>x!=='MM').join(', '))}</i>`:''}</span>
       <span class="p ${t.result}">${(t.pnl>=0?'+':'−')}$${Math.abs(t.pnl).toFixed(2)}</span>
     </div>`).join('')}
   </div>`;
