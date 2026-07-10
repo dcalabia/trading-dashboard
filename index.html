@@ -578,7 +578,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 
 <script>
 // ── Checklist definitions (defaults + user edits via localStorage) ──
-const CL_VERSION = 3;
+const CL_VERSION = 4;
 const DEFAULT_CHECKLISTS = {
   pre: [
     { title:'Pre-market checklist/analysis', items:[
@@ -589,6 +589,7 @@ const DEFAULT_CHECKLISTS = {
   ],
   live: [
     { title:'Rules', items:[
+      {id:'live-0', label:'EXIT DISCIPLINE: the moment price touches my spoken stop, I am OUT on the next tick — no hoping for the bounce. Cut the biggest losers and I\'ll be so good. (Jul 10 commitment)'},
       {id:'live-1', label:'DO NOT CHASE HIGHS — THIS IS MY NUMBER ONE RULE TO FOLLOW'},
       {id:'live-2', label:'Let stocks running into highs be your indicator to pay attention'},
       {id:'live-3', label:'Only trade micropullbacks that curl back up long bottom wick and are within 2 candles of the opening'},
@@ -664,9 +665,27 @@ function initDefs(){
     });
     CL_DEFS = merged;
   } else {
+    // Version bump: keep the user's saved lists, but inject any NEW
+    // default items (matched by id) into their default positions
     const base = JSON.parse(JSON.stringify(DEFAULT_CHECKLISTS));
     if(saved){
-      Object.keys(base).forEach(tab => { if(saved[tab]) base[tab] = saved[tab]; });
+      Object.keys(base).forEach(tab => {
+        if(!saved[tab]) return;
+        const kept = JSON.parse(JSON.stringify(saved[tab]));
+        const have = new Set(kept.flatMap(s=>s.items.map(it=>it.id)));
+        base[tab].forEach((defSec,si)=>{
+          const missing = defSec.items.filter(it=>!have.has(it.id));
+          if(!missing.length) return;
+          const target = kept.find(s=>s.title===defSec.title) || kept[Math.min(si,kept.length-1)];
+          if(target){
+            missing.forEach(it=>{
+              const pos = defSec.items.indexOf(it);
+              target.items.splice(Math.min(pos,target.items.length),0,it);
+            });
+          } else kept.push({title:defSec.title,items:missing});
+        });
+        base[tab]=kept;
+      });
     }
     CL_DEFS = base;
     try{
