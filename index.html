@@ -46,6 +46,38 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .tab-pane{display:none}
 .tab-pane.active{display:block}
 
+/* Review tab — swipeable trade cards */
+.rev-wrap{max-width:860px;margin:24px auto;padding:0 16px}
+.rev-topline{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.rev-pos{font-size:12px;color:var(--muted);letter-spacing:1px}
+.rev-nav-btns{display:flex;gap:8px}
+.rev-nav-btn{background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);width:38px;height:32px;font-size:15px;cursor:pointer}
+.rev-nav-btn:hover{border-color:var(--accent);color:var(--accent)}
+.rev-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;user-select:none;touch-action:pan-y}
+.rev-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px}
+.rev-ticker{font-family:'Barlow Condensed',sans-serif;font-size:34px;font-weight:700;letter-spacing:1px}
+.rev-pnl{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700}
+.rev-pnl.win{color:var(--accent)}
+.rev-pnl.loss{color:var(--red)}
+.rev-sub{font-size:12px;color:var(--muted);margin-bottom:14px}
+.rev-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.rev-cell{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px 10px}
+.rev-cell .k{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px}
+.rev-cell .v{font-size:13px;font-weight:600}
+.rev-notes{margin-bottom:14px}
+.rev-note{background:var(--panel);border-left:3px solid var(--border);border-radius:0 6px 6px 0;padding:8px 12px;margin-bottom:6px;font-size:12px;line-height:1.5}
+.rev-note b{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:2px}
+.rev-note.es{border-left-color:var(--accent)}
+.rev-note.exs{border-left-color:var(--blue)}
+.rev-note.imp{border-left-color:var(--yellow)}
+.rev-chart{width:100%;border-radius:8px;border:1px solid var(--border);display:block}
+.rev-nochart{padding:32px;text-align:center;color:var(--muted);font-size:12px;background:var(--panel);border-radius:8px;border:1px dashed var(--border)}
+@media(max-width:900px){
+  .rev-grid{grid-template-columns:repeat(2,1fr)}
+  .rev-ticker{font-size:26px}
+  .rev-pnl{font-size:22px}
+}
+
 .main{padding:20px 24px}
 
 /* ── Calendar ── */
@@ -213,6 +245,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
   <button class="tab-btn" onclick="switchTab('live')">Live Session</button>
   <button class="tab-btn" onclick="switchTab('postsession')">Post-Session</button>
   <button class="tab-btn" onclick="switchTab('bedtime')">Bedtime</button>
+  <button class="tab-btn" onclick="switchTab('review')">Review</button>
 </div>
 
 <!-- HOME TAB -->
@@ -454,6 +487,20 @@ tr:hover td{background:rgba(255,255,255,0.025)}
   </div>
   <div id="bed-checklist"></div>
 </div>
+</div>
+
+<!-- REVIEW TAB — swipeable trade cards -->
+<div class="tab-pane" id="tab-review">
+  <div class="rev-wrap">
+    <div class="rev-topline">
+      <div class="rev-pos" id="rev-pos">— / —</div>
+      <div class="rev-nav-btns">
+        <button class="rev-nav-btn" onclick="revNav(-1)">←</button>
+        <button class="rev-nav-btn" onclick="revNav(1)">→</button>
+      </div>
+    </div>
+    <div id="rev-card-holder"></div>
+  </div>
 </div>
 
 </div><!-- end dashboard -->
@@ -710,7 +757,7 @@ function resetTab(tab){
 }
 
 // ── Tabs ────────────────────────────────────────────────────────
-const TAB_IDS=['home','calendar','presession','live','postsession','bedtime'];
+const TAB_IDS=['home','calendar','presession','live','postsession','bedtime','review'];
 function switchTab(id){
   TAB_IDS.forEach(t=>{
     document.getElementById(`tab-${t}`).classList.toggle('active',t===id);
@@ -720,6 +767,7 @@ function switchTab(id){
   });
   localStorage.setItem('trading-active-tab',id);
   if(id==='calendar') renderCalendar();
+  if(id==='review') renderReview();
 }
 
 // ── Date display ────────────────────────────────────────────────
@@ -830,7 +878,15 @@ async function loadSupabaseTrades() {
       pnl:    +r.pnl,
       result: +r.pnl >= 0 ? 'win' : 'loss',
       setup:  r.setup || null,
-      grade:  r.grade || null
+      grade:  r.grade || null,
+      buyTime:     r.buy_time || null,
+      sellTime:    r.sell_time || null,
+      entryScore:  r.entry_score || null,
+      exitScore:   r.exit_score || null,
+      esNote:      r.es_note || null,
+      exsNote:     r.exs_note || null,
+      improveNote: r.improve_note || null,
+      chart:       r.chart_url || null
     }));
 
     // Build CUM_DATA by grouping daily pnl and computing cumulative sum
@@ -1371,6 +1427,101 @@ function setPeriod(period){
     lbl.textContent=(type==='month'?monthLabel(key):weekLabel(key))+' · '+days.length+' trading day'+(days.length!==1?'s':'');
   }
 }
+
+// ── Review tab — swipeable trade cards ──────────────────────────
+let REV_IDX = 0;
+
+function revTrades(){
+  // Same period scope as everything else; most recent day first,
+  // chronological within each day
+  const trades = getFilteredTrades('review');
+  return trades.slice().sort((a,b)=>{
+    if(a.date!==b.date) return a.date<b.date?1:-1;
+    const at=a.buyTime||'', bt=b.buyTime||'';
+    return at<bt?-1:(at>bt?1:0);
+  });
+}
+
+function fmtET(iso){
+  if(!iso) return '—';
+  try{
+    return new Date(iso).toLocaleTimeString('en-US',
+      {timeZone:'America/New_York',hour:'numeric',minute:'2-digit',second:'2-digit'});
+  }catch(e){ return '—'; }
+}
+
+function renderReview(){
+  const trades = revTrades();
+  const holder = document.getElementById('rev-card-holder');
+  if(!trades.length){
+    document.getElementById('rev-pos').textContent='0 / 0';
+    holder.innerHTML='<div class="rev-nochart">No trades for this period</div>';
+    return;
+  }
+  if(REV_IDX>=trades.length) REV_IDX=trades.length-1;
+  if(REV_IDX<0) REV_IDX=0;
+  const t = trades[REV_IDX];
+  document.getElementById('rev-pos').textContent=`${REV_IDX+1} / ${trades.length}`;
+  const pct=((t.pnl/t.buy)*100).toFixed(2);
+  const cells=[
+    ['Date', t.date],
+    ['Buy → Sell', fmtET(t.buyTime)+' → '+fmtET(t.sellTime)],
+    ['Prices', '$'+t.buy.toFixed(2)+' → $'+t.sell.toFixed(2)],
+    ['Shares', t.shares],
+    ['Setup', t.setup||'—'],
+    ['Grade', t.grade||'—'],
+    ['Entry score', t.entryScore||'—'],
+    ['Exit score', t.exitScore||'—'],
+  ];
+  const notes=[];
+  if(t.esNote)      notes.push(['es','Entry',t.esNote]);
+  if(t.exsNote)     notes.push(['exs','Exit',t.exsNote]);
+  if(t.improveNote) notes.push(['imp','To improve',t.improveNote]);
+  const esc=s=>String(s).replace(/</g,'&lt;');
+  holder.innerHTML=`<div class="rev-card" id="rev-card">
+    <div class="rev-head">
+      <div class="rev-ticker">${esc(t.ticker)}</div>
+      <div class="rev-pnl ${t.result}">${(t.pnl>=0?'+':'−')}$${Math.abs(t.pnl).toFixed(2)}</div>
+    </div>
+    <div class="rev-sub">${t.result==='win'?'Win':'Loss'} · ${pct}% · ${esc(t.date)}</div>
+    <div class="rev-grid">${cells.map(([k,v])=>
+      `<div class="rev-cell"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`).join('')}</div>
+    ${notes.length?`<div class="rev-notes">${notes.map(([c,k,v])=>
+      `<div class="rev-note ${c}"><b>${k}</b>${esc(v)}</div>`).join('')}</div>`:''}
+    ${t.chart
+      ? `<img class="rev-chart" loading="lazy" src="${esc(t.chart)}" alt="chart">`
+      : '<div class="rev-nochart">No chart screenshot for this trade</div>'}
+  </div>`;
+
+  // Touch/pointer swipe
+  const card=document.getElementById('rev-card');
+  let px=null;
+  card.addEventListener('pointerdown',e=>{px=e.clientX;});
+  card.addEventListener('pointerup',e=>{
+    if(px===null)return;
+    const dx=e.clientX-px; px=null;
+    if(dx>50) revNav(-1);
+    else if(dx<-50) revNav(1);
+  });
+}
+
+function revNav(dir){
+  const n = revTrades().length;
+  if(!n) return;
+  REV_IDX = Math.min(Math.max(REV_IDX+dir,0),n-1);
+  renderReview();
+}
+
+// Arrow keys — only when Review tab is active and focus isn't in
+// an input (so it never fights the table sort or checklist fields)
+document.addEventListener('keydown',e=>{
+  const pane=document.getElementById('tab-review');
+  if(!pane||!pane.classList.contains('active'))return;
+  const tag=(e.target.tagName||'').toLowerCase();
+  if(tag==='input'||tag==='textarea'||tag==='select')return;
+  if(e.key==='ArrowLeft') revNav(-1);
+  else if(e.key==='ArrowRight') revNav(1);
+});
 </script>
 <script>
 (function(){
