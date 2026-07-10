@@ -46,8 +46,27 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .tab-pane{display:none}
 .tab-pane.active{display:block}
 
+/* Checklists tab — collapsible sections */
+.cl-acc{max-width:900px;margin:14px auto;padding:0 16px}
+.cl-acc-hdr{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 16px;cursor:pointer;user-select:none}
+.cl-acc-hdr:hover{border-color:var(--accent)}
+.cl-acc-title{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+.cl-acc-arrow{color:var(--muted);font-size:13px;transition:transform .15s}
+.cl-acc.open .cl-acc-arrow{transform:rotate(90deg)}
+.cl-acc-body{display:none}
+.cl-acc.open .cl-acc-body{display:block}
+
 /* Review tab — swipeable trade cards */
-.rev-wrap{max-width:860px;margin:24px auto;padding:0 16px}
+.rev-wrap{max-width:1400px;margin:24px auto;padding:0 16px}
+.rev-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,420px);gap:14px;align-items:stretch}
+.rev-body-notes{display:flex;flex-direction:column}
+.rev-notes-hdr{display:flex;justify-content:space-between;align-items:baseline;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+.rev-notes-status{text-transform:none;letter-spacing:0;color:var(--accent)}
+.rev-notes-ta{flex:1;min-height:220px;background:var(--panel);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;line-height:1.6;padding:12px;resize:vertical}
+.rev-notes-ta:focus{outline:none;border-color:var(--accent)}
+.rev-notes-save{margin-top:8px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 0;font-size:12px;cursor:pointer}
+.rev-notes-save:hover{border-color:var(--accent);color:var(--accent)}
+@media(max-width:900px){.rev-body{grid-template-columns:1fr}}
 .rev-topline{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .rev-pos{font-size:12px;color:var(--muted);letter-spacing:1px}
 .rev-nav-btns{display:flex;gap:8px}
@@ -60,7 +79,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .rev-pnl.win{color:var(--accent)}
 .rev-pnl.loss{color:var(--red)}
 .rev-sub{font-size:12px;color:var(--muted);margin-bottom:14px}
-.rev-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.rev-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}
 .rev-cell{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px 10px}
 .rev-cell .k{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px}
 .rev-cell .v{font-size:13px;font-weight:600}
@@ -263,10 +282,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 <div class="tabbar">
   <button class="tab-btn active" onclick="switchTab('home')">Home</button>
   <button class="tab-btn" onclick="switchTab('calendar')">Calendar</button>
-  <button class="tab-btn" onclick="switchTab('presession')">Pre-Session</button>
-  <button class="tab-btn" onclick="switchTab('live')">Live Session</button>
-  <button class="tab-btn" onclick="switchTab('postsession')">Post-Session</button>
-  <button class="tab-btn" onclick="switchTab('bedtime')">Bedtime</button>
+  <button class="tab-btn" onclick="switchTab('checklists')">Checklists</button>
   <button class="tab-btn" onclick="switchTab('review')">Review</button>
 </div>
 
@@ -440,7 +456,11 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 </div>
 
 <!-- PRE-SESSION TAB -->
-<div class="tab-pane" id="tab-presession">
+<div class="tab-pane" id="tab-checklists">
+
+<div class="cl-acc" id="acc-pre">
+<div class="cl-acc-hdr" onclick="toggleAcc('pre')"><span class="cl-acc-arrow">▸</span><span class="cl-acc-title">Pre-Session</span></div>
+<div class="cl-acc-body">
 <div class="cl-page">
   <div class="cl-date-bar">
     <div class="cl-date" id="pre-date"></div>
@@ -456,9 +476,11 @@ tr:hover td{background:rgba(255,255,255,0.025)}
   <div id="pre-checklist"></div>
 </div>
 </div>
+</div>
 
-<!-- LIVE SESSION TAB -->
-<div class="tab-pane" id="tab-live">
+<div class="cl-acc" id="acc-live">
+<div class="cl-acc-hdr" onclick="toggleAcc('live')"><span class="cl-acc-arrow">▸</span><span class="cl-acc-title">Live Session</span></div>
+<div class="cl-acc-body">
 <div class="cl-page">
   <div class="cl-date-bar">
     <div class="cl-date" id="live-date"></div>
@@ -474,9 +496,11 @@ tr:hover td{background:rgba(255,255,255,0.025)}
   <div id="live-checklist"></div>
 </div>
 </div>
+</div>
 
-<!-- POST-SESSION TAB -->
-<div class="tab-pane" id="tab-postsession">
+<div class="cl-acc" id="acc-post">
+<div class="cl-acc-hdr" onclick="toggleAcc('post')"><span class="cl-acc-arrow">▸</span><span class="cl-acc-title">Post-Session</span></div>
+<div class="cl-acc-body">
 <div class="cl-page">
   <div class="cl-date-bar">
     <div class="cl-date" id="post-date"></div>
@@ -492,9 +516,11 @@ tr:hover td{background:rgba(255,255,255,0.025)}
   <div id="post-checklist"></div>
 </div>
 </div>
+</div>
 
-<!-- BEDTIME TAB -->
-<div class="tab-pane" id="tab-bedtime">
+<div class="cl-acc" id="acc-bed">
+<div class="cl-acc-hdr" onclick="toggleAcc('bed')"><span class="cl-acc-arrow">▸</span><span class="cl-acc-title">Bedtime</span></div>
+<div class="cl-acc-body">
 <div class="cl-page">
   <div class="cl-date-bar">
     <div class="cl-date" id="bed-date"></div>
@@ -510,6 +536,9 @@ tr:hover td{background:rgba(255,255,255,0.025)}
   <div id="bed-checklist"></div>
 </div>
 </div>
+</div>
+
+</div><!-- end tab-checklists -->
 
 <!-- REVIEW TAB — swipeable trade cards -->
 <div class="tab-pane" id="tab-review">
@@ -779,7 +808,23 @@ function resetTab(tab){
 }
 
 // ── Tabs ────────────────────────────────────────────────────────
-const TAB_IDS=['home','calendar','presession','live','postsession','bedtime','review'];
+const TAB_IDS=['home','calendar','checklists','review'];
+function toggleAcc(key){
+  const el=document.getElementById(`acc-${key}`);
+  el.classList.toggle('open');
+  const open=['pre','live','post','bed'].filter(k=>
+    document.getElementById(`acc-${k}`).classList.contains('open'));
+  localStorage.setItem('trading-cl-acc-open',JSON.stringify(open));
+}
+function restoreAcc(){
+  let open;
+  try{open=JSON.parse(localStorage.getItem('trading-cl-acc-open')||'null');}catch(e){}
+  if(!Array.isArray(open)) open=['pre'];
+  open.forEach(k=>{
+    const el=document.getElementById(`acc-${k}`);
+    if(el)el.classList.add('open');
+  });
+}
 function switchTab(id){
   TAB_IDS.forEach(t=>{
     document.getElementById(`tab-${t}`).classList.toggle('active',t===id);
@@ -857,7 +902,10 @@ async function init(){
     renderChecklist('live','live-checklist');
     renderChecklist('post','post-checklist');
     renderChecklist('bed','bed-checklist');
-    const saved=localStorage.getItem('trading-active-tab');
+    restoreAcc();
+    let saved=localStorage.getItem('trading-active-tab');
+    // Old per-checklist tab ids now live under the merged tab
+    if(['presession','live','postsession','bedtime'].includes(saved)) saved='checklists';
     if(saved&&TAB_IDS.includes(saved))switchTab(saved);
 
     // Sync immediately on load, then every 5 minutes
@@ -905,6 +953,9 @@ async function loadSupabaseTrades() {
       sellTime:    r.sell_time || null,
       entryScore:  r.entry_score || null,
       exitScore:   r.exit_score || null,
+      score9:      r.score_9 ?? null,
+      score5:      r.score_5 ?? null,
+      reviewNote:  r.review_note || '',
       esNote:      r.es_note || null,
       exsNote:     r.exs_note || null,
       improveNote: r.improve_note || null,
@@ -1453,12 +1504,14 @@ function setPeriod(period){
 // ── Review tab — swipeable trade cards ──────────────────────────
 let REV_IDX = 0;
 
+let REV_INIT = false;
+
 function revTrades(){
-  // Same period scope as everything else; most recent day first,
-  // chronological within each day
+  // Chronological oldest → newest so → (right) moves toward more
+  // recent trades; opens on the most recent trade
   const trades = getFilteredTrades('review');
   return trades.slice().sort((a,b)=>{
-    if(a.date!==b.date) return a.date<b.date?1:-1;
+    if(a.date!==b.date) return a.date<b.date?-1:1;
     const at=a.buyTime||'', bt=b.buyTime||'';
     return at<bt?-1:(at>bt?1:0);
   });
@@ -1480,6 +1533,7 @@ function renderReview(){
     holder.innerHTML='<div class="rev-nochart">No trades for this period</div>';
     return;
   }
+  if(!REV_INIT){ REV_IDX=trades.length-1; REV_INIT=true; }
   if(REV_IDX>=trades.length) REV_IDX=trades.length-1;
   if(REV_IDX<0) REV_IDX=0;
   const t = trades[REV_IDX];
@@ -1494,6 +1548,8 @@ function renderReview(){
     ['Grade', t.grade||'—'],
     ['Entry score', t.entryScore||'—'],
     ['Exit score', t.exitScore||'—'],
+    ['Score /9', t.score9!=null?t.score9:'—'],
+    ['Score /5', t.score5!=null?t.score5:'—'],
   ];
   const notes=[];
   if(t.esNote)      notes.push(['es','Entry',t.esNote]);
@@ -1512,10 +1568,28 @@ function renderReview(){
         : `<div class="rev-cell"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`).join('')}</div>
     ${notes.length?`<div class="rev-notes">${notes.map(([c,k,v])=>
       `<div class="rev-note ${c}"><b>${k}</b>${esc(v)}</div>`).join('')}</div>`:''}
-    ${t.chart
-      ? `<img class="rev-chart" loading="lazy" src="${esc(t.chart)}" alt="chart">`
-      : '<div class="rev-nochart">No chart screenshot for this trade</div>'}
+    <div class="rev-body">
+      <div class="rev-body-chart">${t.chart
+        ? `<img class="rev-chart" loading="lazy" src="${esc(t.chart)}" alt="chart">`
+        : '<div class="rev-nochart">No chart screenshot for this trade</div>'}</div>
+      <div class="rev-body-notes">
+        <div class="rev-notes-hdr"><span>Review notes</span><span class="rev-notes-status" id="rev-notes-status"></span></div>
+        <textarea class="rev-notes-ta" id="rev-notes-ta" placeholder="Jot down your review of this trade…"></textarea>
+        <button class="rev-notes-save" onclick="saveReviewNote()">Save note</button>
+      </div>
+    </div>
   </div>`;
+  const ta=document.getElementById('rev-notes-ta');
+  ta.value=t.reviewNote||'';
+  ta.addEventListener('input',()=>{
+    document.getElementById('rev-notes-status').textContent='unsaved';
+  });
+  ta.addEventListener('keydown',e=>{
+    if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)) saveReviewNote();
+  });
+  ta.addEventListener('blur',()=>{
+    if((ta.value||'')!==(t.reviewNote||'')) saveReviewNote();
+  });
 
   // Touch/pointer swipe
   const card=document.getElementById('rev-card');
@@ -1527,6 +1601,40 @@ function renderReview(){
     if(dx>50) revNav(-1);
     else if(dx<-50) revNav(1);
   });
+}
+
+async function saveReviewNote(){
+  const trades=revTrades();
+  const t=trades[REV_IDX];
+  const ta=document.getElementById('rev-notes-ta');
+  const status=document.getElementById('rev-notes-status');
+  if(!t||!ta) return;
+  const note=ta.value;
+  status.textContent='saving…';
+  // Match the row the same way the fill scripts do: date + ticker
+  // + buy_time when present, else date + ticker + prices
+  let q=`trade_date=eq.${t.date}&ticker=eq.${encodeURIComponent(t.ticker)}`;
+  q += t.buyTime
+    ? `&buy_time=eq.${encodeURIComponent(t.buyTime)}`
+    : `&buy_price=eq.${t.buy}&sell_price=eq.${t.sell}`;
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/trades?${q}`,{
+      method:'PATCH',
+      headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,
+        'Content-Type':'application/json'},
+      body:JSON.stringify({review_note:note})
+    });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    t.reviewNote=note;
+    // Update the master list too so a re-sort doesn't lose it
+    const m=ALL_TRADES.find(x=>x===t||
+      (x.date===t.date&&x.ticker===t.ticker&&x.buyTime===t.buyTime&&x.buy===t.buy));
+    if(m) m.reviewNote=note;
+    status.textContent='saved ✓';
+    setTimeout(()=>{ if(status.textContent==='saved ✓') status.textContent=''; },2000);
+  }catch(e){
+    status.textContent='save failed';
+  }
 }
 
 function revNav(dir){
