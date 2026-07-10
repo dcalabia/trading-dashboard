@@ -67,7 +67,13 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .rev-body-chart .rev-nochart{min-height:380px;display:flex;align-items:center;justify-content:center}
 .rev-notes-hdr{display:flex;justify-content:space-between;align-items:baseline;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
 .rev-notes-status{text-transform:none;letter-spacing:0;color:var(--accent)}
-.rev-notes-ta{flex:1;min-height:380px;background:var(--panel);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;line-height:1.6;padding:12px;resize:vertical}
+.rev-notes-ta{flex:1;min-height:380px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;resize:vertical;
+  /* notebook: ruled lines that scroll with the text + red margin line */
+  line-height:28px;padding:8px 14px 8px 34px;border:1px solid var(--border);border-radius:8px;
+  background:
+    linear-gradient(to right, transparent 26px, rgba(255,99,99,0.35) 26px, rgba(255,99,99,0.35) 27px, transparent 27px),
+    repeating-linear-gradient(var(--panel) 0px, var(--panel) 27px, var(--border) 27px, var(--border) 28px);
+  background-attachment:local,local}
 .rev-notes-ta:focus{outline:none;border-color:var(--accent)}
 .rev-notes-save{margin-top:8px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 0;font-size:12px;cursor:pointer}
 .rev-notes-save:hover{border-color:var(--accent);color:var(--accent)}
@@ -1642,12 +1648,35 @@ function renderReview(){
   const ta=document.getElementById('rev-notes-ta');
   ta.value=t.reviewNote||'';
   ta.addEventListener('input',()=>{
+    // First keystroke into an empty pad starts the first bullet
+    if(ta.value.length===1&&ta.value!=='•'&&ta.value.trim()){
+      ta.value='• '+ta.value;
+      ta.setSelectionRange(ta.value.length,ta.value.length);
+    }
     document.getElementById('rev-notes-status').textContent='unsaved';
   });
   ta.addEventListener('keydown',e=>{
-    if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)) saveReviewNote();
+    if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){ saveReviewNote(); return; }
+    // Notebook bullets: Enter continues the list; Enter on an empty
+    // bullet clears it (standard editor behavior)
+    if(e.key==='Enter'){
+      e.preventDefault();
+      const s=ta.selectionStart;
+      const lineStart=ta.value.lastIndexOf('\n',s-1)+1;
+      const line=ta.value.slice(lineStart,s);
+      if(line.trim()==='•'){
+        ta.setRangeText('',lineStart,s,'start');
+      }else{
+        ta.setRangeText('\n• ',s,ta.selectionEnd,'end');
+      }
+      document.getElementById('rev-notes-status').textContent='unsaved';
+    }
+  });
+  ta.addEventListener('focus',()=>{
+    if(!ta.value.trim()) ta.value='• ';
   });
   ta.addEventListener('blur',()=>{
+    if(ta.value.trim()==='•') ta.value='';  // untouched empty bullet
     if((ta.value||'')!==(t.reviewNote||'')) saveReviewNote();
   });
   // Tag input: Enter adds; datalist of all known tags
