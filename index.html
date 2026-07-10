@@ -84,6 +84,16 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .rev-date-row .t{font-weight:700}
 .rev-date-row .p.win{color:var(--accent)}
 .rev-date-row .p.loss{color:var(--red)}
+.rev-cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.rev-cal-head .m{font-weight:700;font-size:14px}
+.rev-cal-btn{background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);width:28px;height:26px;cursor:pointer;font-size:12px}
+.rev-cal-btn:hover{border-color:var(--accent);color:var(--accent)}
+.rev-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.rev-cal-dow{text-align:center;font-size:10px;color:var(--muted);text-transform:uppercase;padding:4px 0}
+.rev-cal-day{text-align:center;padding:7px 0;font-size:12px;border-radius:6px;color:var(--muted)}
+.rev-cal-day.has{background:var(--panel);border:1px solid var(--border);color:var(--text);font-weight:700;cursor:pointer}
+.rev-cal-day.has:hover{border-color:var(--accent);color:var(--accent)}
+.rev-cal-day.cur{border-color:var(--accent);color:var(--accent)}
 @media(max-width:900px){
   .rev-grid{grid-template-columns:repeat(2,1fr)}
   .rev-ticker{font-size:26px}
@@ -1498,7 +1508,7 @@ function renderReview(){
     <div class="rev-sub">${t.result==='win'?'Win':'Loss'} · ${pct}% · ${esc(t.date)}</div>
     <div class="rev-grid">${cells.map(([k,v])=>
       k==='Date'
-        ? `<div class="rev-cell date-cell" onclick="showDateList('${esc(v)}')"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`
+        ? `<div class="rev-cell date-cell" onclick="showCalendar('${esc(v)}')"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`
         : `<div class="rev-cell"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`).join('')}</div>
     ${notes.length?`<div class="rev-notes">${notes.map(([c,k,v])=>
       `<div class="rev-note ${c}"><b>${k}</b>${esc(v)}</div>`).join('')}</div>`:''}
@@ -1524,6 +1534,51 @@ function revNav(dir){
   if(!n) return;
   REV_IDX = Math.min(Math.max(REV_IDX+dir,0),n-1);
   renderReview();
+}
+
+function showCalendar(date){
+  // Month grid; days with trades are clickable and open the day's trade list
+  const trades = revTrades();
+  const tradeDays = new Set(trades.map(t=>t.date));
+  let [y,m] = date.split('-').map(Number); // m = 1-12
+  const curDate = date;
+
+  const overlay=document.createElement('div');
+  overlay.className='rev-date-overlay';
+  overlay.onclick=(e)=>{ if(e.target===overlay) overlay.remove(); };
+  const modal=document.createElement('div');
+  modal.className='rev-date-modal';
+  overlay.appendChild(modal);
+
+  function draw(){
+    const monthName = new Date(y, m-1, 1).toLocaleString('en-US',{month:'long'});
+    const first = new Date(y, m-1, 1).getDay();
+    const nDays = new Date(y, m, 0).getDate();
+    const dows = ['Su','Mo','Tu','We','Th','Fr','Sa']
+      .map(d=>`<div class="rev-cal-dow">${d}</div>`).join('');
+    let cells='';
+    for(let i=0;i<first;i++) cells+='<div class="rev-cal-day"></div>';
+    for(let d=1;d<=nDays;d++){
+      const iso = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const has = tradeDays.has(iso);
+      const cls = 'rev-cal-day'+(has?' has':'')+(iso===curDate?' cur':'');
+      cells += has
+        ? `<div class="${cls}" data-date="${iso}">${d}</div>`
+        : `<div class="${cls}">${d}</div>`;
+    }
+    modal.innerHTML=`<div class="rev-cal-head">
+      <button class="rev-cal-btn" id="cal-prev">◀</button>
+      <span class="m">${monthName} ${y}</span>
+      <button class="rev-cal-btn" id="cal-next">▶</button>
+    </div><div class="rev-cal-grid">${dows}${cells}</div>`;
+    modal.querySelector('#cal-prev').onclick=()=>{ m--; if(m<1){m=12;y--;} draw(); };
+    modal.querySelector('#cal-next').onclick=()=>{ m++; if(m>12){m=1;y++;} draw(); };
+    modal.querySelectorAll('.rev-cal-day.has').forEach(el=>{
+      el.onclick=()=>{ overlay.remove(); showDateList(el.dataset.date); };
+    });
+  }
+  draw();
+  document.body.appendChild(overlay);
 }
 
 function showDateList(date){
