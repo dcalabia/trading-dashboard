@@ -72,6 +72,18 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .rev-note.imp{border-left-color:var(--yellow)}
 .rev-chart{width:100%;border-radius:8px;border:1px solid var(--border);display:block}
 .rev-nochart{padding:32px;text-align:center;color:var(--muted);font-size:12px;background:var(--panel);border-radius:8px;border:1px dashed var(--border)}
+.rev-cell.date-cell{cursor:pointer}
+.rev-cell.date-cell:hover{border-color:var(--accent)}
+.rev-cell.date-cell .v{text-decoration:underline;text-decoration-style:dotted}
+.rev-date-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:50}
+.rev-date-modal{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;width:320px;max-height:70vh;overflow-y:auto}
+.rev-date-modal h4{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin:0 0 10px}
+.rev-date-row{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;cursor:pointer;background:var(--panel)}
+.rev-date-row:hover{border-color:var(--accent)}
+.rev-date-row.active{border-color:var(--accent)}
+.rev-date-row .t{font-weight:700}
+.rev-date-row .p.win{color:var(--accent)}
+.rev-date-row .p.loss{color:var(--red)}
 @media(max-width:900px){
   .rev-grid{grid-template-columns:repeat(2,1fr)}
   .rev-ticker{font-size:26px}
@@ -1485,7 +1497,9 @@ function renderReview(){
     </div>
     <div class="rev-sub">${t.result==='win'?'Win':'Loss'} · ${pct}% · ${esc(t.date)}</div>
     <div class="rev-grid">${cells.map(([k,v])=>
-      `<div class="rev-cell"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`).join('')}</div>
+      k==='Date'
+        ? `<div class="rev-cell date-cell" onclick="showDateList('${esc(v)}')"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`
+        : `<div class="rev-cell"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`).join('')}</div>
     ${notes.length?`<div class="rev-notes">${notes.map(([c,k,v])=>
       `<div class="rev-note ${c}"><b>${k}</b>${esc(v)}</div>`).join('')}</div>`:''}
     ${t.chart
@@ -1510,6 +1524,30 @@ function revNav(dir){
   if(!n) return;
   REV_IDX = Math.min(Math.max(REV_IDX+dir,0),n-1);
   renderReview();
+}
+
+function showDateList(date){
+  const trades = revTrades();
+  const esc=s=>String(s).replace(/</g,'&lt;');
+  const rows = trades.map((t,i)=>({t,i})).filter(x=>x.t.date===date);
+  const overlay=document.createElement('div');
+  overlay.className='rev-date-overlay';
+  overlay.onclick=(e)=>{ if(e.target===overlay) overlay.remove(); };
+  overlay.innerHTML=`<div class="rev-date-modal">
+    <h4>Trades on ${esc(date)}</h4>
+    ${rows.map(({t,i})=>`<div class="rev-date-row${i===REV_IDX?' active':''}" onclick="jumpToTrade(${i})">
+      <span class="t">${esc(t.ticker)} · ${fmtET(t.buyTime)}</span>
+      <span class="p ${t.result}">${(t.pnl>=0?'+':'−')}$${Math.abs(t.pnl).toFixed(2)}</span>
+    </div>`).join('')}
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+function jumpToTrade(idx){
+  REV_IDX = idx;
+  renderReview();
+  const ov=document.querySelector('.rev-date-overlay');
+  if(ov) ov.remove();
 }
 
 // Arrow keys — only when Review tab is active and focus isn't in
