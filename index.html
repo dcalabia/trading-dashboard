@@ -81,6 +81,10 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .rev-topline{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .rev-pos{font-size:12px;color:var(--muted);letter-spacing:1px}
 .rev-nav-btns{display:flex;gap:8px}
+.rev-filter{background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Inter',sans-serif;font-size:12px;padding:6px 10px;cursor:pointer}
+.rev-filter:focus{outline:none;border-color:var(--accent)}
+.rev-tag.preset{cursor:pointer;color:var(--muted);border-style:dashed;background:transparent}
+.rev-tag.preset.on{color:var(--accent);border:1px solid var(--accent);border-style:solid;background:rgba(0,230,118,0.06)}
 .rev-nav-btn{background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);width:38px;height:32px;font-size:15px;cursor:pointer}
 .rev-nav-btn:hover{border-color:var(--accent);color:var(--accent)}
 .rev-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;user-select:none;touch-action:pan-y}
@@ -573,6 +577,9 @@ tr:hover td{background:rgba(255,255,255,0.025)}
   <div class="rev-wrap">
     <div class="rev-topline">
       <div class="rev-pos" id="rev-pos">— / —</div>
+      <select class="rev-filter" id="rev-filter" onchange="setRevFilter(this.value)">
+        <option value="">All trades</option>
+      </select>
       <div class="rev-nav-btns">
         <button class="rev-nav-btn" onclick="revNav(-1)">←</button>
         <button class="rev-nav-btn" onclick="revNav(1)">→</button>
@@ -1554,16 +1561,30 @@ function setPeriod(period){
 let REV_IDX = 0;
 
 let REV_INIT = false;
+let REV_FILTER = '';
+
+// Preset tags — always offered as one-click toggles on the card.
+// MM stays the special gold one.
+const PRESET_TAGS = ['Winners','Losers','Must Watch','Best Lessons','Potential Future Setup'];
 
 function revTrades(){
   // Chronological oldest → newest so → (right) moves toward more
   // recent trades; opens on the most recent trade
   const trades = getFilteredTrades('review');
-  return trades.slice().sort((a,b)=>{
+  const scoped = REV_FILTER
+    ? trades.filter(t=>(t.tags||[]).includes(REV_FILTER))
+    : trades;
+  return scoped.slice().sort((a,b)=>{
     if(a.date!==b.date) return a.date<b.date?-1:1;
     const at=a.buyTime||'', bt=b.buyTime||'';
     return at<bt?-1:(at>bt?1:0);
   });
+}
+
+function setRevFilter(v){
+  REV_FILTER = v;
+  REV_IDX = revTrades().length - 1;  // land on newest in the filtered set
+  renderReview();
 }
 
 function fmtET(iso){
@@ -1575,6 +1596,17 @@ function fmtET(iso){
 }
 
 function renderReview(){
+  // Filter dropdown: All + MM + presets + any custom tags in use,
+  // with live counts
+  const all = getFilteredTrades('review');
+  const counts = {};
+  all.forEach(t=>(t.tags||[]).forEach(x=>counts[x]=(counts[x]||0)+1));
+  const opts = ['MM',...PRESET_TAGS,
+    ...Object.keys(counts).filter(x=>x!=='MM'&&!PRESET_TAGS.includes(x)).sort()];
+  const sel = document.getElementById('rev-filter');
+  sel.innerHTML = `<option value="">All trades (${all.length})</option>` +
+    opts.map(x=>`<option value="${x}"${x===REV_FILTER?' selected':''}>${x} (${counts[x]||0})</option>`).join('');
+
   const trades = revTrades();
   const holder = document.getElementById('rev-card-holder');
   if(!trades.length){
@@ -1615,7 +1647,9 @@ function renderReview(){
     <div class="rev-sub">${t.result==='win'?'Win':'Loss'} · ${pct}% · ${esc(t.date)}</div>
     <div class="rev-tags" id="rev-tags">
       <button class="rev-tag mm-btn${(t.tags||[]).includes('MM')?' on':''}" onclick="toggleMM()" title="Money maker — gets a gold border in the date list">★ MM</button>
-      ${(t.tags||[]).filter(x=>x!=='MM').map(x=>
+      ${PRESET_TAGS.map(p=>
+        `<button class="rev-tag preset${(t.tags||[]).includes(p)?' on':''}" onclick="toggleTag('${p}')">${p}</button>`).join('')}
+      ${(t.tags||[]).filter(x=>x!=='MM'&&!PRESET_TAGS.includes(x)).map(x=>
         `<span class="rev-tag">${esc(x)}<b onclick="removeTag('${esc(x).replace(/'/g,"\\'")}')">✕</b></span>`).join('')}
       <input class="rev-tag-inp" id="rev-tag-inp" placeholder="+ tag" list="dl-tags">
     </div>
@@ -1792,11 +1826,12 @@ async function saveTags(t,tags){
   }
   renderReview();
 }
-function toggleMM(){
+function toggleMM(){ toggleTag('MM'); }
+function toggleTag(tag){
   const t=revTrades()[REV_IDX];
   const tags=(t.tags||[]).slice();
-  const i=tags.indexOf('MM');
-  if(i>=0) tags.splice(i,1); else tags.push('MM');
+  const i=tags.indexOf(tag);
+  if(i>=0) tags.splice(i,1); else tags.push(tag);
   saveTags(t,tags);
 }
 function addTag(tag){
