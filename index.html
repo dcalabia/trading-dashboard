@@ -101,6 +101,8 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .rev-date-row.mm{border:1px solid #ffd54a;border-radius:6px}
 .rev-date-row.mm .t{color:#ffd54a}
 .rev-date-row .tags{color:var(--muted);font-size:10px;font-style:normal}
+.cal-day.has-trades{cursor:pointer}
+.cal-day.has-trades:hover{border-color:var(--accent)}
 .rev-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:6px;margin-bottom:12px}
 .rev-cell{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:4px 8px}
 .rev-cell .k{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:1px;white-space:nowrap}
@@ -1175,7 +1177,7 @@ function renderCalendar(){
         const pnlStr = d ? `${d.pnl>=0?'+':''}$${d.pnl.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',')}` : '';
         const pnlCls = d ? (d.pnl>=0?'pos':'neg') : '';
         const countStr = d ? `${d.count} trade${d.count===1?'':'s'}` : '';
-        html += `<div class="${cls}">
+        html += `<div class="${cls}"${d?` onclick="showDateList('${cell.dk}')" title="Show trades"`:''}>
           <div class="cal-day-num">${cell.day}</div>
           ${d ? `<div class="cal-day-pnl ${pnlCls}">${pnlStr}</div><div class="cal-day-count">${countStr}</div>` : ''}
         </div>`;
@@ -1931,6 +1933,8 @@ function showDateList(date){
 
 function jumpToTrade(idx){
   REV_IDX = idx;
+  REV_INIT = true;  // don't let first-open "start at newest" clobber the jump
+  switchTab('review');  // works from the Calendar tab too
   renderReview();
   const ov=document.querySelector('.rev-date-overlay');
   if(ov) ov.remove();
