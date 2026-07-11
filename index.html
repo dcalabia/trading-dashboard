@@ -1043,6 +1043,10 @@ async function loadSupabaseTrades() {
       score5:      r.score_5 ?? null,
       reviewNote:  r.review_note || '',
       tags:        r.tags ? String(r.tags).split(',').map(s=>s.trim()).filter(Boolean) : [],
+      timeFound:   r.time_found || null,
+      timeOpened:  r.time_opened || null,
+      timeToOpen:  r.time_to_open || null,
+      timeToExec:  r.time_to_execute || null,
       esNote:      r.es_note || null,
       exsNote:     r.exs_note || null,
       improveNote: r.improve_note || null,
@@ -1665,6 +1669,10 @@ function renderReview(){
     ['Exit score', t.exitScore||'—', 'exit_score'],
     ['Score /9', t.score9!=null?t.score9:'—', 'score_9'],
     ['Score /5', t.score5!=null?t.score5:'—', 'score_5'],
+    ['Time found', t.timeFound||'—', null],
+    ['Time opened', t.timeOpened||'—', null],
+    ['Time to open', t.timeToOpen||'—', null],
+    ['Time to execute', t.timeToExec||'—', null],
   ];
   const notes=[];
   if(t.esNote)      notes.push(['es','Entry',t.esNote]);
