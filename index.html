@@ -65,6 +65,17 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .rev-disp-tab.active{color:var(--accent);border-color:var(--accent)}
 .rev-video{width:100%;aspect-ratio:16/9;border:1px solid var(--border);border-radius:8px;display:block}
 .rev-video-hint{font-size:10px;color:var(--muted);text-align:right;margin-top:4px;letter-spacing:0.5px}
+.rev-hl-btn{background:transparent;border:1px dashed var(--border);border-radius:10px;color:var(--muted);font-size:10px;padding:2px 8px;cursor:pointer;margin-right:8px;text-transform:none;letter-spacing:0}
+.rev-hl-btn:hover{color:#ffd54a;border-color:#ffd54a}
+.rev-hls{margin-top:18px;background:var(--card);border:1px solid var(--border);border-radius:10px}
+.rev-hls-hdr{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#ffd54a}
+.rev-hls-count{background:rgba(255,213,74,0.15);border-radius:10px;padding:1px 8px;font-size:12px;margin-left:6px}
+.rev-hls-chev{color:var(--muted);font-size:11px}
+.rev-hls-body{padding:0 16px 12px}
+.rev-hl-item{display:flex;gap:10px;align-items:baseline;padding:5px 0;border-top:1px solid var(--border)}
+.rev-hl-item .m{color:var(--muted);font-size:11px;white-space:nowrap}
+.rev-hl-item mark{background:rgba(255,213,74,0.18);color:#ffe9a8;border-radius:3px;padding:1px 6px;font-size:13px;line-height:1.5}
+.rev-hl-empty{color:var(--muted);font-size:12px;padding:8px 0;border-top:1px solid var(--border)}
 .rev-body-chart .rev-nochart{min-height:380px;display:flex;align-items:center;justify-content:center}
 .rev-notes-hdr{display:flex;justify-content:space-between;align-items:baseline;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
 .rev-notes-status{text-transform:none;letter-spacing:0;color:var(--accent)}
@@ -587,6 +598,15 @@ tr:hover td{background:rgba(255,255,255,0.025)}
       </div>
     </div>
     <div id="rev-card-holder"></div>
+
+    <!-- Aggregated ★ highlights from all review notes -->
+    <div class="rev-hls" id="rev-hls">
+      <div class="rev-hls-hdr" onclick="toggleHls()">
+        <span>★ Highlights <span class="rev-hls-count" id="rev-hls-count">0</span></span>
+        <span class="rev-hls-chev" id="rev-hls-chev">▼</span>
+      </div>
+      <div class="rev-hls-body" id="rev-hls-body"></div>
+    </div>
   </div>
 </div>
 
@@ -1643,6 +1663,8 @@ function renderReview(){
   sel.innerHTML = `<option value="">All trades (${all.length})</option>` +
     opts.map(x=>`<option value="${x}"${x===REV_FILTER?' selected':''}>${x} (${counts[x]||0})</option>`).join('');
 
+  renderHighlights();
+
   const trades = revTrades();
   const holder = document.getElementById('rev-card-holder');
   if(!trades.length){
@@ -1716,7 +1738,9 @@ function renderReview(){
         </div>`:''}
       </div>
       <div class="rev-body-notes">
-        <div class="rev-notes-hdr"><span>Review notes</span><span class="rev-notes-status" id="rev-notes-status"></span></div>
+        <div class="rev-notes-hdr"><span>Review notes</span>
+          <span><button class="rev-hl-btn" onclick="toggleHighlightLine()" title="Mark/unmark the line your cursor is on (Ctrl+H) — shows up in Highlights below">★ Highlight line</button>
+          <span class="rev-notes-status" id="rev-notes-status"></span></span></div>
         <textarea class="rev-notes-ta" id="rev-notes-ta" placeholder="Jot down your review of this trade…"></textarea>
         <button class="rev-notes-save" onclick="saveReviewNote()">Save note</button>
       </div>
@@ -1734,6 +1758,9 @@ function renderReview(){
   });
   ta.addEventListener('keydown',e=>{
     if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){ saveReviewNote(); return; }
+    if((e.key==='h'||e.key==='H')&&(e.ctrlKey||e.metaKey)){
+      e.preventDefault(); toggleHighlightLine(); return;
+    }
     // Notebook bullets: Enter continues the list; Enter on an empty
     // bullet clears it (standard editor behavior)
     if(e.key==='Enter'){
@@ -1930,6 +1957,52 @@ function revDisp(btn,which){
   }
 }
 
+// ── ★ line highlights ───────────────────────────────────────────
+function toggleHighlightLine(){
+  const ta=document.getElementById('rev-notes-ta');
+  if(!ta) return;
+  const s=ta.selectionStart;
+  const lineStart=ta.value.lastIndexOf('\n',s-1)+1;
+  let lineEnd=ta.value.indexOf('\n',s);
+  if(lineEnd===-1) lineEnd=ta.value.length;
+  let line=ta.value.slice(lineStart,lineEnd);
+  const marked=/^(\s*•\s*)?★\s?/.test(line.replace(/^(\s*•\s*)/,'$1'));
+  if(/★/.test(line)) line=line.replace(/★\s?/,'');
+  else line=line.replace(/^(\s*•\s*)?/,m=>m+'★ ');
+  ta.setRangeText(line,lineStart,lineEnd,'end');
+  ta.focus();
+  document.getElementById('rev-notes-status').textContent='unsaved';
+  saveReviewNote();
+}
+
+let HLS_OPEN = localStorage.getItem('rev-hls-open')!=='0';
+function toggleHls(){
+  HLS_OPEN=!HLS_OPEN;
+  localStorage.setItem('rev-hls-open',HLS_OPEN?'1':'0');
+  renderHighlights();
+}
+
+function renderHighlights(){
+  const esc=s=>String(s).replace(/</g,'&lt;');
+  const items=[];
+  getFilteredTrades('review').forEach(t=>{
+    if(!t.reviewNote||t.reviewNote.indexOf('★')===-1) return;
+    t.reviewNote.split('\n').forEach(line=>{
+      if(line.indexOf('★')===-1) return;
+      const txt=line.replace(/^\s*•\s*/,'').replace(/★\s?/,'').trim();
+      if(txt) items.push({date:t.date,ticker:t.ticker,txt});
+    });
+  });
+  items.sort((a,b)=>a.date<b.date?1:(a.date>b.date?-1:0));
+  document.getElementById('rev-hls-count').textContent=items.length;
+  document.getElementById('rev-hls-chev').textContent=HLS_OPEN?'▼':'▶';
+  const body=document.getElementById('rev-hls-body');
+  body.style.display=HLS_OPEN?'':'none';
+  body.innerHTML=items.length
+    ? items.map(h=>`<div class="rev-hl-item"><span class="m">${esc(h.date)} · ${esc(h.ticker)}</span><mark>${esc(h.txt)}</mark></div>`).join('')
+    : '<div class="rev-hl-empty">No highlighted notes yet — put the cursor on a line and press ★ Highlight line (or Ctrl+H)</div>';
+}
+
 async function saveReviewNote(){
   const trades=revTrades();
   const t=trades[REV_IDX];
@@ -1958,6 +2031,7 @@ async function saveReviewNote(){
       (x.date===t.date&&x.ticker===t.ticker&&x.buyTime===t.buyTime&&x.buy===t.buy));
     if(m) m.reviewNote=note;
     status.textContent='saved ✓';
+    renderHighlights();
     setTimeout(()=>{ if(status.textContent==='saved ✓') status.textContent=''; },2000);
   }catch(e){
     status.textContent='save failed';
