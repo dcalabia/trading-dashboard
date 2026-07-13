@@ -141,6 +141,11 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .rev-date-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:50}
 .rev-date-modal{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;width:320px;max-height:70vh;overflow-y:auto}
 .rev-date-modal h4{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin:0 0 10px}
+.rev-mode{display:flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.rev-mode-btn{background:var(--panel);border:none;color:var(--muted);font-size:12px;padding:6px 14px;cursor:pointer}
+.rev-mode-btn.active{background:var(--card);color:var(--accent);font-weight:700}
+.rev-pnl.miss{color:#ffd54a}
+.rev-date-row .p.miss{color:#ffd54a}
 .rev-date-row{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;cursor:pointer;background:var(--panel)}
 .rev-date-row:hover{border-color:var(--accent)}
 .rev-date-row.active{border-color:var(--accent)}
@@ -589,6 +594,10 @@ tr:hover td{background:rgba(255,255,255,0.025)}
   <div class="rev-wrap">
     <div class="rev-topline">
       <div class="rev-pos" id="rev-pos">— / —</div>
+      <div class="rev-mode">
+        <button class="rev-mode-btn active" id="rev-mode-trades" onclick="setRevMode('trades')">Trades</button>
+        <button class="rev-mode-btn" id="rev-mode-misses" onclick="setRevMode('misses')">Misses</button>
+      </div>
       <select class="rev-filter" id="rev-filter" onchange="setRevFilter(this.value)">
         <option value="">All trades</option>
       </select>
@@ -1088,7 +1097,44 @@ async function loadSupabaseTrades() {
   }
 }
 
+let ALL_MISSES = [];
+async function loadSupabaseMisses(){
+  try{
+    const resp = await fetch(
+      `${SUPABASE_URL}/rest/v1/misses?select=*&order=miss_date.asc,miss_no.asc&limit=10000`,
+      { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }, cache: 'no-store' }
+    );
+    if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const rows = await resp.json();
+    ALL_MISSES = rows.map(r => ({
+      id:         r.id,
+      date:       r.miss_date,
+      missNo:     r.miss_no,
+      ticker:     r.ticker,
+      setup:      r.setup || null,
+      score9:     r.score_9 ?? null,
+      score5:     r.score_5 ?? null,
+      buyTime:    r.buy_time || null,    // sheet clock text, not ISO
+      sellTime:   r.sell_time || null,
+      buy:        r.buy_price != null ? +r.buy_price : null,
+      sell:       r.sell_price != null ? +r.sell_price : null,
+      pct:        r.pct_change || null,
+      potential:  r.potential_net != null ? +r.potential_net : null,
+      timeFound:  r.time_found || null,
+      timeOpened: r.time_opened || null,
+      timeToOpen: r.time_to_open || null,
+      reason:     r.reason_missed || null,
+      improveNote:r.improve_note || null,
+      notes:      r.notes || null,
+      reviewNote: r.review_note || '',
+      chart:      r.chart_url || null,
+      video:      r.video_url || null
+    }));
+  }catch(e){ console.warn('misses fetch failed:', e); }
+}
+
 async function syncSupabase(){
+  loadSupabaseMisses();  // fire-and-forget; Review re-renders on demand
   const live = await loadSupabaseTrades();
   if(!live) return;
   ALL_TRADES = live.trades;
@@ -1623,9 +1669,25 @@ let REV_FILTER = '';
 // MM stays the special gold one.
 const PRESET_TAGS = ['Winners','Losers','Must Watch','Best Lessons','Potential Future Setup'];
 
+let REV_MODE = 'trades';   // 'trades' | 'misses'
+
+function setRevMode(m){
+  REV_MODE = m;
+  document.getElementById('rev-mode-trades').classList.toggle('active', m==='trades');
+  document.getElementById('rev-mode-misses').classList.toggle('active', m==='misses');
+  REV_IDX = revTrades().length - 1;  // open on newest in the new deck
+  renderReview();
+}
+
 function revTrades(){
   // Chronological oldest → newest so → (right) moves toward more
   // recent trades; opens on the most recent trade
+  if(REV_MODE==='misses'){
+    return ALL_MISSES.slice().sort((a,b)=>{
+      if(a.date!==b.date) return a.date<b.date?-1:1;
+      return (a.missNo||0)-(b.missNo||0);
+    });
+  }
   const trades = getFilteredTrades('review');
   const scoped = REV_FILTER
     ? trades.filter(t=>(t.tags||[]).includes(REV_FILTER))
@@ -1660,8 +1722,12 @@ function renderReview(){
   const opts = ['MM',...PRESET_TAGS,
     ...Object.keys(counts).filter(x=>x!=='MM'&&!PRESET_TAGS.includes(x)).sort()];
   const sel = document.getElementById('rev-filter');
-  sel.innerHTML = `<option value="">All trades (${all.length})</option>` +
-    opts.map(x=>`<option value="${x}"${x===REV_FILTER?' selected':''}>${x} (${counts[x]||0})</option>`).join('');
+  if(REV_MODE==='misses'){
+    sel.innerHTML = `<option value="">All misses (${ALL_MISSES.length})</option>`;
+  }else{
+    sel.innerHTML = `<option value="">All trades (${all.length})</option>` +
+      opts.map(x=>`<option value="${x}"${x===REV_FILTER?' selected':''}>${x} (${counts[x]||0})</option>`).join('');
+  }
 
   renderHighlights();
 
@@ -1669,7 +1735,7 @@ function renderReview(){
   const holder = document.getElementById('rev-card-holder');
   if(!trades.length){
     document.getElementById('rev-pos').textContent='0 / 0';
-    holder.innerHTML='<div class="rev-nochart">No trades for this period</div>';
+    holder.innerHTML=`<div class="rev-nochart">No ${REV_MODE==='misses'?'misses':'trades'} for this period</div>`;
     return;
   }
   if(!REV_INIT){ REV_IDX=trades.length-1; REV_INIT=true; }
@@ -1677,6 +1743,7 @@ function renderReview(){
   if(REV_IDX<0) REV_IDX=0;
   const t = trades[REV_IDX];
   document.getElementById('rev-pos').textContent=`${REV_IDX+1} / ${trades.length}`;
+  if(REV_MODE==='misses'){ renderMissCard(t); return; }
   const pct=((t.pnl/t.buy)*100).toFixed(2);
   // [label, value, editableField] — field names are Supabase columns;
   // prices/times/shares stay locked
@@ -1814,6 +1881,112 @@ function renderReview(){
   });
 }
 
+// ── Miss card — same shell as the trade card, fed from `misses` ──
+function renderMissCard(t){
+  const holder = document.getElementById('rev-card-holder');
+  const esc=s=>String(s).replace(/</g,'&lt;');
+  const pot = t.potential!=null ? `+$${t.potential.toFixed(2)}` : '—';
+  const cells=[
+    ['Date', t.date, null],
+    ['Hypo Buy → Sell', (t.buyTime||'—')+' → '+(t.sellTime||'—'), null],
+    ['Prices', (t.buy!=null?'$'+t.buy.toFixed(2):'—')+' → '+(t.sell!=null?'$'+t.sell.toFixed(2):'—'), null],
+    ['% Change', t.pct||'—', null],
+    ['Potential net', pot, null],
+    ['Setup', t.setup||'—', 'setup'],
+    ['Reason missed', t.reason||'—', 'reason_missed'],
+    ['Score /9', t.score9!=null?t.score9:'—', 'score_9'],
+    ['Score /5', t.score5!=null?t.score5:'—', 'score_5'],
+    ['Time found', t.timeFound||'—', null],
+    ['Time opened', t.timeOpened||'—', null],
+    ['Time to open', t.timeToOpen||'—', null],
+  ];
+  const notes=[];
+  if(t.improveNote) notes.push(['imp','To improve',t.improveNote]);
+  if(t.notes)       notes.push(['es','Sheet notes',t.notes]);
+  holder.innerHTML=`<div class="rev-card" id="rev-card">
+    <div class="rev-head">
+      <div class="rev-ticker">${esc(t.ticker)}</div>
+      <div class="rev-pnl miss">${pot} missed</div>
+    </div>
+    <div class="rev-sub">Missed · ${esc(t.reason||'—')} · ${esc(t.date)}</div>
+    <div class="rev-grid">${cells.map(([k,v,f])=>
+      k==='Date'
+        ? `<div class="rev-cell date-cell" onclick="showCalendar('${esc(v)}')"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`
+        : f
+        ? `<div class="rev-cell edit" onclick="revEdit(this,'${f}')" title="Click to edit"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`
+        : `<div class="rev-cell"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`).join('')}</div>
+    ${notes.length?`<div class="rev-notes">${notes.map(([c,k,v])=>
+      `<div class="rev-note ${c}"><b>${k}</b>${esc(v)}</div>`).join('')}</div>`:''}
+    <div class="rev-body">
+      <div class="rev-body-chart">
+        ${t.video?`<div class="rev-disp-tabs">
+          <button class="rev-disp-tab active" onclick="revDisp(this,'shot')">Screenshot</button>
+          <button class="rev-disp-tab" onclick="revDisp(this,'video')">Video</button>
+        </div>`:''}
+        <div class="rev-disp" id="rev-disp-shot">${t.chart
+          ? `<img class="rev-chart" loading="lazy" src="${esc(t.chart)}" alt="chart">`
+          : '<div class="rev-nochart">No chart screenshot for this miss</div>'}</div>
+        ${t.video?`<div class="rev-disp" id="rev-disp-video" style="display:none">
+          <iframe class="rev-video" src="about:blank" data-src="https://www.youtube.com/embed/${esc(ytId(t.video))}?controls=0&modestbranding=1&rel=0&playsinline=1&enablejsapi=1" allow="fullscreen" allowfullscreen></iframe>
+          <div class="rev-video-hint">, / . = scrub 1s · space = play/pause</div>
+        </div>`:''}
+      </div>
+      <div class="rev-body-notes">
+        <div class="rev-notes-hdr"><span>Review notes</span>
+          <span><button class="rev-hl-btn" onclick="toggleHighlightLine()" title="Mark/unmark the line your cursor is on (Ctrl+H) — shows up in Highlights below">★ Highlight line</button>
+          <span class="rev-notes-status" id="rev-notes-status"></span></span></div>
+        <textarea class="rev-notes-ta" id="rev-notes-ta" placeholder="Jot down your review of this miss…"></textarea>
+        <button class="rev-notes-save" onclick="saveReviewNote()">Save note</button>
+      </div>
+    </div>
+  </div>`;
+  const ta=document.getElementById('rev-notes-ta');
+  ta.value=t.reviewNote||'';
+  ta.addEventListener('input',()=>{
+    if(ta.value.length===1&&ta.value!=='•'&&ta.value.trim()){
+      ta.value='• '+ta.value;
+      ta.setSelectionRange(ta.value.length,ta.value.length);
+    }
+    document.getElementById('rev-notes-status').textContent='unsaved';
+  });
+  ta.addEventListener('keydown',e=>{
+    if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){ saveReviewNote(); return; }
+    if((e.key==='h'||e.key==='H')&&(e.ctrlKey||e.metaKey)){
+      e.preventDefault(); toggleHighlightLine(); return;
+    }
+    if(e.key==='Enter'){
+      e.preventDefault();
+      const s=ta.selectionStart;
+      const lineStart=ta.value.lastIndexOf('\n',s-1)+1;
+      const line=ta.value.slice(lineStart,s);
+      if(line.trim()==='•'){
+        ta.setRangeText('',lineStart,s,'start');
+      }else{
+        ta.setRangeText('\n• ',s,ta.selectionEnd,'end');
+      }
+      document.getElementById('rev-notes-status').textContent='unsaved';
+    }
+  });
+  ta.addEventListener('focus',()=>{ if(!ta.value.trim()) ta.value='• '; });
+  ta.addEventListener('blur',()=>{
+    if(ta.value.trim()==='•') ta.value='';
+    if((ta.value||'')!==(t.reviewNote||'')) saveReviewNote();
+  });
+  // Touch/pointer swipe — same guards as the trade card
+  const card=document.getElementById('rev-card');
+  let px=null;
+  card.addEventListener('pointerdown',e=>{
+    px=e.target.closest('textarea,input,select')?null:e.clientX;
+  });
+  card.addEventListener('pointerup',e=>{
+    if(px===null)return;
+    const dx=e.clientX-px; px=null;
+    if(window.getSelection().toString())return;
+    if(dx>50) revNav(-1);
+    else if(dx<-50) revNav(1);
+  });
+}
+
 // Editable card fields → Supabase columns; how to read/write the
 // local trade object, and whether the value is numeric
 const REV_FIELDS={
@@ -1823,6 +1996,7 @@ const REV_FIELDS={
   exit_score: {prop:'exitScore'},
   score_9:    {prop:'score9', num:true, max:9},
   score_5:    {prop:'score5', num:true, max:5},
+  reason_missed:{prop:'reason'},  // misses deck only
 };
 
 function revEdit(cell,field){
@@ -1836,7 +2010,7 @@ function revEdit(cell,field){
   if(!def.num && !document.getElementById(listId)){
     const dl=document.createElement('datalist');
     dl.id=listId;
-    [...new Set(ALL_TRADES.map(x=>x[def.prop]).filter(Boolean))].sort()
+    [...new Set((REV_MODE==='misses'?ALL_MISSES:ALL_TRADES).map(x=>x[def.prop]).filter(Boolean))].sort()
       .forEach(o=>{const op=document.createElement('option');op.value=o;dl.appendChild(op);});
     document.body.appendChild(dl);
   }
@@ -1857,7 +2031,9 @@ function revEdit(cell,field){
     const ok=await patchTradeField(t,{[field]:val});
     if(ok){
       t[def.prop]=val;
-      const m=ALL_TRADES.find(x=>x.date===t.date&&x.ticker===t.ticker&&x.buyTime===t.buyTime&&x.buy===t.buy);
+      const m=REV_MODE==='misses'
+        ? ALL_MISSES.find(x=>x.id===t.id)
+        : ALL_TRADES.find(x=>x.date===t.date&&x.ticker===t.ticker&&x.buyTime===t.buyTime&&x.buy===t.buy);
       if(m) m[def.prop]=val;
     }
     renderReview();
@@ -1872,12 +2048,19 @@ function revEdit(cell,field){
 }
 
 async function patchTradeField(t,payload){
-  let q=`trade_date=eq.${t.date}&ticker=eq.${encodeURIComponent(t.ticker)}`;
-  q += t.buyTime
-    ? `&buy_time=eq.${encodeURIComponent(t.buyTime)}`
-    : `&buy_price=eq.${t.buy}&sell_price=eq.${t.sell}`;
+  // Misses have a stable primary key; trades match like the fill scripts
+  let url;
+  if(REV_MODE==='misses'&&t.id!=null){
+    url=`${SUPABASE_URL}/rest/v1/misses?id=eq.${t.id}`;
+  }else{
+    let q=`trade_date=eq.${t.date}&ticker=eq.${encodeURIComponent(t.ticker)}`;
+    q += t.buyTime
+      ? `&buy_time=eq.${encodeURIComponent(t.buyTime)}`
+      : `&buy_price=eq.${t.buy}&sell_price=eq.${t.sell}`;
+    url=`${SUPABASE_URL}/rest/v1/trades?${q}`;
+  }
   try{
-    const r=await fetch(`${SUPABASE_URL}/rest/v1/trades?${q}`,{
+    const r=await fetch(url,{
       method:'PATCH',
       headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,
         'Content-Type':'application/json'},
@@ -2008,14 +2191,16 @@ function toggleHls(){
 function renderHighlights(){
   const esc=s=>String(s).replace(/</g,'&lt;');
   const items=[];
-  getFilteredTrades('review').forEach(t=>{
+  const collect=(list,mark)=>list.forEach(t=>{
     if(!t.reviewNote||t.reviewNote.indexOf('★')===-1) return;
     t.reviewNote.split('\n').forEach(line=>{
       if(line.indexOf('★')===-1) return;
       const txt=line.replace(/^\s*•\s*/,'').replace(/★\s?/,'').trim();
-      if(txt) items.push({date:t.date,ticker:t.ticker,txt});
+      if(txt) items.push({date:t.date,ticker:t.ticker+mark,txt});
     });
   });
+  collect(getFilteredTrades('review'),'');
+  collect(ALL_MISSES,' (miss)');
   items.sort((a,b)=>a.date<b.date?1:(a.date>b.date?-1:0));
   document.getElementById('rev-hls-count').textContent=items.length;
   document.getElementById('rev-hls-chev').textContent=HLS_OPEN?'▼':'▶';
@@ -2034,14 +2219,20 @@ async function saveReviewNote(){
   if(!t||!ta) return;
   const note=ta.value;
   status.textContent='saving…';
-  // Match the row the same way the fill scripts do: date + ticker
-  // + buy_time when present, else date + ticker + prices
-  let q=`trade_date=eq.${t.date}&ticker=eq.${encodeURIComponent(t.ticker)}`;
-  q += t.buyTime
-    ? `&buy_time=eq.${encodeURIComponent(t.buyTime)}`
-    : `&buy_price=eq.${t.buy}&sell_price=eq.${t.sell}`;
+  // Misses PATCH by primary key; trades match the same way the fill
+  // scripts do: date + ticker + buy_time when present, else prices
+  let url;
+  if(REV_MODE==='misses'&&t.id!=null){
+    url=`${SUPABASE_URL}/rest/v1/misses?id=eq.${t.id}`;
+  }else{
+    let q=`trade_date=eq.${t.date}&ticker=eq.${encodeURIComponent(t.ticker)}`;
+    q += t.buyTime
+      ? `&buy_time=eq.${encodeURIComponent(t.buyTime)}`
+      : `&buy_price=eq.${t.buy}&sell_price=eq.${t.sell}`;
+    url=`${SUPABASE_URL}/rest/v1/trades?${q}`;
+  }
   try{
-    const r=await fetch(`${SUPABASE_URL}/rest/v1/trades?${q}`,{
+    const r=await fetch(url,{
       method:'PATCH',
       headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,
         'Content-Type':'application/json'},
@@ -2050,8 +2241,10 @@ async function saveReviewNote(){
     if(!r.ok) throw new Error('HTTP '+r.status);
     t.reviewNote=note;
     // Update the master list too so a re-sort doesn't lose it
-    const m=ALL_TRADES.find(x=>x===t||
-      (x.date===t.date&&x.ticker===t.ticker&&x.buyTime===t.buyTime&&x.buy===t.buy));
+    const m=REV_MODE==='misses'
+      ? ALL_MISSES.find(x=>x.id===t.id)
+      : ALL_TRADES.find(x=>x===t||
+        (x.date===t.date&&x.ticker===t.ticker&&x.buyTime===t.buyTime&&x.buy===t.buy));
     if(m) m.reviewNote=note;
     status.textContent='saved ✓';
     renderHighlights();
@@ -2120,9 +2313,15 @@ function showDateList(date){
   const overlay=document.createElement('div');
   overlay.className='rev-date-overlay';
   overlay.onclick=(e)=>{ if(e.target===overlay) overlay.remove(); };
+  const isMiss = REV_MODE==='misses';
   overlay.innerHTML=`<div class="rev-date-modal">
-    <h4>Trades on ${esc(date)}</h4>
-    ${rows.map(({t,i})=>`<div class="rev-date-row${i===REV_IDX?' active':''}${(t.tags||[]).includes('MM')?' mm':''}" onclick="jumpToTrade(${i})">
+    <h4>${isMiss?'Misses':'Trades'} on ${esc(date)}</h4>
+    ${rows.map(({t,i})=>isMiss
+      ? `<div class="rev-date-row${i===REV_IDX?' active':''}" onclick="jumpToTrade(${i})">
+      <span class="t">${esc(t.ticker)} · ${esc(t.buyTime||'—')}${t.reason?` <i class="tags">${esc(t.reason)}</i>`:''}</span>
+      <span class="p miss">${t.potential!=null?'+$'+t.potential.toFixed(2):'—'}</span>
+    </div>`
+      : `<div class="rev-date-row${i===REV_IDX?' active':''}${(t.tags||[]).includes('MM')?' mm':''}" onclick="jumpToTrade(${i})">
       <span class="t">${(t.tags||[]).includes('MM')?'★ ':''}${esc(t.ticker)} · ${fmtET(t.buyTime)}${(t.tags||[]).filter(x=>x!=='MM').length?` <i class="tags">${esc((t.tags||[]).filter(x=>x!=='MM').join(', '))}</i>`:''}</span>
       <span class="p ${t.result}">${(t.pnl>=0?'+':'−')}$${Math.abs(t.pnl).toFixed(2)}</span>
     </div>`).join('')}
