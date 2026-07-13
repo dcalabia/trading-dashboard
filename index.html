@@ -135,6 +135,11 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .rev-note.imp{border-left-color:var(--yellow)}
 .rev-chart{width:100%;border-radius:8px;border:1px solid var(--border);display:block}
 .rev-nochart{padding:32px;text-align:center;color:var(--muted);font-size:12px;background:var(--panel);border-radius:8px;border:1px dashed var(--border)}
+.rev-shot-wrap{position:relative}
+.rev-shot-edit{position:absolute;top:8px;right:8px;background:rgba(10,14,22,.75);border:1px solid var(--border);color:var(--fg);font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer;backdrop-filter:blur(2px)}
+.rev-shot-edit:hover{border-color:var(--accent);color:var(--accent)}
+.rev-nochart .rev-shot-edit{position:static;margin-top:10px;background:var(--card)}
+.rev-shot-status{position:absolute;bottom:8px;left:8px;background:rgba(10,14,22,.75);color:var(--muted);font-size:11px;padding:4px 8px;border-radius:6px}
 .rev-cell.date-cell{cursor:pointer}
 .rev-cell.date-cell:hover{border-color:var(--accent)}
 .rev-cell.date-cell .v{text-decoration:underline;text-decoration-style:dotted}
@@ -1042,6 +1047,7 @@ document.addEventListener('DOMContentLoaded', init);
 // ── Supabase config ─────────────────────────────────────────────
 const SUPABASE_URL = 'https://mjsutoiamrjnotbyhdyh.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qc3V0b2lhbXJqbm90YnloZHloIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NjMyMTEsImV4cCI6MjA5NTEzOTIxMX0.oBeFaYYuroi5c96vVBC0GbBNNGgIsOI3Ja1ovd9Q2aw';
+const IMGBB_API_KEY = '64c3ec970d032c02a6b91be4f2b8def2'; // same free key trading_journal_fill.py uses
 
 async function loadSupabaseTrades() {
   try {
@@ -1797,8 +1803,10 @@ function renderReview(){
           <button class="rev-disp-tab" onclick="revDisp(this,'video')">Video</button>
         </div>`:''}
         <div class="rev-disp" id="rev-disp-shot">${t.chart
-          ? `<img class="rev-chart" loading="lazy" src="${esc(t.chart)}" alt="chart">`
-          : '<div class="rev-nochart">No chart screenshot for this trade</div>'}</div>
+          ? `<div class="rev-shot-wrap"><img class="rev-chart" loading="lazy" src="${esc(t.chart)}" alt="chart">
+             <button class="rev-shot-edit" onclick="pickChartImage()">✎ Edit</button></div>`
+          : `<div class="rev-nochart">No chart screenshot for this trade<br>
+             <button class="rev-shot-edit" onclick="pickChartImage()">＋ Add screenshot</button></div>`}</div>
         ${t.video?`<div class="rev-disp" id="rev-disp-video" style="display:none">
           <iframe class="rev-video" src="about:blank" data-src="https://www.youtube.com/embed/${esc(ytId(t.video))}?controls=0&modestbranding=1&rel=0&playsinline=1&enablejsapi=1" allow="fullscreen" allowfullscreen></iframe>
           <div class="rev-video-hint">, / . = scrub 1s · space = play/pause</div>
@@ -1924,8 +1932,10 @@ function renderMissCard(t){
           <button class="rev-disp-tab" onclick="revDisp(this,'video')">Video</button>
         </div>`:''}
         <div class="rev-disp" id="rev-disp-shot">${t.chart
-          ? `<img class="rev-chart" loading="lazy" src="${esc(t.chart)}" alt="chart">`
-          : '<div class="rev-nochart">No chart screenshot for this miss</div>'}</div>
+          ? `<div class="rev-shot-wrap"><img class="rev-chart" loading="lazy" src="${esc(t.chart)}" alt="chart">
+             <button class="rev-shot-edit" onclick="pickChartImage()">✎ Edit</button></div>`
+          : `<div class="rev-nochart">No chart screenshot for this miss<br>
+             <button class="rev-shot-edit" onclick="pickChartImage()">＋ Add screenshot</button></div>`}</div>
         ${t.video?`<div class="rev-disp" id="rev-disp-video" style="display:none">
           <iframe class="rev-video" src="about:blank" data-src="https://www.youtube.com/embed/${esc(ytId(t.video))}?controls=0&modestbranding=1&rel=0&playsinline=1&enablejsapi=1" allow="fullscreen" allowfullscreen></iframe>
           <div class="rev-video-hint">, / . = scrub 1s · space = play/pause</div>
@@ -2133,6 +2143,57 @@ function revVideoCmd(func,args){
   if(!f||f.src==='about:blank') return false;
   f.contentWindow.postMessage(JSON.stringify({event:'command',func,args:args||[]}),'*');
   return true;
+}
+
+// ── Chart screenshot: manual add/replace (e.g. after a split/reverse
+// split makes the auto-captured chart's prices wrong) ──
+function pickChartImage(){
+  let inp=document.getElementById('rev-shot-inp');
+  if(!inp){
+    inp=document.createElement('input');
+    inp.type='file'; inp.accept='image/*'; inp.id='rev-shot-inp';
+    inp.style.display='none';
+    inp.onchange=()=>{ if(inp.files[0]) uploadChartImage(inp.files[0]); inp.value=''; };
+    document.body.appendChild(inp);
+  }
+  inp.click();
+}
+
+async function uploadChartImage(file){
+  const t=revTrades()[REV_IDX];
+  if(!t) return;
+  const shot=document.getElementById('rev-disp-shot');
+  const status=document.createElement('div');
+  status.className='rev-shot-status';
+  status.textContent='Uploading…';
+  shot.style.position='relative';
+  shot.appendChild(status);
+  try{
+    const b64=await new Promise((res,rej)=>{
+      const r=new FileReader();
+      r.onload=()=>res(r.result.split(',')[1]);
+      r.onerror=rej;
+      r.readAsDataURL(file);
+    });
+    const body=new URLSearchParams();
+    body.set('key',IMGBB_API_KEY);
+    body.set('image',b64);
+    const up=await fetch('https://api.imgbb.com/1/upload',{method:'POST',body});
+    const json=await up.json();
+    if(!json.success) throw new Error(json.error?.message||'imgbb upload failed');
+    const url=json.data.url;
+    const ok=await patchTradeField(t,{chart_url:url});
+    if(!ok) throw new Error('Supabase PATCH failed');
+    t.chart=url;
+    const m=REV_MODE==='misses'
+      ? ALL_MISSES.find(x=>x.id===t.id)
+      : ALL_TRADES.find(x=>x.date===t.date&&x.ticker===t.ticker&&x.buyTime===t.buyTime&&x.buy===t.buy);
+    if(m) m.chart=url;
+    renderReview();
+  }catch(e){
+    status.textContent='Upload failed: '+e.message;
+    setTimeout(()=>status.remove(),3000);
+  }
 }
 
 function revDisp(btn,which){
