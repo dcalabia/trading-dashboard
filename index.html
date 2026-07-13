@@ -1922,16 +1922,27 @@ function ytId(url){
 
 // Player state fed back by the YouTube iframe API (enablejsapi=1):
 // currentTime for 1s scrubbing, playerState for space play/pause
-let REV_VT = 0, REV_PS = -1;
+let REV_VT = 0, REV_PS = -1, REV_LISTENING = false;
 window.addEventListener('message',e=>{
   if(typeof e.data!=='string'||e.origin.indexOf('youtube')===-1) return;
   try{
     const d=JSON.parse(e.data);
     if(d.event==='infoDelivery'&&d.info){
+      REV_LISTENING=true;
       if(d.info.currentTime!=null) REV_VT=d.info.currentTime;
       if(d.info.playerState!=null) REV_PS=d.info.playerState;
     }
   }catch(err){}
+});
+
+// Clicking the video (play/pause) moves keyboard focus INTO the
+// YouTube iframe, where , / . / space go to YouTube's own handler
+// instead of ours — pull focus back out so the scrub keys keep working
+window.addEventListener('blur',()=>{
+  setTimeout(()=>{
+    const f=document.querySelector('#rev-disp-video iframe');
+    if(f&&document.activeElement===f) f.blur();
+  },0);
 });
 
 function revVideoCmd(func,args){
@@ -1952,12 +1963,20 @@ function revDisp(btn,which){
     // Lazy-load the player on first open; unload on switch-away so
     // audio doesn't keep playing behind the screenshot
     if(which==='video'&&f.src==='about:blank'){
-      f.onload=()=>{ // subscribe to time/state updates
+      f.onload=()=>{ // subscribe to time/state updates — retry until the
+        // player answers (a single message races player readiness and
+        // leaves REV_VT stuck at 0, breaking , / . scrubbing)
+        REV_LISTENING=false;
+        let tries=0;
+        const t=setInterval(()=>{
+          if(REV_LISTENING||++tries>20||f.src==='about:blank'){ clearInterval(t); return; }
+          f.contentWindow.postMessage(JSON.stringify({event:'listening',id:'rev'}),'*');
+        },300);
         f.contentWindow.postMessage(JSON.stringify({event:'listening',id:'rev'}),'*');
       };
       f.src=f.dataset.src;
     }
-    if(which==='shot'&&f.src!=='about:blank'){ f.src='about:blank'; REV_PS=-1; }
+    if(which==='shot'&&f.src!=='about:blank'){ f.src='about:blank'; REV_PS=-1; REV_LISTENING=false; }
   }
 }
 
@@ -2133,8 +2152,10 @@ document.addEventListener('keydown',e=>{
     // Video keys — only when the video pane is open
     const vid=document.getElementById('rev-disp-video');
     if(!vid||vid.style.display==='none')return;
-    if(e.key===','){ revVideoCmd('seekTo',[Math.max(REV_VT-1,0),true]); }
-    else if(e.key==='.'){ revVideoCmd('seekTo',[REV_VT+1,true]); }
+    // Bump REV_VT locally so rapid presses stack instead of all seeking
+    // from the same stale player-reported time
+    if(e.key===','){ REV_VT=Math.max(REV_VT-1,0); revVideoCmd('seekTo',[REV_VT,true]); }
+    else if(e.key==='.'){ REV_VT+=1; revVideoCmd('seekTo',[REV_VT,true]); }
     else if(e.key===' '){
       e.preventDefault();  // don't scroll the page
       revVideoCmd(REV_PS===1?'pauseVideo':'playVideo');
