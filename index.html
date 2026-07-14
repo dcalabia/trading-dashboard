@@ -1681,6 +1681,7 @@ let REV_MODE = 'trades';   // 'trades' | 'misses'
 
 function setRevMode(m){
   REV_MODE = m;
+  REV_FILTER = '';  // don't carry a tag filter across into the other deck
   document.getElementById('rev-mode-trades').classList.toggle('active', m==='trades');
   document.getElementById('rev-mode-misses').classList.toggle('active', m==='misses');
   REV_IDX = revTrades().length - 1;  // open on newest in the new deck
@@ -1691,7 +1692,10 @@ function revTrades(){
   // Chronological oldest → newest so → (right) moves toward more
   // recent trades; opens on the most recent trade
   if(REV_MODE==='misses'){
-    return ALL_MISSES.slice().sort((a,b)=>{
+    const scoped = REV_FILTER
+      ? ALL_MISSES.filter(t=>(t.tags||[]).includes(REV_FILTER))
+      : ALL_MISSES;
+    return scoped.slice().sort((a,b)=>{
       if(a.date!==b.date) return a.date<b.date?-1:1;
       return (a.missNo||0)-(b.missNo||0);
     });
@@ -1724,14 +1728,15 @@ function fmtET(iso){
 function renderReview(){
   // Filter dropdown: All + MM + presets + any custom tags in use,
   // with live counts
-  const all = getFilteredTrades('review');
+  const all = REV_MODE==='misses' ? ALL_MISSES : getFilteredTrades('review');
   const counts = {};
   all.forEach(t=>(t.tags||[]).forEach(x=>counts[x]=(counts[x]||0)+1));
   const opts = ['MM',...PRESET_TAGS,
     ...Object.keys(counts).filter(x=>x!=='MM'&&!PRESET_TAGS.includes(x)).sort()];
   const sel = document.getElementById('rev-filter');
   if(REV_MODE==='misses'){
-    sel.innerHTML = `<option value="">All misses (${ALL_MISSES.length})</option>`;
+    sel.innerHTML = `<option value="">All misses (${all.length})</option>` +
+      opts.map(x=>`<option value="${x}"${x===REV_FILTER?' selected':''}>${x} (${counts[x]||0})</option>`).join('');
   }else{
     sel.innerHTML = `<option value="">All trades (${all.length})</option>` +
       opts.map(x=>`<option value="${x}"${x===REV_FILTER?' selected':''}>${x} (${counts[x]||0})</option>`).join('');
