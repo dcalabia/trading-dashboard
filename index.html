@@ -2440,6 +2440,13 @@ document.addEventListener('keydown',e=>{
       e.preventDefault();  // don't scroll the page
       revVideoCmd(REV_PS===1?'pauseVideo':'playVideo');
     }
+    else if(e.key==='f'||e.key==='F'){
+      const f=vid.querySelector('iframe');
+      if(f&&f.src!=='about:blank'){
+        const req=f.requestFullscreen||f.webkitRequestFullscreen;
+        if(req) req.call(f);
+      }
+    }
   }
 });
 </script>
