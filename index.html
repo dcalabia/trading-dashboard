@@ -74,6 +74,8 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .rev-hls-body{padding:0 16px 12px}
 .rev-hl-item{display:flex;gap:10px;align-items:baseline;padding:5px 0;border-top:1px solid var(--border)}
 .rev-hl-item .m{color:var(--muted);font-size:11px;white-space:nowrap}
+.rev-hl-item .m.hl-jump{cursor:pointer;text-decoration:underline dotted}
+.rev-hl-item .m.hl-jump:hover{color:var(--accent)}
 .rev-hl-item mark{background:rgba(255,213,74,0.18);color:#ffe9a8;border-radius:3px;padding:1px 6px;font-size:13px;line-height:1.5}
 .rev-hl-empty{color:var(--muted);font-size:12px;padding:8px 0;border-top:1px solid var(--border)}
 .rev-body-chart .rev-nochart{min-height:380px;display:flex;align-items:center;justify-content:center}
@@ -2353,28 +2355,54 @@ function toggleHls(){
   renderHighlights();
 }
 
+let HL_ITEMS = [];  // last-rendered highlight list, for jumpToHighlight
+
 function renderHighlights(){
   const esc=s=>String(s).replace(/</g,'&lt;');
   const items=[];
-  const collect=(list,mark)=>list.forEach(t=>{
+  const collect=(list,mark,source)=>list.forEach(t=>{
     if(!t.reviewNote||t.reviewNote.indexOf('★')===-1) return;
     t.reviewNote.split('\n').forEach(line=>{
       if(line.indexOf('★')===-1) return;
       const txt=line.replace(/^\s*•\s*/,'').replace(/★\s?/,'').trim();
-      if(txt) items.push({date:t.date,ticker:t.ticker+mark,txt});
+      if(txt) items.push({date:t.date,ticker:t.ticker+mark,txt,source,entry:t});
     });
   });
-  collect(getFilteredTrades('review'),'');
-  collect(ALL_MISSES,' (miss)');
-  collect(ALL_ROSS,' (Ross)');
+  collect(getFilteredTrades('review'),'','trades');
+  collect(ALL_MISSES,' (miss)','misses');
+  collect(ALL_ROSS,' (Ross)','ross');
   items.sort((a,b)=>a.date<b.date?1:(a.date>b.date?-1:0));
+  HL_ITEMS=items;
   document.getElementById('rev-hls-count').textContent=items.length;
   document.getElementById('rev-hls-chev').textContent=HLS_OPEN?'▼':'▶';
   const body=document.getElementById('rev-hls-body');
   body.style.display=HLS_OPEN?'':'none';
   body.innerHTML=items.length
-    ? items.map(h=>`<div class="rev-hl-item"><span class="m">${esc(h.date)} · ${esc(h.ticker)}</span><mark>${esc(h.txt)}</mark></div>`).join('')
+    ? items.map((h,i)=>`<div class="rev-hl-item"><span class="m hl-jump" onclick="jumpToHighlight(${i})" title="Jump to this ${h.source==='misses'?'miss':'trade'}">${esc(h.date)} · ${esc(h.ticker)}</span><mark>${esc(h.txt)}</mark></div>`).join('')
     : '<div class="rev-hl-empty">No highlighted notes yet — put the cursor on a line and press ★ Highlight line (or Ctrl+H)</div>';
+}
+
+function jumpToHighlight(i){
+  const h=HL_ITEMS[i];
+  if(!h) return;
+  REV_MODE=h.source;
+  REV_FILTER='';
+  document.getElementById('rev-mode-trades').classList.toggle('active', REV_MODE==='trades');
+  document.getElementById('rev-mode-misses').classList.toggle('active', REV_MODE==='misses');
+  document.getElementById('rev-mode-ross').classList.toggle('active', REV_MODE==='ross');
+  const list=revTrades();
+  let idx=list.indexOf(h.entry);
+  if(idx<0){
+    // Fell out of the current filter/period scope — match the same
+    // way the fill scripts do instead of giving up
+    idx=list.findIndex(x=> h.source==='misses'
+      ? x.id===h.entry.id
+      : x.date===h.entry.date&&x.ticker===h.entry.ticker&&x.buyTime===h.entry.buyTime&&x.buy===h.entry.buy);
+  }
+  REV_IDX = idx>=0 ? idx : Math.max(list.length-1,0);
+  REV_INIT=true;
+  renderReview();
+  document.querySelectorAll('.rev-date-overlay').forEach(o=>o.remove());
 }
 
 async function saveReviewNote(){
