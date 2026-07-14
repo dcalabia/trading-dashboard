@@ -2443,7 +2443,12 @@ document.addEventListener('keydown',e=>{
     }
     else if(e.key==='f'||e.key==='F'){
       const f=vid.querySelector('iframe');
-      if(f&&f.src!=='about:blank'){
+      if(!f||f.src==='about:blank') return;
+      const fsEl=document.fullscreenElement||document.webkitFullscreenElement;
+      if(fsEl===f){
+        const exit=document.exitFullscreen||document.webkitExitFullscreen;
+        if(exit) exit.call(document);
+      }else{
         const req=f.requestFullscreen||f.webkitRequestFullscreen;
         if(req) req.call(f);
       }
