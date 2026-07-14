@@ -1865,7 +1865,7 @@ function renderReview(){
           : `<div class="rev-nochart">No chart screenshot for this trade<br>
              <button class="rev-shot-edit" onclick="pickChartImage()">＋ Add screenshot</button></div>`}</div>
         ${t.video?`<div class="rev-disp" id="rev-disp-video" style="display:none">
-          <iframe class="rev-video" src="about:blank" data-src="https://www.youtube.com/embed/${esc(ytId(t.video))}?controls=0&modestbranding=1&rel=0&playsinline=1&enablejsapi=1" allow="fullscreen" allowfullscreen></iframe>
+          <iframe class="rev-video" src="about:blank" data-src="https://www.youtube.com/embed/${esc(ytId(t.video))}?controls=1&modestbranding=1&rel=0&playsinline=1&enablejsapi=1" allow="fullscreen" allowfullscreen></iframe>
           <div class="rev-video-hint">, / . = scrub 1s · space = play/pause</div>
         </div>`:''}
       </div>
@@ -2000,7 +2000,7 @@ function renderMissCard(t){
           : `<div class="rev-nochart">No chart screenshot for this miss<br>
              <button class="rev-shot-edit" onclick="pickChartImage()">＋ Add screenshot</button></div>`}</div>
         ${t.video?`<div class="rev-disp" id="rev-disp-video" style="display:none">
-          <iframe class="rev-video" src="about:blank" data-src="https://www.youtube.com/embed/${esc(ytId(t.video))}?controls=0&modestbranding=1&rel=0&playsinline=1&enablejsapi=1" allow="fullscreen" allowfullscreen></iframe>
+          <iframe class="rev-video" src="about:blank" data-src="https://www.youtube.com/embed/${esc(ytId(t.video))}?controls=1&modestbranding=1&rel=0&playsinline=1&enablejsapi=1" allow="fullscreen" allowfullscreen></iframe>
           <div class="rev-video-hint">, / . = scrub 1s · space = play/pause</div>
         </div>`:''}
       </div>
@@ -2278,6 +2278,19 @@ async function uploadChartImage(file){
   }
 }
 
+// Subscribe to time/state updates from a (re)loaded player — retry
+// until it answers (a single message races player readiness and
+// leaves REV_VT stuck at 0, breaking , / . scrubbing)
+function subscribePlayer(f){
+  REV_LISTENING=false;
+  let tries=0;
+  const t=setInterval(()=>{
+    if(REV_LISTENING||++tries>20||f.src==='about:blank'){ clearInterval(t); return; }
+    f.contentWindow.postMessage(JSON.stringify({event:'listening',id:'rev'}),'*');
+  },300);
+  f.contentWindow.postMessage(JSON.stringify({event:'listening',id:'rev'}),'*');
+}
+
 function revDisp(btn,which){
   document.querySelectorAll('.rev-disp-tab').forEach(b=>b.classList.toggle('active',b===btn));
   const shot=document.getElementById('rev-disp-shot');
@@ -2289,22 +2302,31 @@ function revDisp(btn,which){
     // Lazy-load the player on first open; unload on switch-away so
     // audio doesn't keep playing behind the screenshot
     if(which==='video'&&f.src==='about:blank'){
-      f.onload=()=>{ // subscribe to time/state updates — retry until the
-        // player answers (a single message races player readiness and
-        // leaves REV_VT stuck at 0, breaking , / . scrubbing)
-        REV_LISTENING=false;
-        let tries=0;
-        const t=setInterval(()=>{
-          if(REV_LISTENING||++tries>20||f.src==='about:blank'){ clearInterval(t); return; }
-          f.contentWindow.postMessage(JSON.stringify({event:'listening',id:'rev'}),'*');
-        },300);
-        f.contentWindow.postMessage(JSON.stringify({event:'listening',id:'rev'}),'*');
-      };
+      f.onload=()=>subscribePlayer(f);
       f.src=f.dataset.src;
     }
     if(which==='shot'&&f.src!=='about:blank'){ f.src='about:blank'; REV_PS=-1; REV_LISTENING=false; }
   }
 }
+
+// YouTube's controls overlay is only settable via the embed URL, not
+// at runtime — so to show it in normal view but hide it in fullscreen
+// (an unobstructed view), reload the iframe with a different
+// `controls` value on each fullscreen transition, resuming at the
+// same timestamp/play-state so it's seamless rather than a restart.
+document.addEventListener('fullscreenchange',()=>{
+  const f=document.querySelector('#rev-disp-video iframe');
+  if(!f||f.src==='about:blank') return;
+  const isFs=document.fullscreenElement===f||document.webkitFullscreenElement===f;
+  const wantControls=isFs?'0':'1';
+  const url=new URL(f.src);
+  if(url.searchParams.get('controls')===wantControls) return;
+  url.searchParams.set('controls',wantControls);
+  url.searchParams.set('autoplay',REV_PS===1?'1':'0');
+  url.searchParams.set('start',Math.max(0,Math.floor(REV_VT||0)));
+  f.onload=()=>subscribePlayer(f);
+  f.src=url.toString();
+});
 
 // ── ★ line highlights ───────────────────────────────────────────
 function toggleHighlightLine(){
