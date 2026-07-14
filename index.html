@@ -1133,6 +1133,7 @@ async function loadSupabaseMisses(){
       improveNote:r.improve_note || null,
       notes:      r.notes || null,
       reviewNote: r.review_note || '',
+      tags:       r.tags ? String(r.tags).split(',').map(s=>s.trim()).filter(Boolean) : [],
       chart:      r.chart_url || null,
       video:      r.video_url || null
     }));
@@ -1673,7 +1674,7 @@ let REV_FILTER = '';
 
 // Preset tags — always offered as one-click toggles on the card.
 // MM stays the special gold one.
-const PRESET_TAGS = ['Winners','Losers','Must Watch','Best Lessons','Potential Future Setup'];
+const PRESET_TAGS = ['Winners','Losers','Must Watch','Best Lessons','Potential Future Setup','To Edit'];
 
 let REV_MODE = 'trades';   // 'trades' | 'misses'
 
@@ -1864,7 +1865,7 @@ function renderReview(){
     document.body.appendChild(dl);
   }
   const dl=document.getElementById('dl-tags');
-  dl.innerHTML=[...new Set(ALL_TRADES.flatMap(x=>x.tags||[]))].sort()
+  dl.innerHTML=[...new Set([...ALL_TRADES,...ALL_MISSES].flatMap(x=>x.tags||[]))].sort()
     .map(x=>`<option value="${String(x).replace(/</g,'&lt;')}">`).join('');
   const ti=document.getElementById('rev-tag-inp');
   ti.addEventListener('keydown',e=>{
@@ -1917,6 +1918,14 @@ function renderMissCard(t){
       <div class="rev-pnl miss">${pot} missed</div>
     </div>
     <div class="rev-sub">Missed · ${esc(t.reason||'—')} · ${esc(t.date)}</div>
+    <div class="rev-tags" id="rev-tags">
+      <button class="rev-tag mm-btn${(t.tags||[]).includes('MM')?' on':''}" onclick="toggleMM()" title="Money maker — gets a gold border in the date list">★ MM</button>
+      ${PRESET_TAGS.map(p=>
+        `<button class="rev-tag preset${(t.tags||[]).includes(p)?' on':''}" onclick="toggleTag('${p}')">${p}</button>`).join('')}
+      ${(t.tags||[]).filter(x=>x!=='MM'&&!PRESET_TAGS.includes(x)).map(x=>
+        `<span class="rev-tag">${esc(x)}<b onclick="removeTag('${esc(x).replace(/'/g,"\\'")}')">✕</b></span>`).join('')}
+      <input class="rev-tag-inp" id="rev-tag-inp" placeholder="+ tag" list="dl-tags">
+    </div>
     <div class="rev-grid">${cells.map(([k,v,f])=>
       k==='Date'
         ? `<div class="rev-cell date-cell" onclick="showCalendar('${esc(v)}')"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`
@@ -1982,6 +1991,20 @@ function renderMissCard(t){
     if(ta.value.trim()==='•') ta.value='';
     if((ta.value||'')!==(t.reviewNote||'')) saveReviewNote();
   });
+  // Tag input: Enter adds; datalist of all known tags (trades + misses)
+  if(!document.getElementById('dl-tags')){
+    const dl=document.createElement('datalist'); dl.id='dl-tags';
+    document.body.appendChild(dl);
+  }
+  const dl=document.getElementById('dl-tags');
+  dl.innerHTML=[...new Set([...ALL_TRADES,...ALL_MISSES].flatMap(x=>x.tags||[]))].sort()
+    .map(x=>`<option value="${String(x).replace(/</g,'&lt;')}">`).join('');
+  const ti=document.getElementById('rev-tag-inp');
+  ti.addEventListener('keydown',e=>{
+    e.stopPropagation();
+    if(e.key==='Enter'&&ti.value.trim()) addTag(ti.value.trim());
+  });
+  ti.addEventListener('change',()=>{ if(ti.value.trim()) addTag(ti.value.trim()); });
   // Touch/pointer swipe — same guards as the trade card
   const card=document.getElementById('rev-card');
   let px=null;
@@ -2086,7 +2109,9 @@ async function saveTags(t,tags){
   const ok=await patchTradeField(t,{tags:tags.join(',')});
   if(ok){
     t.tags=tags;
-    const m=ALL_TRADES.find(x=>x.date===t.date&&x.ticker===t.ticker&&x.buyTime===t.buyTime&&x.buy===t.buy);
+    const m=REV_MODE==='misses'
+      ? ALL_MISSES.find(x=>x.id===t.id)
+      : ALL_TRADES.find(x=>x.date===t.date&&x.ticker===t.ticker&&x.buyTime===t.buyTime&&x.buy===t.buy);
     if(m) m.tags=tags;
   }
   renderReview();
@@ -2378,8 +2403,8 @@ function showDateList(date){
   overlay.innerHTML=`<div class="rev-date-modal">
     <h4>${isMiss?'Misses':'Trades'} on ${esc(date)}</h4>
     ${rows.map(({t,i})=>isMiss
-      ? `<div class="rev-date-row${i===REV_IDX?' active':''}" onclick="jumpToTrade(${i})">
-      <span class="t">${esc(t.ticker)} · ${esc(t.buyTime||'—')}${t.reason?` <i class="tags">${esc(t.reason)}</i>`:''}</span>
+      ? `<div class="rev-date-row${i===REV_IDX?' active':''}${(t.tags||[]).includes('MM')?' mm':''}" onclick="jumpToTrade(${i})">
+      <span class="t">${(t.tags||[]).includes('MM')?'★ ':''}${esc(t.ticker)} · ${esc(t.buyTime||'—')}${(t.tags||[]).filter(x=>x!=='MM').length?` <i class="tags">${esc((t.tags||[]).filter(x=>x!=='MM').join(', '))}</i>`:t.reason?` <i class="tags">${esc(t.reason)}</i>`:''}</span>
       <span class="p miss">${t.potential!=null?'+$'+t.potential.toFixed(2):'—'}</span>
     </div>`
       : `<div class="rev-date-row${i===REV_IDX?' active':''}${(t.tags||[]).includes('MM')?' mm':''}" onclick="jumpToTrade(${i})">
