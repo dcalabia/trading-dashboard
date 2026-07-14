@@ -1672,6 +1672,7 @@ let REV_IDX = 0;
 
 let REV_INIT = false;
 let REV_FILTER = '';
+let REV_NOTE_AUTOSAVE = null;  // debounce timer for review-notes autosave
 
 // Preset tags — always offered as one-click toggles on the card.
 // MM stays the special gold one.
@@ -1837,6 +1838,8 @@ function renderReview(){
       ta.setSelectionRange(ta.value.length,ta.value.length);
     }
     document.getElementById('rev-notes-status').textContent='unsaved';
+    clearTimeout(REV_NOTE_AUTOSAVE);
+    REV_NOTE_AUTOSAVE=setTimeout(saveReviewNote,800);
   });
   ta.addEventListener('keydown',e=>{
     if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){ saveReviewNote(); return; }
@@ -1862,6 +1865,7 @@ function renderReview(){
     if(!ta.value.trim()) ta.value='• ';
   });
   ta.addEventListener('blur',()=>{
+    clearTimeout(REV_NOTE_AUTOSAVE);
     if(ta.value.trim()==='•') ta.value='';  // untouched empty bullet
     if((ta.value||'')!==(t.reviewNote||'')) saveReviewNote();
   });
