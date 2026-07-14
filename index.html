@@ -102,6 +102,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .rev-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;user-select:none;touch-action:pan-y}
 .rev-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px}
 .rev-ticker{font-family:'Barlow Condensed',sans-serif;font-size:34px;font-weight:700;letter-spacing:1px}
+.rev-miss-no{font-family:system-ui,-apple-system,sans-serif;font-size:13px;font-weight:600;color:var(--muted);letter-spacing:0;vertical-align:middle}
 .rev-pnl{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700}
 .rev-pnl.win{color:var(--accent)}
 .rev-pnl.loss{color:var(--red)}
@@ -1911,7 +1912,7 @@ function renderMissCard(t){
   ];
   holder.innerHTML=`<div class="rev-card" id="rev-card">
     <div class="rev-head">
-      <div class="rev-ticker">${esc(t.ticker)}</div>
+      <div class="rev-ticker">${esc(t.ticker)} <span class="rev-miss-no">Miss ${t.missNo}</span></div>
       <div class="rev-pnl miss">${pot} missed</div>
     </div>
     <div class="rev-sub">Missed · ${esc(t.reason||'—')} · ${esc(t.date)}</div>
