@@ -1909,9 +1909,6 @@ function renderMissCard(t){
     ['Time opened', t.timeOpened||'—', null],
     ['Time to open', t.timeToOpen||'—', null],
   ];
-  const notes=[];
-  if(t.improveNote) notes.push(['imp','To improve',t.improveNote]);
-  if(t.notes)       notes.push(['es','Sheet notes',t.notes]);
   holder.innerHTML=`<div class="rev-card" id="rev-card">
     <div class="rev-head">
       <div class="rev-ticker">${esc(t.ticker)}</div>
@@ -1932,8 +1929,6 @@ function renderMissCard(t){
         : f
         ? `<div class="rev-cell edit" onclick="revEdit(this,'${f}')" title="Click to edit"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`
         : `<div class="rev-cell"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`).join('')}</div>
-    ${notes.length?`<div class="rev-notes">${notes.map(([c,k,v])=>
-      `<div class="rev-note ${c}"><b>${k}</b>${esc(v)}</div>`).join('')}</div>`:''}
     <div class="rev-body">
       <div class="rev-body-chart">
         ${t.video?`<div class="rev-disp-tabs">
