@@ -117,6 +117,17 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .pb-img .del{position:absolute;top:6px;right:6px;background:rgba(10,15,25,0.85);border:1px solid var(--border);border-radius:5px;color:var(--red,#ff5d5d);font-size:11px;padding:2px 7px;cursor:pointer}
 .pb-empty{color:var(--muted);font-size:11px;padding:4px 0}
 #rev-pb-body{display:block}
+/* ── Tag manager overlay ── */
+#tagmgr-overlay{position:fixed;inset:0;background:rgba(5,10,18,0.97);z-index:400;display:flex;flex-direction:column;padding:18px}
+.tagmgr-list{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow-y:auto;max-width:640px;width:100%;margin:0 auto;flex:1;min-height:0}
+.tagmgr-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)}
+.tagmgr-row .name{flex:1;font-size:13px}
+.tagmgr-row .cnt{font-size:11px;color:var(--muted);white-space:nowrap}
+.tagmgr-row button{background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:4px 12px;font-size:11px;cursor:pointer}
+.tagmgr-row button:hover{border-color:var(--accent)}
+.tagmgr-row button.danger:hover{border-color:var(--red,#ff5d5d);color:var(--red,#ff5d5d)}
+.tagmgr-row input{background:var(--panel);border:1px solid var(--accent);border-radius:6px;color:var(--text);font-size:13px;padding:4px 8px;flex:1;outline:none}
+.tagmgr-preset{font-size:9px;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:1px 7px;text-transform:uppercase;letter-spacing:0.5px}
 /* ── Side-by-side compare overlay ── */
 #cmp-overlay{position:fixed;inset:0;background:rgba(5,10,18,0.97);z-index:400;display:flex;flex-direction:column;padding:18px}
 .cmp-body{display:grid;grid-template-columns:1fr 1fr;gap:14px;flex:1;min-height:0;align-items:start}
@@ -429,6 +440,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
   <button class="tab-btn" onclick="switchTab('calendar')">Calendar</button>
   <button class="tab-btn" onclick="switchTab('checklists')">Checklists</button>
   <button class="tab-btn" onclick="switchTab('review')">Review</button>
+  <button class="tab-btn" onclick="switchTab('playbook')">Playbook</button>
 </div>
 
 <!-- HOME TAB -->
@@ -728,6 +740,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
       </select>
       <button class="rev-mode-btn" id="rev-playlist-btn" onclick="openPlaylist()" title="Autoplay all videos in the current deck + tag filter">▶ Playlist</button>
       <button class="rev-mode-btn" id="rev-compare-btn" onclick="openCompare()" title="Side-by-side: current card vs any other">⇄ Compare</button>
+      <button class="rev-mode-btn" onclick="openTagMgr()" title="Rename or delete tags across every trade/miss/Ross entry">🏷 Tags</button>
       <div class="rev-nav-btns">
         <button class="rev-nav-btn" onclick="revNav(-1)">←</button>
         <button class="rev-nav-btn" onclick="revNav(1)">→</button>
@@ -753,13 +766,17 @@ tr:hover td{background:rgba(255,255,255,0.025)}
       <div class="rev-hls-body" id="rev-best-body"></div>
     </div>
 
-    <!-- Setup Playbook — the perfect template chart for each setup -->
-    <div class="rev-hls" id="rev-pb">
-      <div class="rev-hls-hdr" onclick="togglePb()" style="color:var(--accent)">
+  </div>
+</div>
+
+<!-- PLAYBOOK TAB — the perfect template chart for each setup -->
+<div class="tab-pane" id="tab-playbook">
+  <div class="rev-wrap">
+    <div class="rev-hls" style="border-color:rgba(38,131,255,0.35)">
+      <div class="rev-hls-hdr" style="color:var(--accent);cursor:default">
         <span>📖 Setup Playbook <span class="rev-hls-count" id="rev-pb-count" style="background:rgba(38,131,255,0.15)">0</span></span>
-        <span class="rev-hls-chev" id="rev-pb-chev">▶</span>
       </div>
-      <div class="rev-hls-body" id="rev-pb-body" style="display:none"></div>
+      <div class="rev-hls-body" id="rev-pb-body"></div>
     </div>
   </div>
 </div>
@@ -783,6 +800,16 @@ tr:hover td{background:rgba(255,255,255,0.025)}
       <div id="cmp-view-b"></div>
     </div>
   </div>
+</div>
+
+<!-- TAG MANAGER — rename/delete a tag across every entry -->
+<div id="tagmgr-overlay" style="display:none">
+  <div class="pl-head">
+    <div class="pl-title">🏷 Manage Tags</div>
+    <div class="pl-count" id="tagmgr-status"></div>
+    <button class="pl-close" onclick="closeTagMgr()">✕ Close (Esc)</button>
+  </div>
+  <div class="tagmgr-list" id="tagmgr-list"></div>
 </div>
 
 <!-- PLAYLIST MODE — theater overlay, queue built from current Review deck + tag filter -->
@@ -1105,7 +1132,7 @@ function resetTab(tab){
 }
 
 // ── Tabs ────────────────────────────────────────────────────────
-const TAB_IDS=['home','calendar','checklists','review'];
+const TAB_IDS=['home','calendar','checklists','review','playbook'];
 function toggleAcc(key){
   const el=document.getElementById(`acc-${key}`);
   el.classList.toggle('open');
@@ -1132,6 +1159,7 @@ function switchTab(id){
   localStorage.setItem('trading-active-tab',id);
   if(id==='calendar') renderCalendar();
   if(id==='review') renderReview();
+  if(id==='playbook') pbLoad().then(renderPlaybook);
 }
 
 // ── Date display ────────────────────────────────────────────────
@@ -2719,9 +2747,85 @@ function cmpVideo(side,idx){
   }
 }
 
-// ── Setup Playbook — template screenshots per setup ─────────────
+// ── Tag manager — rename/delete a tag across every entry ───────
+let TAGMGR_ACTIVE=false, TAGMGR_BUSY=false;
+const TAGMGR_DECKS=[['trades',()=>ALL_TRADES],['misses',()=>ALL_MISSES],['ross',()=>ALL_ROSS]];
+
+function openTagMgr(){ TAGMGR_ACTIVE=true; document.getElementById('tagmgr-overlay').style.display='flex'; renderTagMgr(); }
+function closeTagMgr(){
+  if(TAGMGR_BUSY) return;   // don't close mid-bulk-write
+  TAGMGR_ACTIVE=false;
+  document.getElementById('tagmgr-overlay').style.display='none';
+  renderReview();           // tag filter dropdown + card chips may have changed
+}
+
+function renderTagMgr(){
+  const esc=s=>String(s).replace(/</g,'&lt;');
+  const counts={};
+  TAGMGR_DECKS.forEach(([,get])=>get().forEach(t=>(t.tags||[]).forEach(x=>counts[x]=(counts[x]||0)+1)));
+  const names=Object.keys(counts).sort((a,b)=>a.localeCompare(b));
+  document.getElementById('tagmgr-status').textContent=`${names.length} tag(s) in use`;
+  document.getElementById('tagmgr-list').innerHTML=names.map(n=>`
+    <div class="tagmgr-row" data-tag="${esc(n)}">
+      <span class="name">${esc(n)}</span>
+      ${PRESET_TAGS.includes(n)||n==='MM'?'<span class="tagmgr-preset">preset</span>':''}
+      <span class="cnt">${counts[n]} entr${counts[n]!==1?'ies':'y'}</span>
+      <button onclick="tagMgrRename(this)">Rename</button>
+      <button class="danger" onclick="tagMgrDelete(this)">Delete</button>
+    </div>`).join('')||'<div style="padding:20px;color:var(--muted);font-size:13px;text-align:center">No tags in use</div>';
+}
+
+// Apply fn(tags[]) -> new tags[] (or null = no change) to every entry
+// carrying `tag`, PATCHing each affected Supabase row
+async function tagMgrApply(tag,fn){
+  TAGMGR_BUSY=true;
+  const status=document.getElementById('tagmgr-status');
+  let done=0, fail=0;
+  for(const [mode,get] of TAGMGR_DECKS){
+    const hits=get().filter(t=>(t.tags||[]).includes(tag));
+    for(const t of hits){
+      const next=fn(t.tags.slice());
+      if(!next) continue;
+      const clean=[...new Set(next)].sort((a,b)=>(a==='MM'?-1:b==='MM'?1:a.localeCompare(b)));
+      status.textContent=`Updating… ${++done}`;
+      const ok=await patchTradeField(t,{tags:clean.join(',')},mode);
+      if(ok) t.tags=clean; else fail++;
+    }
+  }
+  TAGMGR_BUSY=false;
+  status.textContent=fail?`Done — ${fail} row(s) FAILED, re-open to retry`:`Done — ${done} entr${done!==1?'ies':'y'} updated`;
+  renderTagMgr();
+  setTimeout(()=>{ if(!TAGMGR_BUSY) renderTagMgr(); },1500);
+}
+
+function tagMgrRename(btn){
+  const row=btn.closest('.tagmgr-row');
+  const tag=row.dataset.tag;
+  const name=row.querySelector('.name');
+  name.innerHTML=`<input value="${tag.replace(/"/g,'&quot;')}">`;
+  const inp=name.querySelector('input');
+  inp.focus(); inp.select();
+  inp.addEventListener('keydown',async e=>{
+    e.stopPropagation();  // Esc here cancels the rename, not the whole manager
+    if(e.key==='Escape') return renderTagMgr();
+    if(e.key!=='Enter') return;
+    const to=inp.value.trim();
+    if(!to||to===tag) return renderTagMgr();
+    await tagMgrApply(tag,tags=>tags.map(x=>x===tag?to:x));
+  });
+  inp.addEventListener('blur',()=>{ if(!TAGMGR_BUSY) renderTagMgr(); });
+}
+
+async function tagMgrDelete(btn){
+  const row=btn.closest('.tagmgr-row');
+  const tag=row.dataset.tag;
+  if(!confirm(`Remove the tag "${tag}" from every entry that has it?`)) return;
+  await tagMgrApply(tag,tags=>tags.filter(x=>x!==tag));
+}
+
+// ── Setup Playbook (its own tab) — template screenshots per setup ──
 // Stored in dashboard_data under 'setup-templates' as {setup:[urls]}
-let PB_DATA=null, PB_OPEN=false;
+let PB_DATA=null;
 
 async function pbLoad(){
   if(PB_DATA) return;
@@ -2743,13 +2847,6 @@ async function pbSave(){
         updated_at:new Date().toISOString()})
     });
   }catch(e){ console.warn('playbook save failed:',e); }
-}
-
-async function togglePb(){
-  PB_OPEN=!PB_OPEN;
-  document.getElementById('rev-pb-chev').textContent=PB_OPEN?'▼':'▶';
-  document.getElementById('rev-pb-body').style.display=PB_OPEN?'':'none';
-  if(PB_OPEN){ await pbLoad(); renderPlaybook(); }
 }
 
 function renderPlaybook(){
@@ -3199,6 +3296,7 @@ function jumpToTrade(idx){
 document.addEventListener('keydown',e=>{
   if(PL_ACTIVE){ plKeys(e); return; }   // playlist overlay owns the keys
   if(CMP_ACTIVE){ if(e.key==='Escape') closeCompare(); return; }
+  if(TAGMGR_ACTIVE){ if(e.key==='Escape') closeTagMgr(); return; }
   const pane=document.getElementById('tab-review');
   if(!pane||!pane.classList.contains('active'))return;
   const tag=(e.target.tagName||'').toLowerCase();
