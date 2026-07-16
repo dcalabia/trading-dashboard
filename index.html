@@ -1190,8 +1190,18 @@ async function loadSupabaseTrades() {
     const rows = await resp.json();
     if (!rows.length) return null;
 
+    // A row with no trade_date (e.g. a stray test insert) can't be
+    // grouped/charted and previously crashed the whole init() sequence
+    // (weekKey threw parsing "null" as a date, aborting everything
+    // downstream — checklists, KPIs, all of it, with no error surfaced
+    // to the user beyond a stuck "Syncing" badge). Drop those rows
+    // instead of trusting every row has a real date.
+    const validRows = rows.filter(r => r.trade_date && !isNaN(Date.parse(r.trade_date)));
+    if (validRows.length < rows.length)
+      console.warn(`loadSupabaseTrades: skipped ${rows.length - validRows.length} row(s) with missing/invalid trade_date`);
+
     // Map Supabase rows → ALL_TRADES format
-    const trades = rows.map(r => ({
+    const trades = validRows.map(r => ({
       date:   r.trade_date,
       ticker: r.ticker,
       buy:    +r.buy_price,
@@ -1486,6 +1496,7 @@ function renderCalendar(){
 
 function weekKey(dateStr){
   const d = new Date(dateStr+'T12:00:00');
+  if(isNaN(d)) return null;  // a bad date here must never throw — it used to take down the whole init() sequence
   const day = d.getDay();
   const mon = new Date(d);
   mon.setDate(d.getDate() - (day===0?6:day-1));
