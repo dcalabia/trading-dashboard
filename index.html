@@ -468,7 +468,16 @@ tr:hover td{background:rgba(255,255,255,0.025)}
   <div style="overflow-x:auto">
   <table>
     <thead>
-      <tr><th>Setup</th><th>Trades</th><th>Win %</th><th>Total P&amp;L</th><th>Avg P&amp;L</th></tr>
+      <tr id="setup-thead-row">
+        <th onclick="sortSetups('setup')" style="cursor:pointer">Setup</th>
+        <th onclick="sortSetups('n')" style="cursor:pointer">Trades</th>
+        <th onclick="sortSetups('winPct')" style="cursor:pointer">Win %</th>
+        <th onclick="sortSetups('ratio')" style="cursor:pointer">W:L Ratio</th>
+        <th onclick="sortSetups('avgWin')" style="cursor:pointer">Avg Win</th>
+        <th onclick="sortSetups('avgLoss')" style="cursor:pointer">Avg Loss</th>
+        <th onclick="sortSetups('total')" style="cursor:pointer">Total P&amp;L</th>
+        <th onclick="sortSetups('avg')" style="cursor:pointer">Avg P&amp;L</th>
+      </tr>
     </thead>
     <tbody id="setup-tbody"></tbody>
   </table>
@@ -1662,32 +1671,70 @@ function initChart(days, period){
 }
 
 // ── Setup performance panel ─────────────────────────────────────
+// Goal thresholds: Dale's target is 65% win rate at 1.5:1 W:L —
+// a setup only earns the ⭐ once it proves both on a real sample
+const SETUP_GOAL_WIN  = 65;
+const SETUP_GOAL_RATIO = 1.5;
+const SETUP_GOAL_MIN_N = 5;
+let SETUP_SORT = { key:'n', dir:-1 };
+let SETUP_LAST_TRADES = [];
+
+function sortSetups(key){
+  if(SETUP_SORT.key===key) SETUP_SORT.dir*=-1;
+  else SETUP_SORT = { key, dir: key==='setup'?1:-1 };
+  renderSetupPanel(SETUP_LAST_TRADES);
+}
+
 function renderSetupPanel(trades){
   const tb = document.getElementById('setup-tbody');
   if(!tb) return;
+  SETUP_LAST_TRADES = trades;
   const tagged = trades.filter(t=>t.setup);
   if(!tagged.length){
-    tb.innerHTML='<tr><td colspan="5" style="color:var(--muted);text-align:center;padding:16px">No setup data for this period yet</td></tr>';
+    tb.innerHTML='<tr><td colspan="8" style="color:var(--muted);text-align:center;padding:16px">No setup data for this period yet</td></tr>';
     return;
   }
   const groups = {};
   tagged.forEach(t=>{ (groups[t.setup] = groups[t.setup] || []).push(t); });
   const rows = Object.entries(groups).map(([setup, ts])=>{
-    const wins  = ts.filter(t=>t.pnl>=0).length;
-    const total = ts.reduce((s,t)=>s+t.pnl,0);
-    return { setup, n:ts.length, winPct:wins/ts.length*100, total, avg:total/ts.length };
-  }).sort((a,b)=>b.n-a.n);
+    const winTs  = ts.filter(t=>t.pnl>=0);
+    const lossTs = ts.filter(t=>t.pnl<0);
+    const total   = ts.reduce((s,t)=>s+t.pnl,0);
+    const avgWin  = winTs.length  ? winTs.reduce((s,t)=>s+t.pnl,0)/winTs.length   : 0;
+    const avgLoss = lossTs.length ? lossTs.reduce((s,t)=>s+t.pnl,0)/lossTs.length : 0;
+    const ratio   = avgLoss<0 ? avgWin/-avgLoss : (avgWin>0 ? Infinity : 0);
+    const winPct  = winTs.length/ts.length*100;
+    const goal = ts.length>=SETUP_GOAL_MIN_N && winPct>=SETUP_GOAL_WIN && ratio>=SETUP_GOAL_RATIO;
+    return { setup, n:ts.length, winPct, ratio, avgWin, avgLoss, total, avg:total/ts.length, goal };
+  });
+  const { key, dir } = SETUP_SORT;
+  rows.sort((a,b)=>{
+    const av=a[key], bv=b[key];
+    if(key==='setup') return dir*String(av).localeCompare(String(bv));
+    return dir*((av===bv)?0:(av<bv?-1:1));
+  });
   const untagged = trades.length - tagged.length;
+  const arrow = k => SETUP_SORT.key===k ? (SETUP_SORT.dir===-1?' ▾':' ▴') : '';
+  const hd = document.getElementById('setup-thead-row');
+  if(hd){
+    const cols=[['setup','Setup'],['n','Trades'],['winPct','Win %'],['ratio','W:L Ratio'],['avgWin','Avg Win'],['avgLoss','Avg Loss'],['total','Total P&L'],['avg','Avg P&L']];
+    hd.innerHTML = cols.map(([k,l])=>`<th onclick="sortSetups('${k}')" style="cursor:pointer;white-space:nowrap">${l}${arrow(k)}</th>`).join('');
+  }
   tb.innerHTML = rows.map(r=>{
     const cls  = r.total>=0?'win':'loss';
-    const wcls = r.winPct>=65?'win':(r.winPct>=50?'be':'loss');
-    return `<tr>
-      <td><b>${r.setup}</b></td><td>${r.n}</td>
+    const wcls = r.winPct>=SETUP_GOAL_WIN?'win':(r.winPct>=50?'be':'loss');
+    const rcls = r.ratio>=SETUP_GOAL_RATIO?'win':(r.ratio>=1?'be':'loss');
+    const rtxt = r.ratio===Infinity?'∞':(r.ratio.toFixed(2));
+    return `<tr${r.goal?' title="Meets goal: ≥65% win rate + ≥1.5:1 W:L"':''}>
+      <td><b>${r.setup}</b>${r.goal?' <span style="color:var(--gold,#e8b64c)">⭐</span>':''}</td><td>${r.n}</td>
       <td class="${wcls}">${r.winPct.toFixed(0)}%</td>
+      <td class="${rcls}">${rtxt}</td>
+      <td class="win">${r.avgWin>0?'$+'+r.avgWin.toFixed(2):'—'}</td>
+      <td class="loss">${r.avgLoss<0?'$'+r.avgLoss.toFixed(2):'—'}</td>
       <td class="${cls}">$${(r.total>=0?'+':'')+r.total.toFixed(2)}</td>
       <td class="${cls}">$${(r.avg>=0?'+':'')+r.avg.toFixed(2)}</td>
     </tr>`;
-  }).join('') + (untagged?`<tr><td colspan="5" style="color:var(--muted);font-size:11px;padding:6px 10px">${untagged} trade(s) without setup data</td></tr>`:'');
+  }).join('') + (untagged?`<tr><td colspan="8" style="color:var(--muted);font-size:11px;padding:6px 10px">${untagged} trade(s) without setup data</td></tr>`:'');
 }
 
 // ── Set period (main entry point) ───────────────────────────────
