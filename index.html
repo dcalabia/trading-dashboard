@@ -98,6 +98,25 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .pl-nav-btn:hover{border-color:var(--accent)}
 .pl-done{display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:14px}
 @media (max-width:900px){.pl-body{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) 200px}}
+.rev-pnl-sub{font-size:12px;font-weight:400;color:var(--muted);letter-spacing:0}
+.setup-pick{position:absolute;z-index:50;background:var(--card);border:1px solid var(--accent);border-radius:8px;padding:10px;margin-top:4px;max-height:300px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.5);min-width:280px}
+.setup-pick label{display:block;font-size:11.5px;padding:3px 0;cursor:pointer;font-weight:400}
+.setup-pick input[type=checkbox]{margin-right:6px;accent-color:var(--accent)}
+.setup-pick-btns{display:flex;gap:6px;margin-top:8px}
+.setup-pick-btns button{flex:1;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px;font-size:11px;cursor:pointer}
+.setup-pick-btns button:hover{border-color:var(--accent)}
+.rev-cell{position:relative}
+/* ── Setup Playbook ── */
+.pb-card{border-top:1px solid var(--border);padding:12px 0}
+.pb-name{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:0.5px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+.pb-add{background:var(--panel);border:1px dashed var(--border);border-radius:6px;color:var(--muted);font-size:10px;padding:3px 10px;cursor:pointer}
+.pb-add:hover{color:var(--accent);border-color:var(--accent)}
+.pb-imgs{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+.pb-img{position:relative}
+.pb-img img{width:100%;border:1px solid var(--border);border-radius:8px;display:block;cursor:zoom-in}
+.pb-img .del{position:absolute;top:6px;right:6px;background:rgba(10,15,25,0.85);border:1px solid var(--border);border-radius:5px;color:var(--red,#ff5d5d);font-size:11px;padding:2px 7px;cursor:pointer}
+.pb-empty{color:var(--muted);font-size:11px;padding:4px 0}
+#rev-pb-body{display:block}
 /* ── Side-by-side compare overlay ── */
 #cmp-overlay{position:fixed;inset:0;background:rgba(5,10,18,0.97);z-index:400;display:flex;flex-direction:column;padding:18px}
 .cmp-body{display:grid;grid-template-columns:1fr 1fr;gap:14px;flex:1;min-height:0;align-items:start}
@@ -137,11 +156,13 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .rev-hls-count{background:rgba(255,213,74,0.15);border-radius:10px;padding:1px 8px;font-size:12px;margin-left:6px}
 .rev-hls-chev{color:var(--muted);font-size:11px}
 .rev-hls-body{padding:0 16px 12px}
-.rev-hl-item{display:flex;gap:10px;align-items:baseline;padding:5px 0;border-top:1px solid var(--border)}
-.rev-hl-item .m{color:var(--muted);font-size:11px;white-space:nowrap}
-.rev-hl-item .m.hl-jump{cursor:pointer;text-decoration:underline dotted}
-.rev-hl-item .m.hl-jump:hover{color:var(--accent)}
-.rev-hl-item mark{background:rgba(255,213,74,0.18);color:#ffe9a8;border-radius:3px;padding:1px 6px;font-size:13px;line-height:1.5}
+/* Distilled advice cards — the lesson is the hero, the trade is a footnote */
+.rev-hls-body{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;padding-bottom:14px}
+.rev-hl-item{display:flex;flex-direction:column-reverse;gap:8px;background:linear-gradient(135deg,rgba(255,213,74,0.07),rgba(255,213,74,0.02));border:1px solid rgba(255,213,74,0.25);border-left:4px solid #ffd54a;border-radius:10px;padding:12px 14px}
+.rev-hl-item .m{color:var(--muted);font-size:10px;white-space:nowrap;text-transform:uppercase;letter-spacing:0.5px;align-self:flex-end}
+.rev-hl-item .m.hl-jump{cursor:pointer}
+.rev-hl-item .m.hl-jump:hover{color:var(--accent);text-decoration:underline dotted}
+.rev-hl-item mark{background:transparent;color:#ffe9a8;padding:0;font-size:15px;line-height:1.45;font-weight:600;font-family:'Barlow Condensed',sans-serif;letter-spacing:0.3px}
 .rev-hl-empty{color:var(--muted);font-size:12px;padding:8px 0;border-top:1px solid var(--border)}
 .rev-body-chart .rev-nochart{min-height:380px;display:flex;align-items:center;justify-content:center}
 .rev-notes-hdr{display:flex;justify-content:space-between;align-items:baseline;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
@@ -696,6 +717,13 @@ tr:hover td{background:rgba(255,255,255,0.025)}
       <select class="rev-filter" id="rev-filter" onchange="setRevFilter(this.value)">
         <option value="">All trades</option>
       </select>
+      <select class="rev-filter" id="rev-ps-filter" onchange="setPsFilter(this.value)" title="Filter by per-share gain/loss">
+        <option value="">$/share: all</option>
+        <option value="gte:0.5">≥ +$0.50/sh</option>
+        <option value="range:0.2:0.5">+$0.20 – 0.50/sh</option>
+        <option value="range:0:0.2">$0 – 0.20/sh</option>
+        <option value="lt:0">Losses only</option>
+      </select>
       <button class="rev-mode-btn" id="rev-playlist-btn" onclick="openPlaylist()" title="Autoplay all videos in the current deck + tag filter">▶ Playlist</button>
       <button class="rev-mode-btn" id="rev-compare-btn" onclick="openCompare()" title="Side-by-side: current card vs any other">⇄ Compare</button>
       <div class="rev-nav-btns">
@@ -712,6 +740,15 @@ tr:hover td{background:rgba(255,255,255,0.025)}
         <span class="rev-hls-chev" id="rev-hls-chev">▼</span>
       </div>
       <div class="rev-hls-body" id="rev-hls-body"></div>
+    </div>
+
+    <!-- Setup Playbook — the perfect template chart for each setup -->
+    <div class="rev-hls" id="rev-pb">
+      <div class="rev-hls-hdr" onclick="togglePb()" style="color:var(--accent)">
+        <span>📖 Setup Playbook <span class="rev-hls-count" id="rev-pb-count" style="background:rgba(38,131,255,0.15)">0</span></span>
+        <span class="rev-hls-chev" id="rev-pb-chev">▶</span>
+      </div>
+      <div class="rev-hls-body" id="rev-pb-body" style="display:none"></div>
     </div>
   </div>
 </div>
@@ -1824,7 +1861,12 @@ function renderSetupPanel(trades){
     return;
   }
   const groups = {};
-  tagged.forEach(t=>{ (groups[t.setup] = groups[t.setup] || []).push(t); });
+  // A multi-setup trade ("A + B") counts once under EACH setup, so the
+  // stats answer "how does setup X perform, whatever else it rode with"
+  tagged.forEach(t=>{
+    String(t.setup).split(SETUP_SEP).map(s=>s.trim()).filter(Boolean)
+      .forEach(s=>{ (groups[s] = groups[s] || []).push(t); });
+  });
   const rows = Object.entries(groups).map(([setup, ts])=>{
     const winTs  = ts.filter(t=>t.pnl>=0);
     const lossTs = ts.filter(t=>t.pnl<0);
@@ -1923,9 +1965,9 @@ function revTrades(){
     });
   }
   if(REV_MODE==='ross'){
-    const scoped = REV_FILTER
+    const scoped = (REV_FILTER
       ? ALL_ROSS.filter(t=>(t.tags||[]).includes(REV_FILTER))
-      : ALL_ROSS;
+      : ALL_ROSS).filter(psMatch);
     return scoped.slice().sort((a,b)=>{
       if(a.date!==b.date) return a.date<b.date?-1:1;
       const at=a.buyTime||'', bt=b.buyTime||'';
@@ -1933,9 +1975,9 @@ function revTrades(){
     });
   }
   const trades = getFilteredTrades('review');
-  const scoped = REV_FILTER
+  const scoped = (REV_FILTER
     ? trades.filter(t=>(t.tags||[]).includes(REV_FILTER))
-    : trades;
+    : trades).filter(psMatch);
   return scoped.slice().sort((a,b)=>{
     if(a.date!==b.date) return a.date<b.date?-1:1;
     const at=a.buyTime||'', bt=b.buyTime||'';
@@ -1947,6 +1989,24 @@ function setRevFilter(v){
   REV_FILTER = v;
   REV_IDX = revTrades().length - 1;  // land on newest in the filtered set
   renderReview();
+}
+
+// ── Per-share P&L filter (trades + Ross; misses have no fill) ───
+let REV_PS_FILTER = '';
+function setPsFilter(v){
+  REV_PS_FILTER = v;
+  REV_IDX = revTrades().length - 1;
+  renderReview();
+}
+function psMatch(t){
+  if(!REV_PS_FILTER) return true;
+  if(t.pnl==null||!t.shares) return false;
+  const ps=t.pnl/t.shares;
+  const [op,a,b]=REV_PS_FILTER.split(':');
+  if(op==='gte')   return ps>=+a;
+  if(op==='lt')    return ps<+a;
+  if(op==='range') return ps>=+a&&ps<+b;
+  return true;
 }
 
 function fmtET(iso){
@@ -2010,10 +2070,13 @@ function renderReview(){
   if(t.exsNote)     notes.push(['exs','Exit',t.exsNote]);
   if(t.improveNote) notes.push(['imp','To improve',t.improveNote]);
   const esc=s=>String(s).replace(/</g,'&lt;');
+  const perShare=t.shares?t.pnl/t.shares:null;
   holder.innerHTML=`<div class="rev-card" id="rev-card">
     <div class="rev-head">
       <div class="rev-ticker">${esc(t.ticker)}</div>
-      <div class="rev-pnl ${t.result}">${(t.pnl>=0?'+':'−')}$${Math.abs(t.pnl).toFixed(2)}</div>
+      <div class="rev-pnl ${t.result}">${(t.pnl>=0?'+':'−')}$${Math.abs(t.pnl).toFixed(2)}
+        ${perShare!=null?`<span class="rev-pnl-sub">· ${t.shares} sh · ${(perShare>=0?'+':'−')}$${Math.abs(perShare).toFixed(2)}/sh</span>`:''}
+      </div>
     </div>
     <div class="rev-sub">${t.result==='win'?'Win':'Loss'} · ${pct}% · ${esc(t.date)}</div>
     <div class="rev-tags" id="rev-tags">
@@ -2265,7 +2328,48 @@ const REV_FIELDS={
   reason_missed:{prop:'reason'},  // misses deck only
 };
 
+// Trades can have MORE than one setup (e.g. a micro-pullback that's
+// also a whole-dollar break) — stored in the same text column joined
+// with " + ", picked via checkboxes instead of a single-value input.
+const SETUP_SEP=' + ';
+function knownSetups(){
+  const all=[...ALL_TRADES,...ALL_MISSES,...ALL_ROSS];
+  return [...new Set(all.flatMap(x=>String(x.setup||'').split(SETUP_SEP)).map(s=>s.trim()).filter(Boolean))].sort();
+}
+function revEditSetup(cell){
+  if(cell.querySelector('.setup-pick')) return;
+  const t=revTrades()[REV_IDX];
+  const cur=new Set(String(t.setup||'').split(SETUP_SEP).map(s=>s.trim()).filter(Boolean));
+  const esc=s=>String(s).replace(/</g,'&lt;');
+  const box=document.createElement('div');
+  box.className='setup-pick';
+  box.innerHTML=knownSetups().map((s,i)=>
+    `<label><input type="checkbox" data-s="${esc(s)}"${cur.has(s)?' checked':''}> ${esc(s)}</label>`).join('')
+    +`<input class="rev-edit-inp" placeholder="+ new setup…" style="margin-top:6px">
+      <div class="setup-pick-btns"><button data-act="save">Save</button><button data-act="cancel">Cancel</button></div>`;
+  cell.appendChild(box);
+  box.addEventListener('click',e=>e.stopPropagation());
+  box.querySelector('[data-act=cancel]').onclick=()=>renderReview();
+  box.querySelector('[data-act=save]').onclick=async()=>{
+    const picked=[...box.querySelectorAll('input[type=checkbox]:checked')].map(c=>c.dataset.s);
+    const extra=box.querySelector('.rev-edit-inp').value.trim();
+    if(extra) picked.push(extra);
+    const val=picked.join(SETUP_SEP);
+    if(!val||val===t.setup){ renderReview(); return; }
+    const ok=await patchTradeField(t,{setup:val});
+    if(ok){
+      t.setup=val;
+      const m=REV_MODE==='misses' ? ALL_MISSES.find(x=>x.id===t.id)
+        : REV_MODE==='ross' ? ALL_ROSS.find(x=>x.id===t.id)
+        : ALL_TRADES.find(x=>x.date===t.date&&x.ticker===t.ticker&&x.buyTime===t.buyTime&&x.buy===t.buy);
+      if(m) m.setup=val;
+    }
+    renderReview();
+  };
+}
+
 function revEdit(cell,field){
+  if(field==='setup') return revEditSetup(cell);
   if(cell.querySelector('input')) return; // already editing
   const t=revTrades()[REV_IDX];
   const def=REV_FIELDS[field];
@@ -2599,6 +2703,101 @@ function cmpVideo(side,idx){
     media.innerHTML=`<iframe src="https://www.youtube.com/embed/${ytId(t.video)}?controls=1&modestbranding=1&rel=0&playsinline=1" allow="fullscreen" allowfullscreen></iframe>`;
     btn.classList.add('on'); btn.textContent='🖼 Screenshot';
   }
+}
+
+// ── Setup Playbook — template screenshots per setup ─────────────
+// Stored in dashboard_data under 'setup-templates' as {setup:[urls]}
+let PB_DATA=null, PB_OPEN=false;
+
+async function pbLoad(){
+  if(PB_DATA) return;
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/dashboard_data?key=eq.setup-templates&select=value`,
+      {headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}});
+    const rows=await r.json();
+    PB_DATA=rows&&rows[0]&&rows[0].value?JSON.parse(rows[0].value):{};
+  }catch(e){ PB_DATA={}; }
+}
+
+async function pbSave(){
+  try{
+    await fetch(`${SUPABASE_URL}/rest/v1/dashboard_data`,{
+      method:'POST',
+      headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,
+        'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},
+      body:JSON.stringify({key:'setup-templates',value:JSON.stringify(PB_DATA),
+        updated_at:new Date().toISOString()})
+    });
+  }catch(e){ console.warn('playbook save failed:',e); }
+}
+
+async function togglePb(){
+  PB_OPEN=!PB_OPEN;
+  document.getElementById('rev-pb-chev').textContent=PB_OPEN?'▼':'▶';
+  document.getElementById('rev-pb-body').style.display=PB_OPEN?'':'none';
+  if(PB_OPEN){ await pbLoad(); renderPlaybook(); }
+}
+
+function renderPlaybook(){
+  const body=document.getElementById('rev-pb-body');
+  if(!body||!PB_DATA) return;
+  const esc=s=>String(s).replace(/</g,'&lt;');
+  // Every setup ever traded + any setup that already has templates
+  const names=[...new Set([...knownSetups(),...Object.keys(PB_DATA)])].sort();
+  document.getElementById('rev-pb-count').textContent=
+    Object.values(PB_DATA).reduce((s,a)=>s+(a?.length||0),0);
+  body.innerHTML=names.map(n=>{
+    const imgs=PB_DATA[n]||[];
+    return `<div class="pb-card">
+      <div class="pb-name">${esc(n)}
+        <button class="pb-add" onclick="pbAddShot('${esc(n).replace(/'/g,"\\'")}')">＋ Add screenshot</button>
+      </div>
+      ${imgs.length?`<div class="pb-imgs">${imgs.map((u,i)=>
+        `<div class="pb-img"><img src="${esc(u)}" loading="lazy" onclick="window.open('${esc(u)}','_blank')">
+         <button class="del" onclick="pbDelShot('${esc(n).replace(/'/g,"\\'")}',${i})">✕</button></div>`).join('')}</div>`
+      :'<div class="pb-empty">No template yet — add the perfect example chart for this setup</div>'}
+    </div>`;
+  }).join('')||'<div class="pb-empty">No setups found yet</div>';
+}
+
+function pbAddShot(setup){
+  let inp=document.getElementById('pb-shot-inp');
+  if(!inp){
+    inp=document.createElement('input');
+    inp.type='file'; inp.accept='image/*'; inp.id='pb-shot-inp';
+    inp.style.display='none';
+    document.body.appendChild(inp);
+  }
+  inp.onchange=async()=>{
+    const file=inp.files[0]; inp.value='';
+    if(!file) return;
+    try{
+      const b64=await new Promise((res,rej)=>{
+        const r=new FileReader();
+        r.onload=()=>res(r.result.split(',')[1]);
+        r.onerror=rej;
+        r.readAsDataURL(file);
+      });
+      const body=new URLSearchParams();
+      body.set('key',IMGBB_API_KEY);
+      body.set('image',b64);
+      const up=await fetch('https://api.imgbb.com/1/upload',{method:'POST',body});
+      const json=await up.json();
+      if(!json.success) throw new Error(json.error?.message||'imgbb upload failed');
+      (PB_DATA[setup]=PB_DATA[setup]||[]).push(json.data.url);
+      await pbSave();
+      renderPlaybook();
+    }catch(e){ alert('Upload failed: '+e.message); }
+  };
+  inp.click();
+}
+
+async function pbDelShot(setup,i){
+  if(!confirm('Remove this template screenshot?')) return;
+  (PB_DATA[setup]||[]).splice(i,1);
+  if(!PB_DATA[setup]?.length) delete PB_DATA[setup];
+  await pbSave();
+  renderPlaybook();
 }
 
 // ── Discipline heatmap — Referee rules, visibility only ────────
