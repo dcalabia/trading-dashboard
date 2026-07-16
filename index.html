@@ -156,13 +156,15 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .rev-hls-count{background:rgba(255,213,74,0.15);border-radius:10px;padding:1px 8px;font-size:12px;margin-left:6px}
 .rev-hls-chev{color:var(--muted);font-size:11px}
 .rev-hls-body{padding:0 16px 12px}
-/* Distilled advice cards — the lesson is the hero, the trade is a footnote */
-.rev-hls-body{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;padding-bottom:14px}
-.rev-hl-item{display:flex;flex-direction:column-reverse;gap:8px;background:linear-gradient(135deg,rgba(255,213,74,0.07),rgba(255,213,74,0.02));border:1px solid rgba(255,213,74,0.25);border-left:4px solid #ffd54a;border-radius:10px;padding:12px 14px}
-.rev-hl-item .m{color:var(--muted);font-size:10px;white-space:nowrap;text-transform:uppercase;letter-spacing:0.5px;align-self:flex-end}
-.rev-hl-item .m.hl-jump{cursor:pointer}
-.rev-hl-item .m.hl-jump:hover{color:var(--accent);text-decoration:underline dotted}
-.rev-hl-item mark{background:transparent;color:#ffe9a8;padding:0;font-size:15px;line-height:1.45;font-weight:600;font-family:'Barlow Condensed',sans-serif;letter-spacing:0.3px}
+.rev-hl-item{display:flex;gap:10px;align-items:baseline;padding:5px 0;border-top:1px solid var(--border)}
+.rev-hl-item .m{color:var(--muted);font-size:11px;white-space:nowrap}
+.rev-hl-item .m.hl-jump{cursor:pointer;text-decoration:underline dotted}
+.rev-hl-item .m.hl-jump:hover{color:var(--accent)}
+.rev-hl-item mark{background:rgba(255,213,74,0.18);color:#ffe9a8;border-radius:3px;padding:1px 6px;font-size:13px;line-height:1.5}
+/* Promote-to-best toggle on each highlight line */
+.rev-hl-best{background:transparent;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:0 2px;line-height:1}
+.rev-hl-best:hover{color:#ffd54a}
+.rev-hl-best.on{color:#ffd54a}
 .rev-hl-empty{color:var(--muted);font-size:12px;padding:8px 0;border-top:1px solid var(--border)}
 .rev-body-chart .rev-nochart{min-height:380px;display:flex;align-items:center;justify-content:center}
 .rev-notes-hdr{display:flex;justify-content:space-between;align-items:baseline;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
@@ -740,6 +742,15 @@ tr:hover td{background:rgba(255,255,255,0.025)}
         <span class="rev-hls-chev" id="rev-hls-chev">▼</span>
       </div>
       <div class="rev-hls-body" id="rev-hls-body"></div>
+    </div>
+
+    <!-- Best of highlights — ★★ lines promoted from the section above -->
+    <div class="rev-hls" id="rev-best" style="border-color:rgba(255,213,74,0.45)">
+      <div class="rev-hls-hdr" onclick="toggleBest()">
+        <span>🏆 Best of Highlights <span class="rev-hls-count" id="rev-best-count">0</span></span>
+        <span class="rev-hls-chev" id="rev-best-chev">▼</span>
+      </div>
+      <div class="rev-hls-body" id="rev-best-body"></div>
     </div>
 
     <!-- Setup Playbook — the perfect template chart for each setup -->
@@ -2417,13 +2428,16 @@ function revEdit(cell,field){
   inp.addEventListener('click',e=>e.stopPropagation());
 }
 
-async function patchTradeField(t,payload){
+async function patchTradeField(t,payload,mode){
   // Misses and Ross rows have a stable primary key; trades match like
-  // the fill scripts do (date + ticker + buy_time when present)
+  // the fill scripts do (date + ticker + buy_time when present).
+  // `mode` overrides REV_MODE for callers acting on a specific deck
+  // (e.g. the Best-of toggle, whose items span all three sources).
+  mode=mode||REV_MODE;
   let url;
-  if(REV_MODE==='misses'&&t.id!=null){
+  if(mode==='misses'&&t.id!=null){
     url=`${SUPABASE_URL}/rest/v1/misses?id=eq.${t.id}`;
-  }else if(REV_MODE==='ross'&&t.id!=null){
+  }else if(mode==='ross'&&t.id!=null){
     url=`${SUPABASE_URL}/rest/v1/ross_trades?id=eq.${t.id}`;
   }else{
     let q=`trade_date=eq.${t.date}&ticker=eq.${encodeURIComponent(t.ticker)}`;
@@ -2972,8 +2986,9 @@ function renderHighlights(){
     if(!t.reviewNote||t.reviewNote.indexOf('★')===-1) return;
     t.reviewNote.split('\n').forEach(line=>{
       if(line.indexOf('★')===-1) return;
-      const txt=line.replace(/^\s*•\s*/,'').replace(/★\s?/,'').trim();
-      if(txt) items.push({date:t.date,ticker:t.ticker+mark,txt,source,entry:t});
+      const best=line.indexOf('★★')!==-1;
+      const txt=line.replace(/^\s*•\s*/,'').replace(/★+\s?/,'').trim();
+      if(txt) items.push({date:t.date,ticker:t.ticker+mark,txt,source,entry:t,best,raw:line});
     });
   });
   collect(getFilteredTrades('review'),'','trades');
@@ -2981,13 +2996,50 @@ function renderHighlights(){
   collect(ALL_ROSS,' (Ross)','ross');
   items.sort((a,b)=>a.date<b.date?1:(a.date>b.date?-1:0));
   HL_ITEMS=items;
+  const row=(h,i)=>`<div class="rev-hl-item">
+    <button class="rev-hl-best${h.best?' on':''}" onclick="toggleBestHl(${i})" title="${h.best?'Remove from':'Promote to'} Best of Highlights">🏆</button>
+    <span class="m hl-jump" onclick="jumpToHighlight(${i})" title="Jump to this ${h.source==='misses'?'miss':'trade'}">${esc(h.date)} · ${esc(h.ticker)}</span>
+    <mark>${esc(h.txt)}</mark></div>`;
   document.getElementById('rev-hls-count').textContent=items.length;
   document.getElementById('rev-hls-chev').textContent=HLS_OPEN?'▼':'▶';
   const body=document.getElementById('rev-hls-body');
   body.style.display=HLS_OPEN?'':'none';
   body.innerHTML=items.length
-    ? items.map((h,i)=>`<div class="rev-hl-item"><span class="m hl-jump" onclick="jumpToHighlight(${i})" title="Jump to this ${h.source==='misses'?'miss':'trade'}">${esc(h.date)} · ${esc(h.ticker)}</span><mark>${esc(h.txt)}</mark></div>`).join('')
+    ? items.map(row).join('')
     : '<div class="rev-hl-empty">No highlighted notes yet — put the cursor on a line and press ★ Highlight line (or Ctrl+H)</div>';
+  // Best of highlights — the ★★ subset, promoted via the 🏆 toggle
+  const best=items.map((h,i)=>[h,i]).filter(([h])=>h.best);
+  document.getElementById('rev-best-count').textContent=best.length;
+  document.getElementById('rev-best-chev').textContent=BEST_OPEN?'▼':'▶';
+  const bbody=document.getElementById('rev-best-body');
+  bbody.style.display=BEST_OPEN?'':'none';
+  bbody.innerHTML=best.length
+    ? best.map(([h,i])=>row(h,i)).join('')
+    : '<div class="rev-hl-empty">Nothing promoted yet — hit the 🏆 on any highlight above</div>';
+}
+
+let BEST_OPEN = localStorage.getItem('rev-best-open')!=='0';
+function toggleBest(){
+  BEST_OPEN=!BEST_OPEN;
+  localStorage.setItem('rev-best-open',BEST_OPEN?'1':'0');
+  renderHighlights();
+}
+
+async function toggleBestHl(i){
+  const h=HL_ITEMS[i];
+  if(!h) return;
+  // Promote = ★ -> ★★ on that exact line in the review note (the
+  // note itself is the storage, so it syncs everywhere for free)
+  const newLine=h.best
+    ? h.raw.replace('★★','★')
+    : h.raw.replace('★','★★');
+  const newNote=h.entry.reviewNote.replace(h.raw,newLine);
+  if(newNote===h.entry.reviewNote) return;
+  const ok=await patchTradeField(h.entry,{review_note:newNote},h.source);
+  if(ok){
+    h.entry.reviewNote=newNote;
+    renderHighlights();
+  }
 }
 
 function jumpToHighlight(i){
