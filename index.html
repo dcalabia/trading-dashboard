@@ -98,6 +98,38 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .pl-nav-btn:hover{border-color:var(--accent)}
 .pl-done{display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:14px}
 @media (max-width:900px){.pl-body{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) 200px}}
+/* ── Side-by-side compare overlay ── */
+#cmp-overlay{position:fixed;inset:0;background:rgba(5,10,18,0.97);z-index:400;display:flex;flex-direction:column;padding:18px}
+.cmp-body{display:grid;grid-template-columns:1fr 1fr;gap:14px;flex:1;min-height:0;align-items:start}
+.cmp-panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;flex-direction:column;min-width:0;max-height:100%;overflow-y:auto}
+.cmp-sel{width:100%;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;padding:7px 10px;margin-bottom:10px;outline:none}
+.cmp-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.cmp-head .tk{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;letter-spacing:1px}
+.cmp-head .pnl.win{color:var(--green,#26d97f)}
+.cmp-head .pnl.loss{color:var(--red,#ff5d5d)}
+.cmp-head .meta{font-size:11px;color:var(--muted)}
+.cmp-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin:10px 0}
+.cmp-stat{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:6px 8px}
+.cmp-stat .k{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px}
+.cmp-stat .v{font-size:12px;margin-top:2px}
+.cmp-media img{width:100%;border:1px solid var(--border);border-radius:8px;display:block}
+.cmp-media iframe{width:100%;aspect-ratio:16/9;border:1px solid var(--border);border-radius:8px;display:block}
+.cmp-vid-btn{background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--muted);padding:4px 12px;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;cursor:pointer;margin-bottom:6px}
+.cmp-vid-btn.on{color:var(--accent);border-color:var(--accent)}
+.cmp-empty{color:var(--muted);font-size:13px;text-align:center;padding:60px 0}
+@media (max-width:900px){.cmp-body{grid-template-columns:1fr}}
+/* ── Discipline heatmap (Home) ── */
+.dh-months{display:flex;flex-direction:column;gap:8px}
+.dh-mrow{display:flex;align-items:center;gap:8px}
+.dh-mlabel{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;min-width:60px}
+.dh-cells{display:flex;gap:4px;flex-wrap:wrap}
+.dh-cell{width:26px;height:26px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:9px;color:rgba(255,255,255,0.75);cursor:default;border:1px solid rgba(255,255,255,0.06)}
+.dh-cell.v0{background:rgba(38,217,127,0.28)}
+.dh-cell.v1{background:rgba(255,213,74,0.30)}
+.dh-cell.v2{background:rgba(255,150,60,0.35)}
+.dh-cell.v3{background:rgba(255,93,93,0.40)}
+.dh-legend{display:flex;gap:14px;margin-top:10px;font-size:10px;color:var(--muted);flex-wrap:wrap}
+.dh-legend .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
 .rev-hl-btn{background:transparent;border:1px dashed var(--border);border-radius:10px;color:var(--muted);font-size:10px;padding:2px 8px;cursor:pointer;margin-right:8px;text-transform:none;letter-spacing:0}
 .rev-hl-btn:hover{color:#ffd54a;border-color:#ffd54a}
 .rev-hls{margin-top:18px;background:var(--card);border:1px solid var(--border);border-radius:10px}
@@ -518,6 +550,18 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 </div>
 
 <div class="panel" style="margin-bottom:16px">
+  <div class="panel-title">Discipline Heatmap <span style="font-size:9px;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(all time — hover a day for details)</span></div>
+  <div class="dh-months" id="dh-months"></div>
+  <div class="dh-legend">
+    <span><span class="sw" style="background:rgba(38,217,127,0.28)"></span>Clean day</span>
+    <span><span class="sw" style="background:rgba(255,213,74,0.30)"></span>1 violation</span>
+    <span><span class="sw" style="background:rgba(255,150,60,0.35)"></span>2 violations</span>
+    <span><span class="sw" style="background:rgba(255,93,93,0.40)"></span>3+ violations</span>
+    <span style="margin-left:auto">Rules: traded a Chasing High 2 · &gt;10 trades · day ≤ −$2 · kept trading after 2 straight losses</span>
+  </div>
+</div>
+
+<div class="panel" style="margin-bottom:16px">
   <div class="panel-title" id="trades-panel-title">Trades</div>
   <div style="overflow-x:auto">
   <table>
@@ -653,6 +697,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
         <option value="">All trades</option>
       </select>
       <button class="rev-mode-btn" id="rev-playlist-btn" onclick="openPlaylist()" title="Autoplay all videos in the current deck + tag filter">▶ Playlist</button>
+      <button class="rev-mode-btn" id="rev-compare-btn" onclick="openCompare()" title="Side-by-side: current card vs any other">⇄ Compare</button>
       <div class="rev-nav-btns">
         <button class="rev-nav-btn" onclick="revNav(-1)">←</button>
         <button class="rev-nav-btn" onclick="revNav(1)">→</button>
@@ -672,6 +717,25 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 </div>
 
 </div><!-- end dashboard -->
+
+<!-- COMPARE MODE — two cards from the current deck, side by side -->
+<div id="cmp-overlay" style="display:none">
+  <div class="pl-head">
+    <div class="pl-title">⇄ Compare</div>
+    <div class="pl-count" id="cmp-mode-lbl"></div>
+    <button class="pl-close" onclick="closeCompare()">✕ Close (Esc)</button>
+  </div>
+  <div class="cmp-body">
+    <div class="cmp-panel">
+      <select class="cmp-sel" id="cmp-sel-a" onchange="cmpPick('a',this.value)"></select>
+      <div id="cmp-view-a"></div>
+    </div>
+    <div class="cmp-panel">
+      <select class="cmp-sel" id="cmp-sel-b" onchange="cmpPick('b',this.value)"></select>
+      <div id="cmp-view-b"></div>
+    </div>
+  </div>
+</div>
 
 <!-- PLAYLIST MODE — theater overlay, queue built from current Review deck + tag filter -->
 <div id="pl-overlay" style="display:none">
@@ -1801,6 +1865,7 @@ function setPeriod(period){
   renderPnlSummary(stats);
   renderTradesTable(trades, period);
   renderSetupPanel(trades);
+  renderDisciplineMap();   // all-time by design — not period-scoped
   initChart(days, period);
 
   const lbl = document.getElementById('period-label');
@@ -2434,6 +2499,134 @@ function plKeys(e){
   else if(e.key===' '){ e.preventDefault(); plCmd(REV_PS===1?'pauseVideo':'playVideo'); }
 }
 
+// ── Side-by-side compare — two cards from the current deck ─────
+let CMP_ACTIVE=false, CMP_DECK=[];
+
+// Legacy pre-May rows store bare clock strings that fmtET can't parse —
+// fall back to showing the raw value instead of "Invalid Date"
+function cmpTime(x){
+  const v=x?fmtET(x):null;
+  return v&&v!=='Invalid Date'?v:(x||'—');
+}
+
+function cmpOptLabel(t){
+  if(REV_MODE==='misses')
+    return `${t.date} · Miss ${t.missNo} · ${t.ticker}`+(t.potential!=null?` · pot $${(+t.potential).toFixed(2)}`:'');
+  return `${t.date} · ${t.ticker} · ${cmpTime(t.buyTime)} · ${t.pnl>=0?'+':'−'}$${Math.abs(t.pnl).toFixed(2)}`;
+}
+
+function openCompare(){
+  // Full current deck (tag filter deliberately ignored — comparing
+  // across tags is the point), chronological
+  CMP_DECK = (REV_MODE==='misses'?ALL_MISSES:REV_MODE==='ross'?ALL_ROSS:ALL_TRADES)
+    .slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:String(a.buyTime||a.missNo)<String(b.buyTime||b.missNo)?-1:1);
+  if(!CMP_DECK.length) return;
+  CMP_ACTIVE=true;
+  document.getElementById('cmp-mode-lbl').textContent=
+    REV_MODE==='misses'?'Misses':REV_MODE==='ross'?'Ross Small':'Trades';
+  const esc=s=>String(s??'').replace(/</g,'&lt;');
+  const cur=revTrades()[REV_IDX];
+  const curIdx=cur?CMP_DECK.indexOf(REV_MODE==='misses'||REV_MODE==='ross'
+    ? CMP_DECK.find(x=>x.id===cur.id)
+    : CMP_DECK.find(x=>x.date===cur.date&&x.ticker===cur.ticker&&x.buyTime===cur.buyTime)):-1;
+  ['a','b'].forEach(side=>{
+    const sel=document.getElementById('cmp-sel-'+side);
+    sel.innerHTML=`<option value="">— pick a ${REV_MODE==='misses'?'miss':'trade'} —</option>`
+      +CMP_DECK.map((t,i)=>`<option value="${i}">${esc(cmpOptLabel(t))}</option>`).join('');
+  });
+  document.getElementById('cmp-overlay').style.display='flex';
+  if(curIdx>=0){ document.getElementById('cmp-sel-a').value=String(curIdx); cmpPick('a',String(curIdx)); }
+  else cmpPick('a','');
+  cmpPick('b','');
+}
+
+function closeCompare(){
+  CMP_ACTIVE=false;
+  document.getElementById('cmp-overlay').style.display='none';
+  // Unload any playing compare videos
+  document.querySelectorAll('#cmp-overlay iframe').forEach(f=>f.src='about:blank');
+}
+
+function cmpPick(side,val){
+  const view=document.getElementById('cmp-view-'+side);
+  if(val===''){ view.innerHTML='<div class="cmp-empty">Pick a card above to compare</div>'; return; }
+  const t=CMP_DECK[+val];
+  const esc=s=>String(s??'—').replace(/</g,'&lt;');
+  const isMiss=REV_MODE==='misses';
+  const chip=isMiss
+    ? (t.potential!=null?`<span class="pnl win">pot $${(+t.potential).toFixed(2)}</span>`:'')
+    : `<span class="pnl ${t.pnl>=0?'win':'loss'}">${t.pnl>=0?'+':'−'}$${Math.abs(t.pnl).toFixed(2)}</span>`;
+  const stats=isMiss
+    ? [['Setup',t.setup],['Reason',t.reason],['Score /9',t.score9],['Score /5',t.score5],
+       ['Buy → Sell',(t.buyTime||'—')+' → '+(t.sellTime||'—')],['Prices',(t.buy!=null?'$'+t.buy.toFixed(2):'—')+' → '+(t.sell!=null?'$'+t.sell.toFixed(2):'—')]]
+    : [['Setup',t.setup],['Grade',t.grade],['Entry score',t.entryScore],['Exit score',t.exitScore],
+       ['Buy → Sell',cmpTime(t.buyTime)+' → '+cmpTime(t.sellTime)],['Prices','$'+t.buy.toFixed(2)+' → $'+t.sell.toFixed(2)]];
+  view.innerHTML=`
+    <div class="cmp-head">
+      <span class="tk">${esc(t.ticker)}${isMiss?` · Miss ${esc(t.missNo)}`:''}</span>
+      ${chip}
+      <span class="meta">${esc(t.date)}</span>
+    </div>
+    <div class="cmp-stats">${stats.map(([k,v])=>`<div class="cmp-stat"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`).join('')}</div>
+    ${t.video?`<button class="cmp-vid-btn" id="cmp-vbtn-${side}" onclick="cmpVideo('${side}',${+val})">▶ Video</button>`:''}
+    <div class="cmp-media" id="cmp-media-${side}">
+      ${t.chart?`<img src="${esc(t.chart)}" loading="lazy">`:'<div class="cmp-empty">No screenshot</div>'}
+    </div>
+    ${t.improveNote?`<div style="margin-top:8px;font-size:12px"><span style="color:#ffd54a;font-size:9px;text-transform:uppercase;letter-spacing:0.5px">To improve</span><br>${esc(t.improveNote)}</div>`:''}`;
+}
+
+function cmpVideo(side,idx){
+  const t=CMP_DECK[idx];
+  const media=document.getElementById('cmp-media-'+side);
+  const btn=document.getElementById('cmp-vbtn-'+side);
+  const showing=media.querySelector('iframe');
+  if(showing){  // back to screenshot
+    const esc=s=>String(s??'').replace(/</g,'&lt;');
+    media.innerHTML=t.chart?`<img src="${esc(t.chart)}" loading="lazy">`:'<div class="cmp-empty">No screenshot</div>';
+    btn.classList.remove('on'); btn.textContent='▶ Video';
+  }else{
+    media.innerHTML=`<iframe src="https://www.youtube.com/embed/${ytId(t.video)}?controls=1&modestbranding=1&rel=0&playsinline=1" allow="fullscreen" allowfullscreen></iframe>`;
+    btn.classList.add('on'); btn.textContent='🖼 Screenshot';
+  }
+}
+
+// ── Discipline heatmap — Referee rules, visibility only ────────
+const DH_MAX_TRADES=10, DH_DAILY_STOP=-2, DH_CONSEC=2;
+
+function renderDisciplineMap(){
+  const el=document.getElementById('dh-months');
+  if(!el||!ALL_TRADES.length) return;
+  const byDate={};
+  ALL_TRADES.forEach(t=>{ (byDate[t.date]=byDate[t.date]||[]).push(t); });
+  const months={};
+  Object.keys(byDate).sort().forEach(d=>{
+    const ts=byDate[d].slice().sort((a,b)=>String(a.buyTime)<String(b.buyTime)?-1:1);
+    const pnl=ts.reduce((s,t)=>s+t.pnl,0);
+    const viol=[];
+    if(ts.some(t=>/chasing high 2/i.test(t.setup||''))) viol.push('Traded a Chasing High 2');
+    if(ts.length>DH_MAX_TRADES) viol.push(`${ts.length} trades (max ${DH_MAX_TRADES})`);
+    if(pnl<=DH_DAILY_STOP) viol.push(`Day ${pnl<0?'−':''}$${Math.abs(pnl).toFixed(2)} (stop −$${Math.abs(DH_DAILY_STOP).toFixed(0)})`);
+    let streak=0, past=false;
+    for(const t of ts){
+      if(past){ viol.push(`Kept trading after ${DH_CONSEC} straight losses`); break; }
+      streak=t.pnl<0?streak+1:0;
+      if(streak>=DH_CONSEC) past=true;
+    }
+    (months[d.slice(0,7)]=months[d.slice(0,7)]||[]).push({d,ts,pnl,viol});
+  });
+  const mLabel=k=>new Date(k+'-15').toLocaleString('en-US',{month:'short',year:'numeric'});
+  el.innerHTML=Object.keys(months).sort().map(mk=>`
+    <div class="dh-mrow">
+      <div class="dh-mlabel">${mLabel(mk)}</div>
+      <div class="dh-cells">${months[mk].map(day=>{
+        const v=Math.min(day.viol.length,3);
+        const tip=`${day.d} · ${day.ts.length} trade${day.ts.length!==1?'s':''} · ${day.pnl>=0?'+':'−'}$${Math.abs(day.pnl).toFixed(2)}`
+          +(day.viol.length?'\n✗ '+day.viol.join('\n✗ '):'\n✓ Clean day');
+        return `<div class="dh-cell v${v}" title="${tip.replace(/"/g,'&quot;')}">${+day.d.slice(8)}</div>`;
+      }).join('')}</div>
+    </div>`).join('');
+}
+
 // ── Chart screenshot: manual add/replace (e.g. after a split/reverse
 // split makes the auto-captured chart's prices wrong) ──
 function pickChartImage(){
@@ -2743,6 +2936,7 @@ function jumpToTrade(idx){
 // an input (so it never fights the table sort or checklist fields)
 document.addEventListener('keydown',e=>{
   if(PL_ACTIVE){ plKeys(e); return; }   // playlist overlay owns the keys
+  if(CMP_ACTIVE){ if(e.key==='Escape') closeCompare(); return; }
   const pane=document.getElementById('tab-review');
   if(!pane||!pane.classList.contains('active'))return;
   const tag=(e.target.tagName||'').toLowerCase();
