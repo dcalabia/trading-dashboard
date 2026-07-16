@@ -2141,9 +2141,9 @@ function renderReview(){
     ['Exit score', t.exitScore||'—', 'exit_score'],
     ['Score /9', t.score9!=null?t.score9:'—', 'score_9'],
     ['Score /5', t.score5!=null?t.score5:'—', 'score_5'],
-    ['Time found', t.timeFound||'—', null],
-    ['Time opened', t.timeOpened||'—', null],
-    ['Time to open', t.timeToOpen||'—', null],
+    ['Time found', t.timeFound||'—', 'time_found'],
+    ['Time opened', t.timeOpened||'—', 'time_opened'],
+    ['Time to open', t.timeToOpen||'—', 'time_to_open'],
     ['Time to execute', t.timeToExec||'—', null],
   ];
   const notes=[];
@@ -2287,9 +2287,9 @@ function renderMissCard(t){
     ['Reason missed', t.reason||'—', 'reason_missed'],
     ['Score /9', t.score9!=null?t.score9:'—', 'score_9'],
     ['Score /5', t.score5!=null?t.score5:'—', 'score_5'],
-    ['Time found', t.timeFound||'—', null],
-    ['Time opened', t.timeOpened||'—', null],
-    ['Time to open', t.timeToOpen||'—', null],
+    ['Time found', t.timeFound||'—', 'time_found'],
+    ['Time opened', t.timeOpened||'—', 'time_opened'],
+    ['Time to open', t.timeToOpen||'—', 'time_to_open'],
   ];
   holder.innerHTML=`<div class="rev-card" id="rev-card">
     <div class="rev-head">
@@ -2407,7 +2407,19 @@ const REV_FIELDS={
   score_9:    {prop:'score9', num:true, max:9},
   score_5:    {prop:'score5', num:true, max:5},
   reason_missed:{prop:'reason'},  // misses deck only
+  time_found:  {prop:'timeFound'},
+  time_opened: {prop:'timeOpened'},
+  time_to_open:{prop:'timeToOpen'},
 };
+
+// "08:06:16" / "8:06:19 AM" / "8:02:09" -> seconds-of-day (null if unparseable)
+function clockSecs(v){
+  const m=String(v||'').trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+  if(!m) return null;
+  let h=+m[1];
+  if(m[4]){ const pm=/pm/i.test(m[4]); if(pm&&h<12)h+=12; if(!pm&&h===12)h=0; }
+  return h*3600+(+m[2])*60+(+(m[3]||0));
+}
 
 // Trades can have MORE than one setup (e.g. a micro-pullback that's
 // also a whole-dollar break) — stored in the same text column joined
@@ -2479,13 +2491,28 @@ function revEdit(cell,field){
       if(isNaN(val)||val<0||val>def.max){ renderReview(); return; }
     } else if(!val){ renderReview(); return; }
     if(val===cur){ renderReview(); return; }
-    const ok=await patchTradeField(t,{[field]:val});
+    const payload={[field]:val};
+    // Saving Time opened auto-recomputes Time to open from Time found
+    // (Dale checks the tape for the real open moment; the delta is
+    // mechanical). Direct edits to time_to_open still win — this only
+    // fires on the time_opened save itself.
+    let derived=null;
+    if(field==='time_opened'&&t.timeFound){
+      const fs=clockSecs(t.timeFound), os=clockSecs(val);
+      if(fs!=null&&os!=null&&os>=fs){
+        const d=os-fs;
+        derived=`${String(Math.floor(d/60)).padStart(2,'0')}:${String(d%60).padStart(2,'0')}`;
+        payload.time_to_open=derived;
+      }
+    }
+    const ok=await patchTradeField(t,payload);
     if(ok){
       t[def.prop]=val;
+      if(derived) t.timeToOpen=derived;
       const m=REV_MODE==='misses' ? ALL_MISSES.find(x=>x.id===t.id)
         : REV_MODE==='ross' ? ALL_ROSS.find(x=>x.id===t.id)
         : ALL_TRADES.find(x=>x.date===t.date&&x.ticker===t.ticker&&x.buyTime===t.buyTime&&x.buy===t.buy);
-      if(m) m[def.prop]=val;
+      if(m){ m[def.prop]=val; if(derived) m.timeToOpen=derived; }
     }
     renderReview();
   };
