@@ -733,10 +733,15 @@ tr:hover td{background:rgba(255,255,255,0.025)}
       </select>
       <select class="rev-filter" id="rev-ps-filter" onchange="setPsFilter(this.value)" title="Filter by per-share gain/loss">
         <option value="">$/share: all</option>
+        <option value="gte:5">≥ +$5.00/sh</option>
+        <option value="gte:2">≥ +$2.00/sh</option>
+        <option value="gte:1.5">≥ +$1.50/sh</option>
+        <option value="gte:1">≥ +$1.00/sh</option>
         <option value="gte:0.5">≥ +$0.50/sh</option>
         <option value="range:0.2:0.5">+$0.20 – 0.50/sh</option>
         <option value="range:0:0.2">$0 – 0.20/sh</option>
         <option value="lt:0">Losses only</option>
+        <option value="lte:-0.5">≤ −$0.50/sh (big losses)</option>
       </select>
       <button class="rev-mode-btn" id="rev-playlist-btn" onclick="openPlaylist()" title="Autoplay all videos in the current deck + tag filter">▶ Playlist</button>
       <button class="rev-mode-btn" id="rev-compare-btn" onclick="openCompare()" title="Side-by-side: current card vs any other">⇄ Compare</button>
@@ -2044,6 +2049,7 @@ function psMatch(t){
   const [op,a,b]=REV_PS_FILTER.split(':');
   if(op==='gte')   return ps>=+a;
   if(op==='lt')    return ps<+a;
+  if(op==='lte')   return ps<=+a;
   if(op==='range') return ps>=+a&&ps<+b;
   return true;
 }
