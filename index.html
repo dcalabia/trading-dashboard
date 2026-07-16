@@ -128,6 +128,14 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .tagmgr-row button.danger:hover{border-color:var(--red,#ff5d5d);color:var(--red,#ff5d5d)}
 .tagmgr-row input{background:var(--panel);border:1px solid var(--accent);border-radius:6px;color:var(--text);font-size:13px;padding:4px 8px;flex:1;outline:none}
 .tagmgr-preset{font-size:9px;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:1px 7px;text-transform:uppercase;letter-spacing:0.5px}
+/* ── Checklist save bar ── */
+.cl-savebar{display:flex;align-items:center;justify-content:flex-end;gap:10px;max-width:900px;margin:0 auto 10px;padding:0 16px}
+.cl-save-status{font-size:11px;color:var(--muted)}
+.cl-save-status.ok{color:var(--green,#26d97f)}
+.cl-save-status.err{color:var(--red,#ff5d5d);font-weight:600}
+.cl-save-status.busy{color:#ffd54a}
+.cl-save-btn{background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 14px;font-size:11px;cursor:pointer}
+.cl-save-btn:hover{border-color:var(--accent)}
 /* ── Side-by-side compare overlay ── */
 #cmp-overlay{position:fixed;inset:0;background:rgba(5,10,18,0.97);z-index:400;display:flex;flex-direction:column;padding:18px}
 .cmp-body{display:grid;grid-template-columns:1fr 1fr;gap:14px;flex:1;min-height:0;align-items:start}
@@ -636,6 +644,13 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 <!-- PRE-SESSION TAB -->
 <div class="tab-pane" id="tab-checklists">
 
+<!-- Cloud-save status for sections/items — auto-saves on every edit,
+     this makes success/failure VISIBLE and gives a manual retry -->
+<div class="cl-savebar">
+  <span class="cl-save-status" id="cl-save-status"></span>
+  <button class="cl-save-btn" onclick="manualSaveDefs()">💾 Save</button>
+</div>
+
 <div class="cl-acc" id="acc-pre">
 <div class="cl-acc-hdr" onclick="toggleAcc('pre')"><span class="cl-acc-arrow">▸</span><span class="cl-acc-title">Pre-Session</span></div>
 <div class="cl-acc-body">
@@ -912,15 +927,35 @@ let CL_DEFS = null;
 function loadDefs(){
   try{const v=localStorage.getItem('trading-cl-defs');return v?JSON.parse(v):null;}catch(e){return null;}
 }
-function saveDefs(){
-  try{localStorage.setItem('trading-cl-defs',JSON.stringify(CL_DEFS));}catch(e){}
-  pushDefs();  // auto-save to Supabase on every change
+function clSaveStatus(cls,msg){
+  const el=document.getElementById('cl-save-status');
+  if(!el) return;
+  el.className='cl-save-status '+cls;
+  el.textContent=msg;
 }
+
+async function saveDefs(){
+  let localOk=true;
+  try{localStorage.setItem('trading-cl-defs',JSON.stringify(CL_DEFS));}catch(e){localOk=false;}
+  clSaveStatus('busy','Saving…');
+  const cloudOk=await pushDefs();  // auto-save to Supabase on every change
+  if(cloudOk){
+    const t=new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    clSaveStatus('ok',`✓ Saved to cloud · ${t}`);
+  }else{
+    clSaveStatus('err',localOk
+      ?'⚠ Cloud save FAILED — saved on this device only, hit 💾 Save to retry'
+      :'⚠ SAVE FAILED (local + cloud) — do not close, hit 💾 Save');
+  }
+  return cloudOk;
+}
+
+function manualSaveDefs(){ saveDefs(); }
 
 // ── Checklist defs ↔ Supabase (dashboard_data, like reminders) ──
 async function pushDefs(){
   try{
-    await fetch(`${SUPABASE_URL}/rest/v1/dashboard_data`,{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/dashboard_data`,{
       method:'POST',
       headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,
         'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},
@@ -928,7 +963,8 @@ async function pushDefs(){
         value:JSON.stringify({ver:+localStorage.getItem('trading-cl-ver')||0,defs:CL_DEFS}),
         updated_at:new Date().toISOString()})
     });
-  }catch(e){}
+    return r.ok;
+  }catch(e){ return false; }
 }
 async function pullDefs(){
   try{
