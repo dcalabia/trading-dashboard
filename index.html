@@ -2928,9 +2928,12 @@ function renderPlaybook(){
     Object.values(PB_DATA).reduce((s,a)=>s+(a?.length||0),0);
   body.innerHTML=names.map(n=>{
     const imgs=PB_DATA[n]||[];
+    const arg=`'${esc(n).replace(/'/g,"\\'")}'`;
     return `<div class="pb-card">
       <div class="pb-name">${esc(n)}
-        <button class="pb-add" onclick="pbAddShot('${esc(n).replace(/'/g,"\\'")}')">＋ Add screenshot</button>
+        <button class="pb-add" onclick="pbAddShot(${arg})">＋ Add screenshot</button>
+        <button class="pb-add" onclick="pbRenameSetup(${arg})" title="Rename this setup on every trade/miss/Ross entry that uses it">✎ Rename</button>
+        <button class="pb-add" style="color:var(--red,#ff5d5d)" onclick="pbDeleteSetup(${arg})" title="Remove this setup from every entry that uses it">✕ Delete</button>
       </div>
       ${imgs.length?`<div class="pb-imgs">${imgs.map((u,i)=>
         `<div class="pb-img"><img src="${esc(u)}" loading="lazy" onclick="window.open('${esc(u)}','_blank')">
@@ -2938,6 +2941,52 @@ function renderPlaybook(){
       :'<div class="pb-empty">No template yet — add the perfect example chart for this setup</div>'}
     </div>`;
   }).join('')||'<div class="pb-empty">No setups found yet</div>';
+}
+
+// Rewrite one setup name across every trade/miss/Ross entry that
+// carries it (multi-setup values are handled component-wise).
+// fn(parts[]) -> new parts[]; empty result clears the column.
+async function setupApply(name,fn){
+  let done=0, fail=0;
+  for(const [mode,get] of TAGMGR_DECKS){
+    const hits=get().filter(t=>String(t.setup||'').split(SETUP_SEP).map(s=>s.trim()).includes(name));
+    for(const t of hits){
+      const parts=String(t.setup).split(SETUP_SEP).map(s=>s.trim()).filter(Boolean);
+      const val=[...new Set(fn(parts))].join(SETUP_SEP)||null;
+      const ok=await patchTradeField(t,{setup:val},mode);
+      if(ok){ t.setup=val; done++; } else fail++;
+    }
+  }
+  if(fail) alert(`${fail} row(s) failed to update — re-run to retry`);
+  return done;
+}
+
+function setupUsage(name){
+  return TAGMGR_DECKS.reduce((s,[,get])=>s+get().filter(
+    t=>String(t.setup||'').split(SETUP_SEP).map(x=>x.trim()).includes(name)).length,0);
+}
+
+async function pbRenameSetup(name){
+  const to=(prompt(`Rename setup — applies to ${setupUsage(name)} entr${setupUsage(name)!==1?'ies':'y'}:`,name)||'').trim();
+  if(!to||to===name) return;
+  const n=await setupApply(name,parts=>parts.map(x=>x===name?to:x));
+  if(PB_DATA&&PB_DATA[name]){        // template screenshots follow the rename
+    PB_DATA[to]=[...(PB_DATA[to]||[]),...PB_DATA[name]];
+    delete PB_DATA[name];
+    await pbSave();
+  }
+  renderPlaybook();
+  if(typeof SETUP_LAST_TRADES!=='undefined') renderSetupPanel(SETUP_LAST_TRADES);
+  console.log(`setup renamed on ${n} entries`);
+}
+
+async function pbDeleteSetup(name){
+  const n=setupUsage(name);
+  if(!confirm(`Delete setup "${name}"?\n\nIt will be removed from ${n} entr${n!==1?'ies':'y'} (entries whose only setup this is will show no setup). Template screenshots for it are removed too.`)) return;
+  await setupApply(name,parts=>parts.filter(x=>x!==name));
+  if(PB_DATA&&PB_DATA[name]){ delete PB_DATA[name]; await pbSave(); }
+  renderPlaybook();
+  if(typeof SETUP_LAST_TRADES!=='undefined') renderSetupPanel(SETUP_LAST_TRADES);
 }
 
 function pbAddShot(setup){
