@@ -851,6 +851,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
         <span class="cl-save-status" id="wk-note-status" style="float:right;text-transform:none;letter-spacing:0"></span>
       </div>
       <textarea class="wk-note" id="wk-note" placeholder="What worked this week? What gets fixed next week?" oninput="wkNoteChanged()"></textarea>
+      <button class="rev-notes-save" style="width:100%" onclick="wkNoteSaveNow()">Save note</button>
     </div>
   </div>
 </div>
@@ -3006,24 +3007,32 @@ async function wkNoteLoad(wk){
   }catch(e){ wkStatus('err','⚠ Load failed'); }
 }
 
+async function wkNoteSave(){
+  const ta=document.getElementById('wk-note');
+  const wk=ta.dataset.wk, val=ta.value;
+  WK_NOTES[wk]=val;
+  wkStatus('busy','Saving…');
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/dashboard_data`,{
+      method:'POST',
+      headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,
+        'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},
+      body:JSON.stringify({key:`weekly-review:${wk}`,value:val,updated_at:new Date().toISOString()})});
+    if(r.ok){ const t=new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+      wkStatus('ok',`✓ Saved · ${t}`); }
+    else wkStatus('err','⚠ Save FAILED — hit Save note to retry');
+  }catch(e){ wkStatus('err','⚠ Save FAILED — offline? hit Save note to retry'); }
+}
+
 function wkNoteChanged(){
   clearTimeout(WK_NOTE_TIMER);
-  wkStatus('busy','Saving…');
-  WK_NOTE_TIMER=setTimeout(async()=>{
-    const ta=document.getElementById('wk-note');
-    const wk=ta.dataset.wk, val=ta.value;
-    WK_NOTES[wk]=val;
-    try{
-      const r=await fetch(`${SUPABASE_URL}/rest/v1/dashboard_data`,{
-        method:'POST',
-        headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,
-          'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},
-        body:JSON.stringify({key:`weekly-review:${wk}`,value:val,updated_at:new Date().toISOString()})});
-      if(r.ok){ const t=new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
-        wkStatus('ok',`✓ Saved · ${t}`); }
-      else wkStatus('err','⚠ Save FAILED — keep typing or retype later');
-    }catch(e){ wkStatus('err','⚠ Save FAILED — offline?'); }
-  },800);
+  wkStatus('busy','unsaved');
+  WK_NOTE_TIMER=setTimeout(wkNoteSave,800);   // same 800ms autosave as review notes
+}
+
+function wkNoteSaveNow(){
+  clearTimeout(WK_NOTE_TIMER);
+  wkNoteSave();
 }
 
 // ── Tag manager — rename/delete a tag across every entry ───────
