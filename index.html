@@ -588,6 +588,12 @@ tr:hover td{background:rgba(255,255,255,0.025)}
   </div>
 </div>
 
+<div class="panel" id="focus-banner" style="display:none;margin-bottom:16px;border-color:rgba(255,213,74,0.45)">
+  <div class="panel-title" style="color:#ffd54a">🎯 This Week's One Thing</div>
+  <div id="focus-banner-text" style="font-size:14px;font-weight:600"></div>
+  <div id="focus-banner-sub" style="font-size:10px;color:var(--muted);margin-top:4px"></div>
+</div>
+
 <div class="panel" style="margin-bottom:16px">
   <div class="panel-title">Size-Up Gate <span style="font-size:9px;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(rolling last 20 trades — clear both to scale share count)</span></div>
   <div id="goal-gate"></div>
@@ -893,6 +899,14 @@ tr:hover td{background:rgba(255,255,255,0.025)}
     <div class="panel" style="margin-bottom:16px">
       <div class="panel-title" style="color:#ffd54a">★ Highlights This Week</div>
       <div id="wk-highlights"></div>
+    </div>
+    <div class="panel" style="margin-bottom:16px;border-color:rgba(255,213,74,0.45)">
+      <div class="panel-title" style="color:#ffd54a">🎯 One Thing Next Week
+        <span class="cl-save-status" id="wk-focus-status" style="float:right;text-transform:none;letter-spacing:0"></span>
+      </div>
+      <div id="wk-focus-prev" style="font-size:11px;color:var(--muted);margin-bottom:8px"></div>
+      <input class="wk-note" id="wk-focus" style="height:auto;min-height:0;padding:10px" placeholder="The single fix you commit to for next week (e.g. hold CH1 past 2 candles)" oninput="wkFocusChanged()">
+      <button class="rev-notes-save" style="width:100%" onclick="wkFocusSaveNow()">Save focus</button>
     </div>
     <div class="panel" style="margin-bottom:16px">
       <div class="panel-title">Weekly Reflection
@@ -2207,6 +2221,7 @@ function setPeriod(period){
   renderDisciplineMap();   // all-time by design — not period-scoped
   renderGoalGate();        // all-time — rolling last 20 trades
   renderEntryLag();        // all-time — median time-to-open per day
+  renderFocusBanner();     // one-thing carried in from last week
   initChart(days, period);
 
   const lbl = document.getElementById('period-label');
@@ -3215,6 +3230,7 @@ function renderWeekly(){
     : '<div style="color:var(--muted);font-size:12px">No highlights this week</div>';
 
   wkNoteLoad(wk);
+  wkFocusLoad(wk);
 }
 
 // ── Weekly reflection — autosaved to dashboard_data per week ────
@@ -3264,6 +3280,76 @@ function wkNoteChanged(){
 function wkNoteSaveNow(){
   clearTimeout(WK_NOTE_TIMER);
   wkNoteSave();
+}
+
+// ── One Thing — the single focus committed for NEXT week ───────
+// Stored per week as weekly-focus:<weekKey>; the week AFTER shows it
+// as the carried-in focus (Weekly tab line + Home banner).
+let WK_FOCUS={}, WK_FOCUS_LOADED=false, WK_FOCUS_TIMER=null;
+function wkFocusStatus(cls,msg){
+  const el=document.getElementById('wk-focus-status');
+  if(el){ el.className='cl-save-status '+cls; el.textContent=msg; }
+}
+async function fetchFocusAll(){
+  if(WK_FOCUS_LOADED) return;
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/dashboard_data?key=like.weekly-focus:*&select=key,value`,
+      {headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}});
+    (await r.json()).forEach(row=>{ WK_FOCUS[row.key.slice('weekly-focus:'.length)]=row.value; });
+    WK_FOCUS_LOADED=true;
+  }catch(e){}
+}
+function priorFocusWeek(beforeWk){
+  return Object.keys(WK_FOCUS).filter(k=>k<beforeWk&&String(WK_FOCUS[k]).trim()).sort().pop();
+}
+async function wkFocusLoad(wk){
+  const inp=document.getElementById('wk-focus'); if(!inp) return;
+  inp.dataset.wk=wk;
+  await fetchFocusAll();
+  if(inp.dataset.wk!==wk) return;   // user navigated on during the fetch
+  inp.value=WK_FOCUS[wk]||'';
+  wkFocusStatus('','');
+  const esc=x=>String(x).replace(/</g,'&lt;');
+  const prior=priorFocusWeek(wk);
+  document.getElementById('wk-focus-prev').innerHTML=prior
+    ? `Carried into this week (set wk of ${prior}): <b style="color:var(--text)">${esc(WK_FOCUS[prior])}</b>`
+    : 'No focus carried in from a prior week yet.';
+}
+async function wkFocusSave(){
+  const inp=document.getElementById('wk-focus');
+  const wk=inp.dataset.wk, val=inp.value;
+  WK_FOCUS[wk]=val;
+  wkFocusStatus('busy','Saving…');
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/dashboard_data`,{
+      method:'POST',
+      headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,
+        'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},
+      body:JSON.stringify({key:`weekly-focus:${wk}`,value:val,updated_at:new Date().toISOString()})});
+    if(r.ok){ const t=new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+      wkFocusStatus('ok',`✓ Saved · ${t}`); renderFocusBanner(); }
+    else wkFocusStatus('err','⚠ Save FAILED — hit Save focus to retry');
+  }catch(e){ wkFocusStatus('err','⚠ Save FAILED — offline? hit Save focus to retry'); }
+}
+function wkFocusChanged(){
+  clearTimeout(WK_FOCUS_TIMER);
+  wkFocusStatus('busy','unsaved');
+  WK_FOCUS_TIMER=setTimeout(wkFocusSave,800);
+}
+function wkFocusSaveNow(){
+  clearTimeout(WK_FOCUS_TIMER);
+  wkFocusSave();
+}
+async function renderFocusBanner(){
+  const el=document.getElementById('focus-banner'); if(!el) return;
+  await fetchFocusAll();
+  const nowWk=weekKey(new Date().toISOString().slice(0,10));
+  const prior=nowWk?priorFocusWeek(nowWk):null;
+  if(!prior){ el.style.display='none'; return; }
+  el.style.display='';
+  document.getElementById('focus-banner-text').textContent=WK_FOCUS[prior];
+  document.getElementById('focus-banner-sub').textContent=
+    'Committed in the week of '+prior+' — the one thing this week.';
 }
 
 // ── Tag manager — rename/delete a tag across every entry ───────
