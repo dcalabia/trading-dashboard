@@ -639,6 +639,50 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 </div>
 
 <div class="panel" style="margin-bottom:16px">
+  <div class="panel-title">CH1 Exit Quality <span style="font-size:9px;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(all time — the "hold longer" progress meter: both lines trending up = working)</span></div>
+  <div id="ch1-stats" style="font-size:11px;color:var(--muted);margin-bottom:8px"></div>
+  <div class="chart-wrap"><canvas id="ch1Chart"></canvas></div>
+</div>
+
+<div class="panel" style="margin-bottom:16px">
+  <div class="panel-title">Performance by Time of Day <span style="font-size:9px;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(all time · PT buckets)</span></div>
+  <div style="overflow-x:auto">
+  <table>
+    <thead><tr><th>Bucket (PT)</th><th>Trades</th><th>Win %</th><th>W:L</th><th>Total P&amp;L</th></tr></thead>
+    <tbody id="tod-tbody"></tbody>
+  </table>
+  </div>
+</div>
+
+<div class="panel" style="margin-bottom:16px">
+  <div class="panel-title">Score vs Outcome <span style="font-size:9px;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(all time — does the score predict wins?)</span></div>
+  <div style="display:flex;gap:24px;flex-wrap:wrap">
+    <div style="flex:1;min-width:260px;overflow-x:auto">
+      <table>
+        <thead><tr><th>Score /9</th><th>Trades</th><th>Win %</th><th>W:L</th><th>Avg P&amp;L</th></tr></thead>
+        <tbody id="s9-tbody"></tbody>
+      </table>
+    </div>
+    <div style="flex:1;min-width:260px;overflow-x:auto">
+      <table>
+        <thead><tr><th>Score /5</th><th>Trades</th><th>Win %</th><th>W:L</th><th>Avg P&amp;L</th></tr></thead>
+        <tbody id="s5-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="panel" style="margin-bottom:16px">
+  <div class="panel-title">Why I Lose — Pareto <span style="font-size:9px;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(all time · reason_lost on losing trades — top bar = next One Thing)</span></div>
+  <div id="reason-pareto"></div>
+</div>
+
+<div class="panel" style="margin-bottom:16px">
+  <div class="panel-title">Banked vs Left on Table <span style="font-size:9px;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(weekly — actual P&amp;L vs missed potential)</span></div>
+  <div class="chart-wrap"><canvas id="missMoneyChart"></canvas></div>
+</div>
+
+<div class="panel" style="margin-bottom:16px">
   <div class="panel-title" id="trades-panel-title">Trades</div>
   <div style="overflow-x:auto">
   <table>
@@ -2136,6 +2180,170 @@ function renderEntryLag(){
     `<span style="margin-left:auto">${timed.length}/${ALL_TRADES.length} trades have time data</span>`;
 }
 
+// ── Shared win/loss stats — one math path for every panel ───────
+function wlStats(ts){
+  const w=ts.filter(t=>t.pnl>=0), l=ts.filter(t=>t.pnl<0);
+  const aw=w.length?w.reduce((s,t)=>s+t.pnl,0)/w.length:0;
+  const al=l.length?l.reduce((s,t)=>s+t.pnl,0)/l.length:0;
+  return {n:ts.length,
+          winPct:ts.length?w.length/ts.length*100:0,
+          ratio:al<0?aw/-al:(aw>0?Infinity:0),
+          total:ts.reduce((s,t)=>s+t.pnl,0)};
+}
+function wlCells(s){
+  const rtxt=s.ratio===Infinity?'∞':s.ratio.toFixed(2);
+  return `<td>${s.n}</td>
+    <td class="${s.winPct>=SETUP_GOAL_WIN?'win':s.winPct>=50?'be':'loss'}">${s.winPct.toFixed(0)}%</td>
+    <td class="${s.ratio>=SETUP_GOAL_RATIO?'win':s.ratio>=1?'be':'loss'}">${rtxt}</td>`;
+}
+
+// ── CH1 exit quality — is "hold longer" actually happening? ─────
+let ch1Chart=null;
+function renderCh1Panel(){
+  const el=document.getElementById('ch1Chart'); if(!el) return;
+  const ch1=ALL_TRADES.filter(t=>
+    String(t.setup||'').split(SETUP_SEP).map(s=>s.trim()).includes('Chasing High 1'));
+  const holdSecs=t=>{
+    if(!t.buyTime||!t.sellTime) return null;
+    const s=(new Date(t.sellTime)-new Date(t.buyTime))/1000;
+    return isFinite(s)&&s>=0?s:null;
+  };
+  const stats=wlStats(ch1);
+  const holds=ch1.map(holdSecs).filter(v=>v!=null);
+  const avgHold=holds.length?holds.reduce((a,b)=>a+b,0)/holds.length:0;
+  document.getElementById('ch1-stats').innerHTML=ch1.length
+    ? `<b style="color:var(--text)">${stats.n} trades</b> · <span class="${stats.winPct>=SETUP_GOAL_WIN?'win':'loss'}">${stats.winPct.toFixed(0)}% win</span> · W:L ${stats.ratio===Infinity?'∞':stats.ratio.toFixed(2)} · avg hold ${Math.round(avgHold)}s`
+    : 'No Chasing High 1 trades yet';
+  const byWk={};
+  ch1.forEach(t=>{ const k=weekKey(t.date); if(k)(byWk[k]=byWk[k]||[]).push(t); });
+  const wks=Object.keys(byWk).sort();
+  const hold=wks.map(k=>{
+    const hs=byWk[k].map(holdSecs).filter(v=>v!=null);
+    return hs.length?+(hs.reduce((a,b)=>a+b,0)/hs.length).toFixed(0):null;
+  });
+  const wsh=wks.map(k=>{
+    const w=byWk[k].filter(t=>t.pnl>=0&&t.shares);
+    return w.length?+(w.reduce((s,t)=>s+t.pnl/t.shares,0)/w.length).toFixed(3):null;
+  });
+  if(ch1Chart){ ch1Chart.destroy(); ch1Chart=null; }
+  ch1Chart=new Chart(el.getContext('2d'),{
+    type:'line',
+    data:{labels:wks,datasets:[
+      {label:'avg hold (s)',data:hold,yAxisID:'y',borderColor:'#4da3ff',
+       backgroundColor:'#4da3ff12',borderWidth:2,pointRadius:3,tension:0.3,spanGaps:true},
+      {label:'avg $/sh on wins',data:wsh,yAxisID:'y1',borderColor:'#26d97f',
+       borderWidth:2,pointRadius:3,tension:0.3,spanGaps:true,fill:false}
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:true,labels:{color:'#5b7a99',font:{size:10},boxWidth:12}},
+        tooltip:{backgroundColor:'#162032',borderColor:'#1e2e45',borderWidth:1}
+      },
+      scales:{
+        x:{ticks:{color:'#5b7a99',font:{size:10},maxTicksLimit:8},grid:{color:'#1e2e45'}},
+        y:{position:'left',beginAtZero:true,ticks:{color:'#4da3ff',font:{size:10},callback:v=>v+'s'},grid:{color:'#1e2e45'}},
+        y1:{position:'right',beginAtZero:true,ticks:{color:'#26d97f',font:{size:10},callback:v=>'$'+v.toFixed(2)},grid:{drawOnChartArea:false}}
+      }
+    }
+  });
+}
+
+// ── Time-of-day performance — same PT buckets as the Review filter
+function renderTodTable(){
+  const tb=document.getElementById('tod-tbody'); if(!tb) return;
+  const buckets=[[390,'6:30–6:59'],[420,'7:00–7:29'],[450,'7:30–7:59'],[480,'8:00–8:29'],
+                 [510,'8:30–8:59'],[540,'9:00–9:29'],[570,'9:30–10:00'],['out','Outside hours']];
+  const rows=buckets.map(([start,label])=>{
+    const ts=ALL_TRADES.filter(t=>{
+      const mm=ptMinutes(t); if(mm==null) return false;
+      if(start==='out') return mm<390||mm>600;
+      const end=start===570?601:start+30;
+      return mm>=start&&mm<end;
+    });
+    return {label,s:wlStats(ts)};
+  }).filter(r=>r.s.n);
+  tb.innerHTML=rows.map(r=>`<tr><td><b>${r.label}</b></td>${wlCells(r.s)}
+    <td class="${r.s.total>=0?'win':'loss'}">${r.s.total>=0?'+':'−'}$${Math.abs(r.s.total).toFixed(2)}</td></tr>`).join('')
+    ||'<tr><td colspan="5" style="color:var(--muted);text-align:center;padding:12px">No time data yet</td></tr>';
+}
+
+// ── Score vs outcome — validates the scanner's scoring ──────────
+function renderScoreTables(){
+  const t9=document.getElementById('s9-tbody'); if(!t9) return;
+  const mk=(tb,field,bands)=>{
+    tb.innerHTML=bands.map(([lo,hi,label])=>{
+      const ts=ALL_TRADES.filter(t=>{ const v=t[field]; return v!=null&&v>=lo&&v<=hi; });
+      if(!ts.length) return '';
+      const s=wlStats(ts), avg=s.total/s.n;
+      return `<tr><td><b>${label}</b></td>${wlCells(s)}
+        <td class="${avg>=0?'win':'loss'}">${avg>=0?'+':'−'}$${Math.abs(avg).toFixed(2)}</td></tr>`;
+    }).join('')
+    ||'<tr><td colspan="5" style="color:var(--muted);text-align:center;padding:12px">No score data yet</td></tr>';
+  };
+  mk(t9,'score9',[[0,5,'≤ 5'],[5.5,6.5,'5.5–6.5'],[7,8,'7–8'],[8.5,9,'8.5–9']]);
+  mk(document.getElementById('s5-tbody'),'score5',[[0,3,'≤ 3'],[3.5,4,'3.5–4'],[4.5,5,'4.5–5']]);
+}
+
+// ── Why I lose — Pareto of reason_lost across losing trades ─────
+function renderReasonPareto(){
+  const el=document.getElementById('reason-pareto'); if(!el) return;
+  const losses=ALL_TRADES.filter(t=>t.pnl<0);
+  const byReason={}; let unlogged=0;
+  losses.forEach(t=>{
+    const r=String(t.reasonLost||'').trim();
+    if(!r){ unlogged++; return; }
+    byReason[r]=byReason[r]||{n:0,loss:0};
+    byReason[r].n++; byReason[r].loss+=t.pnl;
+  });
+  const rows=Object.entries(byReason).sort((a,b)=>b[1].n-a[1].n);
+  if(!rows.length){
+    el.innerHTML='<div style="color:var(--muted);font-size:12px">No reasons logged yet — fill "Reason lost" on losing trade cards</div>';
+    return;
+  }
+  const max=rows[0][1].n;
+  const esc=x=>String(x).replace(/</g,'&lt;');
+  el.innerHTML=rows.map(([r,v])=>`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;font-size:11px">
+      <span style="flex:0 0 220px;color:var(--text)">${esc(r)}</span>
+      <div style="flex:1;height:10px;background:var(--card);border:1px solid var(--border);border-radius:5px;overflow:hidden">
+        <div style="height:100%;width:${(v.n/max*100).toFixed(0)}%;background:#ff5d5d;border-radius:5px"></div>
+      </div>
+      <span style="flex:0 0 130px;text-align:right;color:var(--muted)">${v.n}× · −$${Math.abs(v.loss).toFixed(2)}</span>
+    </div>`).join('')
+    +(unlogged?`<div style="font-size:10px;color:var(--muted);margin-top:6px">${unlogged} losing trade(s) with no reason logged yet</div>`:'');
+}
+
+// ── Banked vs left on table — what faster entries are worth ─────
+let missMoneyChart=null;
+function renderMissedMoney(){
+  const el=document.getElementById('missMoneyChart'); if(!el) return;
+  const banked={}, left={};
+  ALL_TRADES.forEach(t=>{ const k=weekKey(t.date); if(k) banked[k]=(banked[k]||0)+t.pnl; });
+  ALL_MISSES.forEach(m=>{ const k=weekKey(m.date); if(k&&m.potential!=null) left[k]=(left[k]||0)+(+m.potential||0); });
+  const wks=[...new Set([...Object.keys(banked),...Object.keys(left)])].sort();
+  if(missMoneyChart){ missMoneyChart.destroy(); missMoneyChart=null; }
+  missMoneyChart=new Chart(el.getContext('2d'),{
+    type:'bar',
+    data:{labels:wks,datasets:[
+      {label:'banked (actual P&L)',data:wks.map(k=>+(banked[k]||0).toFixed(2)),backgroundColor:'rgba(38,217,127,0.7)'},
+      {label:'left on table (missed potential)',data:wks.map(k=>+(left[k]||0).toFixed(2)),backgroundColor:'rgba(255,213,74,0.5)'}
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:true,labels:{color:'#5b7a99',font:{size:10},boxWidth:12}},
+        tooltip:{backgroundColor:'#162032',borderColor:'#1e2e45',borderWidth:1,
+          callbacks:{label:c=>' '+c.dataset.label+': $'+c.parsed.y.toFixed(2)}}
+      },
+      scales:{
+        x:{ticks:{color:'#5b7a99',font:{size:10},maxTicksLimit:10},grid:{color:'#1e2e45'}},
+        y:{ticks:{color:'#5b7a99',font:{size:10},callback:v=>'$'+v},grid:{color:'#1e2e45'}}
+      }
+    }
+  });
+}
+
 // ── Setup performance panel ─────────────────────────────────────
 // Goal thresholds: Dale's target is 65% win rate at 1.5:1 W:L —
 // a setup only earns the ⭐ once it proves both on a real sample
@@ -2222,6 +2430,11 @@ function setPeriod(period){
   renderGoalGate();        // all-time — rolling last 20 trades
   renderEntryLag();        // all-time — median time-to-open per day
   renderFocusBanner();     // one-thing carried in from last week
+  renderCh1Panel();        // all-time — CH1 hold/exit quality trend
+  renderTodTable();        // all-time — win% by PT time bucket
+  renderScoreTables();     // all-time — score bands vs outcome
+  renderReasonPareto();    // all-time — reason_lost counts
+  renderMissedMoney();     // weekly — banked vs missed potential
   initChart(days, period);
 
   const lbl = document.getElementById('period-label');
