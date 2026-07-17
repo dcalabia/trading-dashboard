@@ -842,6 +842,16 @@ tr:hover td{background:rgba(255,255,255,0.025)}
         <div id="wk-discipline"></div>
       </div>
     </div>
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-title" style="color:var(--red,#ff5d5d)">Why I Lost This Week</div>
+        <div id="wk-lost"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title" style="color:#ffd54a">Why I Missed This Week</div>
+        <div id="wk-missed"></div>
+      </div>
+    </div>
     <div class="panel" style="margin-bottom:16px">
       <div class="panel-title" style="color:#ffd54a">★ Highlights This Week</div>
       <div id="wk-highlights"></div>
@@ -1392,6 +1402,7 @@ async function loadSupabaseTrades() {
       score5:      r.score_5 ?? null,
       reviewNote:  r.review_note || '',
       tags:        r.tags ? String(r.tags).split(',').map(s=>s.trim()).filter(Boolean) : [],
+      reasonLost:  r.reason_lost || null,
       timeFound:   r.time_found || null,
       timeOpened:  r.time_opened || null,
       timeToOpen:  r.time_to_open || null,
@@ -2202,6 +2213,8 @@ function renderReview(){
     ['Time to open', t.timeToOpen||'—', 'time_to_open'],
     ['Time to execute', t.timeToExec||'—', null],
   ];
+  // reason_lost only exists on the trades table — hide on the Ross deck
+  if(REV_MODE!=='ross') cells.push(['Reason lost', t.reasonLost||'—', 'reason_lost']);
   const notes=[];
   if(t.esNote)      notes.push(['es','Entry',t.esNote]);
   if(t.exsNote)     notes.push(['exs','Exit',t.exsNote]);
@@ -2463,6 +2476,7 @@ const REV_FIELDS={
   score_9:    {prop:'score9', num:true, max:9},
   score_5:    {prop:'score5', num:true, max:5},
   reason_missed:{prop:'reason'},  // misses deck only
+  reason_lost: {prop:'reasonLost'},  // trades deck — why the loss happened
   time_found:  {prop:'timeFound'},
   time_opened: {prop:'timeOpened'},
   time_to_open:{prop:'timeToOpen'},
@@ -2965,6 +2979,23 @@ function renderWeekly(){
     return `<div class="wk-day"><span class="d">${d.slice(5)} · ${ts.length}t · ${$(pnl)}</span>
       ${viol.length?viol.map(v=>`<span class="bad">✗ ${esc(v)}</span>`).join(' '):'<span class="ok">✓ Clean</span>'}</div>`;
   }).join('')||'<div style="color:var(--muted);font-size:12px">No trading days</div>';
+
+  // Why I lost — every losing trade with its reason_lost category
+  // (logged on the trade card's "Reason lost" cell)
+  const lost=wkTrades(wk).filter(t=>t.pnl<0)
+    .sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:String(a.buyTime)<String(b.buyTime)?-1:1);
+  document.getElementById('wk-lost').innerHTML=lost.length
+    ? lost.map(t=>`<div class="wk-day"><span class="d">${t.date.slice(5)} · ${esc(t.ticker)} · ${$(t.pnl)}</span>
+        ${t.reasonLost?`<span class="bad">${esc(t.reasonLost)}</span>`:'<span style="color:var(--muted)">— no reason logged yet</span>'}</div>`).join('')
+    : '<div style="color:var(--muted);font-size:12px">No losing trades this week 🎯</div>';
+
+  // Why I missed — the week's misses with their reason category
+  const missed=ALL_MISSES.filter(m=>weekKey(m.date)===wk)
+    .sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:(a.missNo||0)-(b.missNo||0));
+  document.getElementById('wk-missed').innerHTML=missed.length
+    ? missed.map(m=>`<div class="wk-day"><span class="d">${m.date.slice(5)} · Miss ${m.missNo} · ${esc(m.ticker)}${m.potential!=null?' · pot $'+(+m.potential).toFixed(2):''}</span>
+        ${m.reason?`<span class="bad">${esc(m.reason)}</span>`:'<span style="color:var(--muted)">— no reason logged yet</span>'}</div>`).join('')
+    : '<div style="color:var(--muted);font-size:12px">No misses this week</div>';
 
   // Highlights created on this week's entries (trades + misses + Ross)
   const mon=new Date(wk+'T12:00:00'), sun=new Date(mon); sun.setDate(mon.getDate()+6);
