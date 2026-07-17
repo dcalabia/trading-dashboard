@@ -215,10 +215,14 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .rev-notes-save{margin-top:8px;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 0;font-size:12px;cursor:pointer}
 .rev-notes-save:hover{border-color:var(--accent);color:var(--accent)}
 @media(max-width:900px){.rev-body{grid-template-columns:1fr}}
-.rev-topline{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
-.rev-pos{font-size:12px;color:var(--muted);letter-spacing:1px}
+.rev-topline{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.rev-pos{font-size:12px;color:var(--muted);letter-spacing:1px;white-space:nowrap}
+.rev-filterline{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.rev-act-btn{background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;padding:6px 12px;cursor:pointer;white-space:nowrap}
+.rev-act-btn:hover{border-color:var(--accent);color:var(--accent)}
 .rev-nav-btns{display:flex;gap:8px}
-.rev-filter{background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Inter',sans-serif;font-size:12px;padding:6px 10px;cursor:pointer}
+.rev-filter{background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Inter',sans-serif;font-size:12px;padding:6px 10px;cursor:pointer;max-width:180px;text-overflow:ellipsis}
+#rev-setup-filter{max-width:230px}
 .rev-filter:focus{outline:none;border-color:var(--accent)}
 .rev-tag.preset{cursor:pointer;color:var(--muted);border-style:dashed;background:transparent}
 .rev-tag.preset.on{color:var(--accent);border:1px solid var(--accent);border-style:solid;background:rgba(0,230,118,0.06)}
@@ -815,12 +819,22 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 <div class="tab-pane" id="tab-review">
   <div class="rev-wrap">
     <div class="rev-topline">
-      <div class="rev-pos" id="rev-pos">— / —</div>
       <div class="rev-mode">
         <button class="rev-mode-btn active" id="rev-mode-trades" onclick="setRevMode('trades')">Trades</button>
         <button class="rev-mode-btn" id="rev-mode-misses" onclick="setRevMode('misses')">Misses</button>
         <button class="rev-mode-btn" id="rev-mode-ross" onclick="setRevMode('ross')">Ross Small</button>
       </div>
+      <div class="rev-pos" id="rev-pos">— / —</div>
+      <div style="flex:1"></div>
+      <button class="rev-act-btn" id="rev-playlist-btn" onclick="openPlaylist()" title="Autoplay all videos in the current deck + tag filter">▶ Playlist</button>
+      <button class="rev-act-btn" id="rev-compare-btn" onclick="openCompare()" title="Side-by-side: current card vs any other">⇄ Compare</button>
+      <button class="rev-act-btn" onclick="openTagMgr()" title="Rename or delete tags across every trade/miss/Ross entry">🏷 Tags</button>
+      <div class="rev-nav-btns">
+        <button class="rev-nav-btn" onclick="revNav(-1)">←</button>
+        <button class="rev-nav-btn" onclick="revNav(1)">→</button>
+      </div>
+    </div>
+    <div class="rev-filterline">
       <select class="rev-filter" id="rev-filter" onchange="setRevFilter(this.value)">
         <option value="">All trades</option>
       </select>
@@ -863,13 +877,6 @@ tr:hover td{background:rgba(255,255,255,0.025)}
         <option value="4">Thu</option>
         <option value="5">Fri</option>
       </select>
-      <button class="rev-mode-btn" id="rev-playlist-btn" onclick="openPlaylist()" title="Autoplay all videos in the current deck + tag filter">▶ Playlist</button>
-      <button class="rev-mode-btn" id="rev-compare-btn" onclick="openCompare()" title="Side-by-side: current card vs any other">⇄ Compare</button>
-      <button class="rev-mode-btn" onclick="openTagMgr()" title="Rename or delete tags across every trade/miss/Ross entry">🏷 Tags</button>
-      <div class="rev-nav-btns">
-        <button class="rev-nav-btn" onclick="revNav(-1)">←</button>
-        <button class="rev-nav-btn" onclick="revNav(1)">→</button>
-      </div>
     </div>
     <div id="rev-card-holder"></div>
 
