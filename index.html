@@ -2669,6 +2669,7 @@ window.addEventListener('message',e=>{
 // YouTube iframe, where , / . / space go to YouTube's own handler
 // instead of ours — pull focus back out so the scrub keys keep working
 window.addEventListener('blur',()=>{
+  if(IS_TOUCH) return;   // no scrub keys on iPad — and yanking focus off the just-tapped player interferes with playback
   setTimeout(()=>{
     const f=document.querySelector('#rev-disp-video iframe');
     if(f&&document.activeElement===f) f.blur();
@@ -3368,7 +3369,15 @@ function revDisp(btn,which){
 // (an unobstructed view), reload the iframe with a different
 // `controls` value on each fullscreen transition, resuming at the
 // same timestamp/play-state so it's seamless rather than a restart.
+// Touch devices (iPad): fullscreen belongs to the NATIVE video player
+// inside the embed, so reloading the iframe on fullscreenchange kicks
+// it straight back out — video "closes" the moment it opens. The
+// controls-swap is a desktop-only (F key) nicety; skip it on touch
+// and let YouTube's own fullscreen handle everything.
+const IS_TOUCH=matchMedia('(pointer: coarse)').matches||navigator.maxTouchPoints>1;
+
 document.addEventListener('fullscreenchange',()=>{
+  if(IS_TOUCH) return;
   const f=document.querySelector('#rev-disp-video iframe');
   if(!f||f.src==='about:blank') return;
   const isFs=document.fullscreenElement===f||document.webkitFullscreenElement===f;
