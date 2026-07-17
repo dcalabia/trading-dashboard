@@ -589,6 +589,11 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 </div>
 
 <div class="panel" style="margin-bottom:16px">
+  <div class="panel-title">Size-Up Gate <span style="font-size:9px;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(rolling last 20 trades — clear both to scale share count)</span></div>
+  <div id="goal-gate"></div>
+</div>
+
+<div class="panel" style="margin-bottom:16px">
   <div class="panel-title">Setup Performance <span style="font-size:9px;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(selected period)</span></div>
   <div style="overflow-x:auto">
   <table>
@@ -619,6 +624,12 @@ tr:hover td{background:rgba(255,255,255,0.025)}
     <span><span class="sw" style="background:rgba(255,93,93,0.40)"></span>3+ violations</span>
     <span style="margin-left:auto">Rules: traded a Chasing High 2 · &gt;10 trades · day ≤ −$2 · kept trading after 2 straight losses</span>
   </div>
+</div>
+
+<div class="panel" style="margin-bottom:16px">
+  <div class="panel-title">Entry Lag — Time to Open <span style="font-size:9px;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(all time — target: under 15s from scanner find to entry)</span></div>
+  <div class="chart-wrap"><canvas id="lagChart"></canvas></div>
+  <div id="lag-split" style="display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;font-size:11px;color:var(--muted)"></div>
 </div>
 
 <div class="panel" style="margin-bottom:16px">
@@ -2010,6 +2021,107 @@ function initChart(days, period){
   });
 }
 
+// ── Size-Up Gate — rolling last 20 trades vs 65% / 1.5:1 ────────
+function renderGoalGate(){
+  const el=document.getElementById('goal-gate'); if(!el) return;
+  const ts=ALL_TRADES.slice().sort((a,b)=>{
+    if(a.date!==b.date) return a.date<b.date?-1:1;
+    const at=a.buyTime||'', bt=b.buyTime||'';
+    return at<bt?-1:(at>bt?1:0);
+  }).slice(-20);
+  if(!ts.length){ el.innerHTML='<div style="color:var(--muted);font-size:12px">No trades yet</div>'; return; }
+  const w=ts.filter(t=>t.pnl>=0), l=ts.filter(t=>t.pnl<0);
+  const winPct=w.length/ts.length*100;
+  const aw=w.length?w.reduce((s,t)=>s+t.pnl,0)/w.length:0;
+  const al=l.length?l.reduce((s,t)=>s+t.pnl,0)/l.length:0;
+  const ratio=al<0?aw/-al:(aw>0?Infinity:0);
+  const winOk=winPct>=SETUP_GOAL_WIN, ratioOk=ratio>=SETUP_GOAL_RATIO, full=ts.length>=20;
+  const cleared=winOk&&ratioOk&&full;
+  const rtxt=ratio===Infinity?'∞':ratio.toFixed(2);
+  const bar=(label,valTxt,frac,ok)=>`
+    <div style="flex:1;min-width:220px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+        <span style="color:var(--muted)">${label}</span>
+        <span class="${ok?'win':'loss'}" style="font-weight:600">${valTxt}</span>
+      </div>
+      <div style="height:8px;border-radius:4px;background:var(--card);border:1px solid var(--border);overflow:hidden">
+        <div style="height:100%;width:${Math.min(100,frac*100).toFixed(0)}%;background:${ok?'#26d97f':'#ffd54a'};border-radius:4px"></div>
+      </div>
+    </div>`;
+  const missing=[];
+  if(!full)    missing.push(`only ${ts.length}/20 trades`);
+  if(!winOk)   missing.push(`win rate ${winPct.toFixed(0)}% — need 65%`);
+  if(!ratioOk) missing.push(`W:L ${rtxt} — need 1.50`);
+  const verdict=cleared
+    ? `<span style="background:rgba(38,217,127,0.15);color:#26d97f;border:1px solid rgba(38,217,127,0.4);border-radius:6px;padding:6px 12px;font-weight:700;font-size:12px">✅ CLEARED TO SIZE UP</span>`
+    : `<span style="background:var(--card);color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:11px">Not yet — ${missing.join(' · ')}</span>`;
+  el.innerHTML=`<div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+    ${bar('Win rate (target 65%)',winPct.toFixed(0)+'%',winPct/SETUP_GOAL_WIN,winOk)}
+    ${bar('W:L ratio (target 1.5:1)',rtxt,(ratio===Infinity?1:ratio/SETUP_GOAL_RATIO),ratioOk)}
+    <div>${verdict}</div>
+  </div>`;
+}
+
+// ── Entry lag — daily median time-to-open vs the 15s target ─────
+let lagChart=null;
+function mmssSecs(v){
+  if(v==null) return null;
+  const m=String(v).trim().match(/^(\d+):(\d{1,2})$/);
+  if(m) return (+m[1])*60+(+m[2]);
+  const n=parseFloat(v);
+  return isNaN(n)?null:n;
+}
+function renderEntryLag(){
+  const el=document.getElementById('lagChart'); if(!el) return;
+  const timed=ALL_TRADES.map(t=>({t,secs:mmssSecs(t.timeToOpen)})).filter(x=>x.secs!=null);
+  const byDay={};
+  timed.forEach(x=>{ (byDay[x.t.date]=byDay[x.t.date]||[]).push(x.secs); });
+  const days=Object.keys(byDay).sort();
+  const med=days.map(d=>{
+    const a=byDay[d].slice().sort((x,y)=>x-y), n=a.length;
+    return n%2 ? a[(n-1)/2] : (a[n/2-1]+a[n/2])/2;
+  });
+  if(lagChart){ lagChart.destroy(); lagChart=null; }
+  lagChart=new Chart(el.getContext('2d'),{
+    type:'line',
+    data:{labels:days,datasets:[
+      {data:med,borderColor:'#4da3ff',backgroundColor:'#4da3ff12',
+       borderWidth:2,pointRadius:2,pointHoverRadius:4,fill:true,tension:0.3},
+      {data:days.map(()=>15),borderColor:'rgba(255,213,74,0.55)',
+       borderWidth:1,borderDash:[5,4],pointRadius:0,fill:false}
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#162032',borderColor:'#1e2e45',borderWidth:1,
+          filter:c=>c.datasetIndex===0,
+          callbacks:{label:c=>' median '+c.parsed.y.toFixed(0)+'s to open'}
+        }
+      },
+      scales:{
+        x:{ticks:{color:'#5b7a99',font:{size:10},maxTicksLimit:6},grid:{color:'#1e2e45'}},
+        y:{beginAtZero:true,ticks:{color:'#5b7a99',font:{size:10},callback:v=>v+'s'},grid:{color:'#1e2e45'}}
+      }
+    }
+  });
+  // The hypothesis test: does entering fast actually win more?
+  const split=f=>{
+    const g=timed.filter(f).map(x=>x.t);
+    const w=g.filter(t=>t.pnl>=0), l=g.filter(t=>t.pnl<0);
+    const aw=w.length?w.reduce((s,t)=>s+t.pnl,0)/w.length:0;
+    const al=l.length?l.reduce((s,t)=>s+t.pnl,0)/l.length:0;
+    return {n:g.length, win:g.length?w.length/g.length*100:0,
+            r:al<0?aw/-al:(aw>0?Infinity:0)};
+  };
+  const fmt=(s,label)=>`<span><b style="color:var(--text)">${label}</b> · ${s.n} trades · <span class="${s.win>=SETUP_GOAL_WIN?'win':'loss'}">${s.win.toFixed(0)}% win</span> · W:L ${s.r===Infinity?'∞':s.r.toFixed(2)}</span>`;
+  const fast=split(x=>x.secs<15), slow=split(x=>x.secs>=15);
+  document.getElementById('lag-split').innerHTML=
+    fmt(fast,'Under 15s')+fmt(slow,'15s or slower')+
+    `<span style="margin-left:auto">${timed.length}/${ALL_TRADES.length} trades have time data</span>`;
+}
+
 // ── Setup performance panel ─────────────────────────────────────
 // Goal thresholds: Dale's target is 65% win rate at 1.5:1 W:L —
 // a setup only earns the ⭐ once it proves both on a real sample
@@ -2093,6 +2205,8 @@ function setPeriod(period){
   renderTradesTable(trades, period);
   renderSetupPanel(trades);
   renderDisciplineMap();   // all-time by design — not period-scoped
+  renderGoalGate();        // all-time — rolling last 20 trades
+  renderEntryLag();        // all-time — median time-to-open per day
   initChart(days, period);
 
   const lbl = document.getElementById('period-label');
