@@ -3416,11 +3416,16 @@ function revDisp(btn,which){
 // and let YouTube's own fullscreen handle everything.
 const IS_TOUCH=matchMedia('(pointer: coarse)').matches||navigator.maxTouchPoints>1;
 
+// The swap is only safe when the PARENT page owns the fullscreen (F key).
+// YouTube's own ⛶ button fullscreens from INSIDE the iframe — reloading
+// src destroys that context and kicks straight back out (desktop + iPad).
+let FS_VIA_KEY=false;
 document.addEventListener('fullscreenchange',()=>{
-  if(IS_TOUCH) return;
   const f=document.querySelector('#rev-disp-video iframe');
   if(!f||f.src==='about:blank') return;
   const isFs=document.fullscreenElement===f||document.webkitFullscreenElement===f;
+  if(isFs&&!FS_VIA_KEY) return;   // YT's own ⛶ — leave native fullscreen alone
+  if(!isFs) FS_VIA_KEY=false;     // reset on exit, then restore controls=1 if swapped
   const wantControls=isFs?'0':'1';
   const url=new URL(f.src);
   if(url.searchParams.get('controls')===wantControls) return;
@@ -3706,6 +3711,7 @@ document.addEventListener('keydown',e=>{
         if(exit) exit.call(document);
       }else{
         const req=f.requestFullscreen||f.webkitRequestFullscreen;
+        FS_VIA_KEY=true;
         if(req) req.call(f);
       }
     }
