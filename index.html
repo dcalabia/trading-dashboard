@@ -775,6 +775,33 @@ tr:hover td{background:rgba(255,255,255,0.025)}
         <option value="lt:0">Losses only</option>
         <option value="lte:-0.5">≤ −$0.50/sh (big losses)</option>
       </select>
+      <select class="rev-filter" id="rev-wl-filter" onchange="setWlFilter(this.value)" title="Filter by result">
+        <option value="">W/L: all</option>
+        <option value="win">Wins</option>
+        <option value="loss">Losses</option>
+      </select>
+      <select class="rev-filter" id="rev-setup-filter" onchange="setSetupFilter(this.value)" title="Filter by setup (separate from tags)">
+        <option value="">Setup: all</option>
+      </select>
+      <select class="rev-filter" id="rev-tod-filter" onchange="setTodFilter(this.value)" title="Filter by buy time (PT)">
+        <option value="">Time: all</option>
+        <option value="390">6:30–6:59</option>
+        <option value="420">7:00–7:29</option>
+        <option value="450">7:30–7:59</option>
+        <option value="480">8:00–8:29</option>
+        <option value="510">8:30–8:59</option>
+        <option value="540">9:00–9:29</option>
+        <option value="570">9:30–10:00</option>
+        <option value="out">Outside hours</option>
+      </select>
+      <select class="rev-filter" id="rev-dow-filter" onchange="setDowFilter(this.value)" title="Filter by day of week">
+        <option value="">Day: all</option>
+        <option value="1">Mon</option>
+        <option value="2">Tue</option>
+        <option value="3">Wed</option>
+        <option value="4">Thu</option>
+        <option value="5">Fri</option>
+      </select>
       <button class="rev-mode-btn" id="rev-playlist-btn" onclick="openPlaylist()" title="Autoplay all videos in the current deck + tag filter">▶ Playlist</button>
       <button class="rev-mode-btn" id="rev-compare-btn" onclick="openCompare()" title="Side-by-side: current card vs any other">⇄ Compare</button>
       <button class="rev-mode-btn" onclick="openTagMgr()" title="Rename or delete tags across every trade/miss/Ross entry">🏷 Tags</button>
@@ -2091,7 +2118,8 @@ let REV_MODE = 'trades';   // 'trades' | 'misses'
 
 function setRevMode(m){
   REV_MODE = m;
-  REV_FILTER = '';  // don't carry a tag filter across into the other deck
+  REV_FILTER = '';        // don't carry a tag filter across into the other deck
+  REV_SETUP_FILTER = '';  // setups differ per deck — stale filter = empty deck
   document.getElementById('rev-mode-trades').classList.toggle('active', m==='trades');
   document.getElementById('rev-mode-misses').classList.toggle('active', m==='misses');
   document.getElementById('rev-mode-ross').classList.toggle('active', m==='ross');
@@ -2103,9 +2131,9 @@ function revTrades(){
   // Chronological oldest → newest so → (right) moves toward more
   // recent trades; opens on the most recent trade
   if(REV_MODE==='misses'){
-    const scoped = REV_FILTER
+    const scoped = (REV_FILTER
       ? ALL_MISSES.filter(t=>(t.tags||[]).includes(REV_FILTER))
-      : ALL_MISSES;
+      : ALL_MISSES).filter(extraMatch);
     return scoped.slice().sort((a,b)=>{
       if(a.date!==b.date) return a.date<b.date?-1:1;
       return (a.missNo||0)-(b.missNo||0);
@@ -2114,7 +2142,7 @@ function revTrades(){
   if(REV_MODE==='ross'){
     const scoped = (REV_FILTER
       ? ALL_ROSS.filter(t=>(t.tags||[]).includes(REV_FILTER))
-      : ALL_ROSS).filter(psMatch);
+      : ALL_ROSS).filter(psMatch).filter(extraMatch);
     return scoped.slice().sort((a,b)=>{
       if(a.date!==b.date) return a.date<b.date?-1:1;
       const at=a.buyTime||'', bt=b.buyTime||'';
@@ -2124,7 +2152,7 @@ function revTrades(){
   const trades = getFilteredTrades('review');
   const scoped = (REV_FILTER
     ? trades.filter(t=>(t.tags||[]).includes(REV_FILTER))
-    : trades).filter(psMatch);
+    : trades).filter(psMatch).filter(extraMatch);
   return scoped.slice().sort((a,b)=>{
     if(a.date!==b.date) return a.date<b.date?-1:1;
     const at=a.buyTime||'', bt=b.buyTime||'';
@@ -2157,6 +2185,55 @@ function psMatch(t){
   return true;
 }
 
+// ── W/L · Setup · Time-of-day (PT) · Day-of-week filters ────────
+let REV_WL_FILTER='', REV_SETUP_FILTER='', REV_TOD_FILTER='', REV_DOW_FILTER='';
+function setWlFilter(v){ REV_WL_FILTER=v; REV_IDX=revTrades().length-1; renderReview(); }
+function setSetupFilter(v){ REV_SETUP_FILTER=v; REV_IDX=revTrades().length-1; renderReview(); }
+function setTodFilter(v){ REV_TOD_FILTER=v; REV_IDX=revTrades().length-1; renderReview(); }
+function setDowFilter(v){ REV_DOW_FILTER=v; REV_IDX=revTrades().length-1; renderReview(); }
+
+// Buy time as minutes-since-midnight PT. Trades carry ISO buyTime;
+// misses/Ross carry sheet clock strings which are ET → shift −3h.
+function ptMinutes(t){
+  const bt=t.buyTime||'';
+  if(!bt) return null;
+  if(/T/.test(bt)){
+    try{
+      const p=new Date(bt).toLocaleTimeString('en-GB',
+        {timeZone:'America/Los_Angeles',hour12:false,hour:'2-digit',minute:'2-digit'}).split(':');
+      return (+p[0])*60+(+p[1]);
+    }catch(e){ return null; }
+  }
+  const m=String(bt).match(/(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?/i);
+  if(!m) return null;
+  let h=(+m[1])%12;
+  if(/pm/i.test(m[3]||'')) h+=12;
+  return h*60+(+m[2])-180;
+}
+function extraMatch(t){
+  // W/L — misses have no result; skip the check there
+  if(REV_WL_FILTER&&t.result&&t.result!==REV_WL_FILTER) return false;
+  if(REV_WL_FILTER&&!t.result&&REV_MODE!=='misses') return false;
+  if(REV_SETUP_FILTER){
+    const parts=String(t.setup||'').split(' + ').map(x=>x.trim());
+    if(!parts.includes(REV_SETUP_FILTER)) return false;
+  }
+  if(REV_TOD_FILTER){
+    const mm=ptMinutes(t);
+    if(mm==null) return false;
+    if(REV_TOD_FILTER==='out'){ if(mm>=390&&mm<=600) return false; }
+    else{
+      const start=+REV_TOD_FILTER, end=start===570?601:start+30;  // last bucket includes 10:00
+      if(mm<start||mm>=end) return false;
+    }
+  }
+  if(REV_DOW_FILTER){
+    const d=new Date(t.date+'T12:00:00');
+    if(d.getDay()!==+REV_DOW_FILTER) return false;
+  }
+  return true;
+}
+
 function fmtET(iso){
   if(!iso) return '—';
   try{
@@ -2174,9 +2251,18 @@ function renderReview(){
   const opts = ['MM',...PRESET_TAGS,
     ...Object.keys(counts).filter(x=>x!=='MM'&&!PRESET_TAGS.includes(x)).sort()];
   const sel = document.getElementById('rev-filter');
-  const allLabel = REV_MODE==='misses' ? 'All misses' : REV_MODE==='ross' ? 'All Ross trades' : 'All trades';
-  sel.innerHTML = `<option value="">${allLabel} (${all.length})</option>` +
+  sel.innerHTML = `<option value="">Tags: all (${all.length})</option>` +
     opts.map(x=>`<option value="${x}"${x===REV_FILTER?' selected':''}>${x} (${counts[x]||0})</option>`).join('');
+
+  // Setup dropdown — per-deck, live counts; "A + B" counts under both
+  const scounts = {};
+  all.forEach(t=>String(t.setup||'').split(' + ').forEach(s=>{
+    s=s.trim(); if(s&&s.toLowerCase()!=='none') scounts[s]=(scounts[s]||0)+1;
+  }));
+  const ssel = document.getElementById('rev-setup-filter');
+  ssel.innerHTML = `<option value="">Setup: all</option>` +
+    Object.keys(scounts).sort().map(s=>
+      `<option value="${s.replace(/"/g,'&quot;')}"${s===REV_SETUP_FILTER?' selected':''}>${s} (${scounts[s]})</option>`).join('');
 
   renderHighlights();
 
