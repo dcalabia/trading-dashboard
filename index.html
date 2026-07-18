@@ -1014,6 +1014,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
     <div class="pl-navs">
       <button class="pl-nav-btn" onclick="plNav(-1)">← Prev</button>
       <button class="pl-nav-btn" onclick="plNav(1)">Next →</button>
+      <button class="pl-nav-btn" onclick="togglePlControls()" title="Show/hide the YouTube controls overlay (reloads at same timestamp)">🎬 Controls</button>
     </div>
     <button class="pl-close" onclick="closePlaylist()">✕ Close (Esc)</button>
   </div>
@@ -2722,8 +2723,8 @@ function renderReview(){
           : `<div class="rev-nochart">No chart screenshot for this trade<br>
              <button class="rev-shot-edit" onclick="pickChartImage()">＋ Add screenshot</button></div>`}</div>
         ${t.video?`<div class="rev-disp" id="rev-disp-video" style="display:none">
-          <iframe class="rev-video" src="about:blank" data-src="https://www.youtube.com/embed/${esc(ytId(t.video))}?controls=1&modestbranding=1&rel=0&playsinline=1&enablejsapi=1" allow="fullscreen" allowfullscreen></iframe>
-          <div class="rev-video-hint">, / . = scrub 1s · space = play/pause</div>
+          <iframe class="rev-video" src="about:blank" data-src="https://www.youtube.com/embed/${esc(ytId(t.video))}?controls=${REV_CONTROLS}&modestbranding=1&rel=0&playsinline=1&enablejsapi=1" allow="fullscreen" allowfullscreen></iframe>
+          <div class="rev-video-hint">, / . = scrub 1s · space = play/pause · <button class="rev-hl-btn" onclick="toggleRevControls()" title="Show/hide the YouTube controls overlay (reloads at same timestamp)">🎬 controls</button></div>
         </div>`:''}
       </div>
       <div class="rev-body-notes">
@@ -2864,8 +2865,8 @@ function renderMissCard(t){
           : `<div class="rev-nochart">No chart screenshot for this miss<br>
              <button class="rev-shot-edit" onclick="pickChartImage()">＋ Add screenshot</button></div>`}</div>
         ${t.video?`<div class="rev-disp" id="rev-disp-video" style="display:none">
-          <iframe class="rev-video" src="about:blank" data-src="https://www.youtube.com/embed/${esc(ytId(t.video))}?controls=1&modestbranding=1&rel=0&playsinline=1&enablejsapi=1" allow="fullscreen" allowfullscreen></iframe>
-          <div class="rev-video-hint">, / . = scrub 1s · space = play/pause</div>
+          <iframe class="rev-video" src="about:blank" data-src="https://www.youtube.com/embed/${esc(ytId(t.video))}?controls=${REV_CONTROLS}&modestbranding=1&rel=0&playsinline=1&enablejsapi=1" allow="fullscreen" allowfullscreen></iframe>
+          <div class="rev-video-hint">, / . = scrub 1s · space = play/pause · <button class="rev-hl-btn" onclick="toggleRevControls()" title="Show/hide the YouTube controls overlay (reloads at same timestamp)">🎬 controls</button></div>
         </div>`:''}
       </div>
       <div class="rev-body-notes">
@@ -3243,7 +3244,7 @@ function plLoad(){
     +`<span class="meta">${l.date}${l.sub?' · '+l.sub:''}</span>`
     +`<span class="hint">←/→ prev·next · space play/pause · , / . scrub 3s · esc close</span>`;
   f.onload=()=>subscribePlayer(f);
-  f.src=`https://www.youtube.com/embed/${ytId(t.video)}?autoplay=1&controls=1&modestbranding=1&rel=0&playsinline=1&enablejsapi=1`;
+  f.src=`https://www.youtube.com/embed/${ytId(t.video)}?autoplay=1&controls=${PL_CONTROLS}&modestbranding=1&rel=0&playsinline=1&enablejsapi=1`;
   // Queue list
   const q=document.getElementById('pl-queue');
   q.innerHTML=PL_QUEUE.map((x,i)=>{
@@ -3272,6 +3273,31 @@ function plNav(d){
 }
 
 function plJump(i){ PL_IDX=i; plLoad(); }
+
+// 🎬 YT controls-overlay toggle — reload the embed with `controls`
+// flipped, resuming at the same timestamp/play-state (same trick as
+// the F-key fullscreen swap). The choice sticks for subsequent
+// cards/queue videos via REV_CONTROLS / PL_CONTROLS.
+let REV_CONTROLS='1', PL_CONTROLS='1';
+function toggleYtControls(f){
+  if(!f||f.src==='about:blank') return null;
+  const url=new URL(f.src);
+  const want=url.searchParams.get('controls')==='0'?'1':'0';
+  url.searchParams.set('controls',want);
+  url.searchParams.set('autoplay',REV_PS===1?'1':'0');
+  url.searchParams.set('start',Math.max(0,Math.floor(REV_VT||0)));
+  f.onload=()=>subscribePlayer(f);
+  f.src=url.toString();
+  return want;
+}
+function toggleRevControls(){
+  const w=toggleYtControls(document.querySelector('#rev-disp-video iframe'));
+  if(w!==null) REV_CONTROLS=w;
+}
+function togglePlControls(){
+  const w=toggleYtControls(document.getElementById('pl-iframe'));
+  if(w!==null) PL_CONTROLS=w;
+}
 
 function plCmd(func,args){
   const f=document.getElementById('pl-iframe');
