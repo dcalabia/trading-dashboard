@@ -2568,15 +2568,18 @@ function setSetupFilter(v){ REV_SETUP_FILTER=v; REV_IDX=revTrades().length-1; re
 function setTodFilter(v){ REV_TOD_FILTER=v; REV_IDX=revTrades().length-1; renderReview(); }
 function setDowFilter(v){ REV_DOW_FILTER=v; REV_IDX=revTrades().length-1; renderReview(); }
 
-// Buy time as minutes-since-midnight PT. Trades carry ISO buyTime;
-// misses/Ross carry sheet clock strings which are ET → shift −3h.
+// Buy time as minutes-since-midnight on Dale's trading clock (PT).
+// The stored ISO timestamps carry an ET offset but their WALL CLOCK
+// already matches the scanner log's PT times (verified Jul 18 vs
+// time_found), so read the wall clock as displayed — no shifting.
+// Sheet clock strings (misses/Ross) are the same wall clock.
 function ptMinutes(t){
   const bt=t.buyTime||'';
   if(!bt) return null;
   if(/T/.test(bt)){
     try{
       const p=new Date(bt).toLocaleTimeString('en-GB',
-        {timeZone:'America/Los_Angeles',hour12:false,hour:'2-digit',minute:'2-digit'}).split(':');
+        {timeZone:'America/New_York',hour12:false,hour:'2-digit',minute:'2-digit'}).split(':');
       return (+p[0])*60+(+p[1]);
     }catch(e){ return null; }
   }
@@ -2584,7 +2587,7 @@ function ptMinutes(t){
   if(!m) return null;
   let h=(+m[1])%12;
   if(/pm/i.test(m[3]||'')) h+=12;
-  return h*60+(+m[2])-180;
+  return h*60+(+m[2]);
 }
 function extraMatch(t){
   // W/L — misses have no result; skip the check there
