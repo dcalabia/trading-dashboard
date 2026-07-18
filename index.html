@@ -2781,6 +2781,9 @@ function renderMissCard(t){
   const holder = document.getElementById('rev-card-holder');
   const esc=s=>String(s).replace(/</g,'&lt;');
   const pot = t.potential!=null ? `+$${t.potential.toFixed(2)}` : '—';
+  // $/sh from hypo prices; implied share count = potential ÷ $/sh
+  const perSh = t.buy!=null&&t.sell!=null ? t.sell-t.buy : null;
+  const hypoSh = perSh&&t.potential!=null ? Math.round(t.potential/perSh) : null;
   const cells=[
     ['Date', t.date, null],
     ['Hypo Buy → Sell', (t.buyTime||'—')+' → '+(t.sellTime||'—'), null],
@@ -2798,7 +2801,9 @@ function renderMissCard(t){
   holder.innerHTML=`<div class="rev-card" id="rev-card">
     <div class="rev-head">
       <div class="rev-ticker">${esc(t.ticker)} <span class="rev-miss-no">Miss ${t.missNo}</span></div>
-      <div class="rev-pnl miss">${pot} missed</div>
+      <div class="rev-pnl miss">${pot} missed
+        ${perSh!=null?`<span class="rev-pnl-sub">· ${hypoSh!=null?'~'+hypoSh+' sh · ':''}${perSh>=0?'+':'−'}$${Math.abs(perSh).toFixed(2)}/sh</span>`:''}
+      </div>
     </div>
     <div class="rev-sub">Missed · ${esc(t.reason||'—')} · ${esc(t.date)}</div>
     <div class="rev-tags" id="rev-tags">
