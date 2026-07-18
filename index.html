@@ -2786,8 +2786,10 @@ function renderMissCard(t){
   const hypoSh = perSh&&t.potential!=null ? Math.round(t.potential/perSh) : null;
   const cells=[
     ['Date', t.date, null],
-    ['Hypo Buy → Sell', (t.buyTime||'—')+' → '+(t.sellTime||'—'), null],
-    ['Prices', (t.buy!=null?'$'+t.buy.toFixed(2):'—')+' → '+(t.sell!=null?'$'+t.sell.toFixed(2):'—'), null],
+    ['Hypo buy', t.buyTime||'—', 'buy_time'],
+    ['Hypo sell', t.sellTime||'—', 'sell_time'],
+    ['Buy price', t.buy!=null?'$'+t.buy.toFixed(2):'—', 'buy_price'],
+    ['Sell price', t.sell!=null?'$'+t.sell.toFixed(2):'—', 'sell_price'],
     ['% Change', t.pct||'—', null],
     ['Potential net', pot, null],
     ['Setup', t.setup||'—', 'setup'],
@@ -2920,6 +2922,11 @@ const REV_FIELDS={
   time_found:  {prop:'timeFound'},
   time_opened: {prop:'timeOpened'},
   time_to_open:{prop:'timeToOpen'},
+  // misses deck only — hypo fill; price edits re-derive pct + potential
+  buy_time:   {prop:'buyTime'},
+  sell_time:  {prop:'sellTime'},
+  buy_price:  {prop:'buy',  num:true, max:9999, step:0.01},
+  sell_price: {prop:'sell', num:true, max:9999, step:0.01},
 };
 
 // "08:06:16" / "8:06:19 AM" / "8:02:09" -> seconds-of-day (null if unparseable)
@@ -2987,7 +2994,7 @@ function revEdit(cell,field){
       .forEach(o=>{const op=document.createElement('option');op.value=o;dl.appendChild(op);});
     document.body.appendChild(dl);
   }
-  v.innerHTML=`<input class="rev-edit-inp" ${def.num?'type="number" step="0.5" min="0" max="'+def.max+'"':`list="${listId}"`} value="${String(cur??'').replace(/"/g,'&quot;')}">`;
+  v.innerHTML=`<input class="rev-edit-inp" ${def.num?'type="number" step="'+(def.step||0.5)+'" min="0" max="'+def.max+'"':`list="${listId}"`} value="${String(cur??'').replace(/"/g,'&quot;')}">`;
   const inp=v.querySelector('input');
   inp.focus(); inp.select();
   let done=false;
@@ -3015,14 +3022,32 @@ function revEdit(cell,field){
         payload.time_to_open=derived;
       }
     }
+    // Miss price edits re-derive % change and potential net. Implied
+    // share count (old potential ÷ old spread) is preserved so the
+    // position-size assumption survives a price correction.
+    const extraProps={};
+    if(REV_MODE==='misses'&&(field==='buy_price'||field==='sell_price')){
+      const nb=field==='buy_price'?val:t.buy, ns=field==='sell_price'?val:t.sell;
+      if(nb!=null&&ns!=null&&nb>0){
+        payload.pct_change=((ns-nb)/nb*100).toFixed(2)+'%';
+        extraProps.pct=payload.pct_change;
+        const oldSpread=(t.buy!=null&&t.sell!=null)?t.sell-t.buy:null;
+        const shares=(oldSpread&&t.potential!=null)?t.potential/oldSpread:null;
+        if(shares!=null&&isFinite(shares)){
+          payload.potential_net=+(shares*(ns-nb)).toFixed(2);
+          extraProps.potential=payload.potential_net;
+        }
+      }
+    }
     const ok=await patchTradeField(t,payload);
     if(ok){
       t[def.prop]=val;
       if(derived) t.timeToOpen=derived;
+      Object.assign(t,extraProps);
       const m=REV_MODE==='misses' ? ALL_MISSES.find(x=>x.id===t.id)
         : REV_MODE==='ross' ? ALL_ROSS.find(x=>x.id===t.id)
         : ALL_TRADES.find(x=>x.date===t.date&&x.ticker===t.ticker&&x.buyTime===t.buyTime&&x.buy===t.buy);
-      if(m){ m[def.prop]=val; if(derived) m.timeToOpen=derived; }
+      if(m){ m[def.prop]=val; if(derived) m.timeToOpen=derived; Object.assign(m,extraProps); }
     }
     renderReview();
   };
