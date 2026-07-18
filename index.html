@@ -3241,7 +3241,7 @@ function plLoad(){
   now.innerHTML=`<span class="tk">${l.main}</span>`
     +`<span class="pnl ${t.pnl>=0?'win':'loss'}">${l.chip}</span>`
     +`<span class="meta">${l.date}${l.sub?' · '+l.sub:''}</span>`
-    +`<span class="hint">←/→ prev·next · space play/pause · , / . scrub · esc close</span>`;
+    +`<span class="hint">←/→ prev·next · space play/pause · , / . scrub 3s · esc close</span>`;
   f.onload=()=>subscribePlayer(f);
   f.src=`https://www.youtube.com/embed/${ytId(t.video)}?autoplay=1&controls=1&modestbranding=1&rel=0&playsinline=1&enablejsapi=1`;
   // Queue list
@@ -3286,9 +3286,26 @@ function plKeys(e){
   if(e.key==='Escape') closePlaylist();
   else if(e.key==='ArrowRight') plNav(1);
   else if(e.key==='ArrowLeft') plNav(-1);
-  else if(e.key===','){ REV_VT=Math.max(REV_VT-1,0); plCmd('seekTo',[REV_VT,true]); }
-  else if(e.key==='.'){ REV_VT+=1; plCmd('seekTo',[REV_VT,true]); }
+  else if(e.key===','){ REV_VT=Math.max(REV_VT-3,0); plCmd('seekTo',[REV_VT,true]); }
+  else if(e.key==='.'){ REV_VT+=3; plCmd('seekTo',[REV_VT,true]); }
   else if(e.key===' '){ e.preventDefault(); plCmd(REV_PS===1?'pauseVideo':'playVideo'); }
+}
+
+// Desktop: clicking the YT player moves keyboard focus INTO the iframe —
+// the page stops receiving keys entirely (arrows turn into YT's own
+// native scrub, , / . go dead). Reclaim focus whenever a review/playlist
+// embed steals it so the page's scrub keys keep working. Touch devices
+// skip this — yanking focus off a just-tapped player breaks playback.
+if(!matchMedia('(pointer: coarse)').matches&&navigator.maxTouchPoints<=1){
+  window.addEventListener('blur',()=>{
+    setTimeout(()=>{
+      const ae=document.activeElement;
+      if(ae&&ae.tagName==='IFRAME'&&(ae.id==='pl-iframe'||ae.closest('#rev-disp-video'))){
+        ae.blur();
+        window.focus();
+      }
+    },300);
+  });
 }
 
 // ── Side-by-side compare — two cards from the current deck ─────
