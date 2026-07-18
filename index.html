@@ -835,6 +835,9 @@ tr:hover td{background:rgba(255,255,255,0.025)}
         <button class="rev-nav-btn" onclick="revJump('week')" title="Jump to the first card of this card's week" style="width:auto;padding:0 10px;font-size:12px">«W</button>
         <button class="rev-nav-btn" onclick="revNav(-1)">←</button>
         <button class="rev-nav-btn" onclick="revNav(1)">→</button>
+        <button class="rev-nav-btn" onclick="revJump('nextweek')" title="Jump to the first card of the next week" style="width:auto;padding:0 10px;font-size:12px">W»</button>
+        <button class="rev-nav-btn" onclick="revJump('nextmonth')" title="Jump to the first card of the next month" style="width:auto;padding:0 10px;font-size:12px">M»</button>
+        <button class="rev-nav-btn" onclick="revJump('last')" title="Jump to the very last card">⏭</button>
       </div>
     </div>
     <div class="rev-filterline">
@@ -2518,12 +2521,16 @@ function revTrades(){
 function revJump(kind){
   const ts=revTrades(); if(!ts.length) return;
   let idx=0;
-  if(kind!=='first'){
+  if(kind==='last') idx=ts.length-1;
+  else if(kind!=='first'){
     const cur=ts[Math.min(Math.max(REV_IDX,0),ts.length-1)];
-    const keyOf=t=>kind==='week'?weekKey(t.date):String(t.date).slice(0,7);
+    const wk=/week/.test(kind);
+    const keyOf=t=>wk?weekKey(t.date):String(t.date).slice(0,7);
     const key=keyOf(cur);
-    idx=ts.findIndex(t=>keyOf(t)===key);
-    if(idx<0) idx=0;
+    // keys are ISO strings so > compares chronologically
+    idx=/^next/.test(kind) ? ts.findIndex(t=>keyOf(t)>key)
+                           : ts.findIndex(t=>keyOf(t)===key);
+    if(idx<0) idx=/^next/.test(kind)?ts.length-1:0;
   }
   REV_IDX=idx;
   renderReview();
