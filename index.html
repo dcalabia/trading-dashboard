@@ -830,6 +830,9 @@ tr:hover td{background:rgba(255,255,255,0.025)}
       <button class="rev-act-btn" id="rev-compare-btn" onclick="openCompare()" title="Side-by-side: current card vs any other">⇄ Compare</button>
       <button class="rev-act-btn" onclick="openTagMgr()" title="Rename or delete tags across every trade/miss/Ross entry">🏷 Tags</button>
       <div class="rev-nav-btns">
+        <button class="rev-nav-btn" onclick="revJump('first')" title="Jump to the very first card">⏮</button>
+        <button class="rev-nav-btn" onclick="revJump('month')" title="Jump to the first card of this card's month" style="width:auto;padding:0 10px;font-size:12px">«M</button>
+        <button class="rev-nav-btn" onclick="revJump('week')" title="Jump to the first card of this card's week" style="width:auto;padding:0 10px;font-size:12px">«W</button>
         <button class="rev-nav-btn" onclick="revNav(-1)">←</button>
         <button class="rev-nav-btn" onclick="revNav(1)">→</button>
       </div>
@@ -2507,6 +2510,23 @@ function revTrades(){
     const at=a.buyTime||'', bt=b.buyTime||'';
     return at<bt?-1:(at>bt?1:0);
   });
+}
+
+// Jump within the current (filtered) deck: very first card, or the
+// first card of the CURRENT card's week/month — relative to what's on
+// screen, so it works the same when reviewing old periods.
+function revJump(kind){
+  const ts=revTrades(); if(!ts.length) return;
+  let idx=0;
+  if(kind!=='first'){
+    const cur=ts[Math.min(Math.max(REV_IDX,0),ts.length-1)];
+    const keyOf=t=>kind==='week'?weekKey(t.date):String(t.date).slice(0,7);
+    const key=keyOf(cur);
+    idx=ts.findIndex(t=>keyOf(t)===key);
+    if(idx<0) idx=0;
+  }
+  REV_IDX=idx;
+  renderReview();
 }
 
 function setRevFilter(v){
