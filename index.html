@@ -116,6 +116,9 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .pb-img img{width:100%;border:1px solid var(--border);border-radius:8px;display:block;cursor:zoom-in}
 .pb-img .del{position:absolute;top:6px;right:6px;background:rgba(10,15,25,0.85);border:1px solid var(--border);border-radius:5px;color:var(--red,#ff5d5d);font-size:11px;padding:2px 7px;cursor:pointer}
 .pb-empty{color:var(--muted);font-size:11px;padding:4px 0}
+.pb-caret{cursor:pointer;color:var(--muted);font-size:12px;user-select:none}
+.pb-caret:hover{color:var(--accent)}
+.pb-imgcount{background:rgba(38,131,255,0.15);color:var(--accent);font-size:10px;font-weight:600;border-radius:9px;padding:1px 7px}
 #rev-pb-body{display:block}
 /* ── Tag manager overlay ── */
 #tagmgr-overlay{position:fixed;inset:0;background:rgba(5,10,18,0.97);z-index:400;display:flex;flex-direction:column;padding:18px}
@@ -927,6 +930,10 @@ tr:hover td{background:rgba(255,255,255,0.025)}
     <div class="rev-hls" style="border-color:rgba(38,131,255,0.35)">
       <div class="rev-hls-hdr" style="color:var(--accent);cursor:default">
         <span>📖 Setup Playbook <span class="rev-hls-count" id="rev-pb-count" style="background:rgba(38,131,255,0.15)">0</span></span>
+        <span style="margin-left:auto;display:flex;gap:6px">
+          <button class="pb-add" onclick="pbCollapseAll(true)">▸ Collapse all</button>
+          <button class="pb-add" onclick="pbCollapseAll(false)">▾ Expand all</button>
+        </span>
       </div>
       <div class="rev-hls-body" id="rev-pb-body"></div>
     </div>
@@ -3850,6 +3857,19 @@ async function pbSave(){
   }catch(e){ console.warn('playbook save failed:',e); }
 }
 
+// Per-setup collapse state for the playbook, persisted so a big deck
+// of template charts stays folded across reloads
+let PB_COLLAPSED=new Set(JSON.parse(localStorage.getItem('pb-collapsed')||'[]'));
+function pbSaveCollapsed(){ localStorage.setItem('pb-collapsed',JSON.stringify([...PB_COLLAPSED])); }
+function pbToggle(name){
+  if(PB_COLLAPSED.has(name)) PB_COLLAPSED.delete(name);
+  else PB_COLLAPSED.add(name);
+  pbSaveCollapsed(); renderPlaybook();
+}
+function pbCollapseAll(v){
+  PB_COLLAPSED = v ? new Set(Object.keys(PB_DATA).filter(k=>(PB_DATA[k]||[]).length)) : new Set();
+  pbSaveCollapsed(); renderPlaybook();
+}
 function renderPlaybook(){
   const body=document.getElementById('rev-pb-body');
   if(!body||!PB_DATA) return;
@@ -3861,13 +3881,17 @@ function renderPlaybook(){
   body.innerHTML=names.map(n=>{
     const imgs=PB_DATA[n]||[];
     const arg=`'${esc(n).replace(/'/g,"\\'")}'`;
+    const collapsed=imgs.length&&PB_COLLAPSED.has(n);
     return `<div class="pb-card">
-      <div class="pb-name">${esc(n)}
+      <div class="pb-name">
+        ${imgs.length?`<span class="pb-caret" onclick="pbToggle(${arg})" title="Show/hide template images">${collapsed?'▸':'▾'}</span>`:''}
+        <span${imgs.length?` onclick="pbToggle(${arg})" style="cursor:pointer"`:''}>${esc(n)}</span>
+        ${imgs.length?`<span class="pb-imgcount">${imgs.length}</span>`:''}
         <button class="pb-add" onclick="pbAddShot(${arg})">＋ Add screenshot</button>
         <button class="pb-add" onclick="pbRenameSetup(${arg})" title="Rename this setup on every trade/miss/Ross entry that uses it">✎ Rename</button>
         <button class="pb-add" style="color:var(--red,#ff5d5d)" onclick="pbDeleteSetup(${arg})" title="Remove this setup from every entry that uses it">✕ Delete</button>
       </div>
-      ${imgs.length?`<div class="pb-imgs">${imgs.map((u,i)=>
+      ${imgs.length?`<div class="pb-imgs"${collapsed?' style="display:none"':''}>${imgs.map((u,i)=>
         `<div class="pb-img"><img src="${esc(u)}" loading="lazy" onclick="window.open('${esc(u)}','_blank')">
          <button class="del" onclick="pbDelShot('${esc(n).replace(/'/g,"\\'")}',${i})">✕</button></div>`).join('')}</div>`
       :'<div class="pb-empty">No template yet — add the perfect example chart for this setup</div>'}
