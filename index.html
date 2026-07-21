@@ -2799,7 +2799,8 @@ function renderReview(){
         </div>`:''}
         <div class="rev-disp" id="rev-disp-shot">${t.chart
           ? `<div class="rev-shot-wrap"><img class="rev-chart" loading="lazy" src="${esc(t.chart)}" alt="chart">
-             <button class="rev-shot-edit" onclick="pickChartImage()">✎ Edit</button></div>`
+             <button class="rev-shot-edit" onclick="pickChartImage()">✎ Edit</button>
+             <button class="rev-shot-edit" style="right:76px" onclick="pbMarkFromCard(this)" title="Add this chart to the setup's playbook as a template example">📖 Playbook</button></div>`
           : `<div class="rev-nochart">No chart screenshot for this trade<br>
              <button class="rev-shot-edit" onclick="pickChartImage()">＋ Add screenshot</button></div>`}</div>
         ${t.video?`<div class="rev-disp" id="rev-disp-video" style="display:none">
@@ -2941,7 +2942,8 @@ function renderMissCard(t){
         </div>`:''}
         <div class="rev-disp" id="rev-disp-shot">${t.chart
           ? `<div class="rev-shot-wrap"><img class="rev-chart" loading="lazy" src="${esc(t.chart)}" alt="chart">
-             <button class="rev-shot-edit" onclick="pickChartImage()">✎ Edit</button></div>`
+             <button class="rev-shot-edit" onclick="pickChartImage()">✎ Edit</button>
+             <button class="rev-shot-edit" style="right:76px" onclick="pbMarkFromCard(this)" title="Add this chart to the setup's playbook as a template example">📖 Playbook</button></div>`
           : `<div class="rev-nochart">No chart screenshot for this miss<br>
              <button class="rev-shot-edit" onclick="pickChartImage()">＋ Add screenshot</button></div>`}</div>
         ${t.video?`<div class="rev-disp" id="rev-disp-video" style="display:none">
@@ -3943,6 +3945,36 @@ async function pbDeleteSetup(name){
   if(PB_DATA&&PB_DATA[name]){ delete PB_DATA[name]; await pbSave(); }
   renderPlaybook();
   if(typeof SETUP_LAST_TRADES!=='undefined') renderSetupPanel(SETUP_LAST_TRADES);
+}
+
+// One-click: current card's chart -> its setup's playbook (no manual
+// screenshot upload — the chart_url is reused as the template image)
+async function pbMarkFromCard(btn){
+  const t=revTrades()[REV_IDX];
+  if(!t||!t.chart){ alert('No chart screenshot on this card'); return; }
+  const parts=String(t.setup||'').split(SETUP_SEP).map(s=>s.trim())
+    .filter(s=>s&&s.toLowerCase()!=='none');
+  if(!parts.length){ alert('Tag a setup on this card first'); return; }
+  let setup=parts[0];
+  if(parts.length>1){
+    const pick=prompt('Add to which setup playbook?\n'
+      +parts.map((p,i)=>`${i+1}. ${p}`).join('\n'),'1');
+    if(pick===null) return;
+    const idx=parseInt(pick,10)-1;
+    if(isNaN(idx)||!parts[idx]) return;
+    setup=parts[idx];
+  }
+  await pbLoad();
+  PB_DATA[setup]=PB_DATA[setup]||[];
+  const old=btn?btn.textContent:null;
+  if(PB_DATA[setup].includes(t.chart)){
+    if(btn){ btn.textContent='Already in playbook'; setTimeout(()=>btn.textContent=old,1600); }
+    return;
+  }
+  PB_DATA[setup].push(t.chart);
+  await pbSave();
+  renderPlaybook();
+  if(btn){ btn.textContent='✓ Added to '+setup; setTimeout(()=>btn.textContent=old,2000); }
 }
 
 function pbAddShot(setup){
