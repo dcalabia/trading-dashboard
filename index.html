@@ -1181,6 +1181,16 @@ async function pushDefs(){
     return r.ok;
   }catch(e){ return false; }
 }
+// Returns true iff a real cloud row was found — the boot sequence
+// uses this to decide whether it's ever safe to auto-push (only when
+// NOTHING exists in the cloud yet). Blindly pushing on every load
+// once a cloud copy exists is what silently overwrote Dale's real
+// custom checklist with bare DEFAULT_CHECKLISTS on Jul 21 — a device
+// whose local storage had nothing meaningful (e.g. never signed in,
+// or a stale/empty cache) fell back to defaults in initDefs(), then
+// the boot's unconditional pushDefs() call clobbered the good cloud
+// copy with those bare defaults. No version history exists on
+// dashboard_data, so that overwrite was unrecoverable.
 async function pullDefs(){
   try{
     const r=await fetch(`${SUPABASE_URL}/rest/v1/dashboard_data?key=eq.trading-cl-defs&select=value`,
@@ -1192,8 +1202,10 @@ async function pullDefs(){
         localStorage.setItem('trading-cl-defs',JSON.stringify(v.defs));
         localStorage.setItem('trading-cl-ver',String(v.ver||0));
       }
+      return true;
     }
-  }catch(e){}
+    return false;
+  }catch(e){ return true; }   // fetch/parse failure: treat as "row may exist", never push
 }
 function initDefs(){
   const saved = loadDefs();
@@ -1466,9 +1478,13 @@ async function init(){
     }
 
     setDates();
-    await pullDefs();   // cloud copy of custom sections/items first
+    const hadCloudDefs = await pullDefs();   // cloud copy of custom sections/items first
     initDefs();
-    pushDefs();         // write back the merged result
+    // Only auto-push if the cloud has NEVER had a row for this key
+    // (first-ever seed). Once a cloud copy exists, only explicit user
+    // edits push (via saveDefs()) — never blindly overwrite a good
+    // cloud copy just because this device's load produced defaults.
+    if(!hadCloudDefs) pushDefs();
     buildPeriodSelect();
     const savedPeriod = localStorage.getItem('trading-period')||'all';
     if(savedPeriod.startsWith('month:')){
