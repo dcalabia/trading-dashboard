@@ -863,6 +863,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
         <button class="rev-mode-btn active" id="rev-mode-trades" onclick="setRevMode('trades')">Trades</button>
         <button class="rev-mode-btn" id="rev-mode-misses" onclick="setRevMode('misses')">Misses</button>
         <button class="rev-mode-btn" id="rev-mode-ross" onclick="setRevMode('ross')">Ross Small</button>
+        <button class="rev-mode-btn" id="rev-mode-all" onclick="setRevMode('all')" title="Trades + Misses + Ross Small combined">All</button>
       </div>
       <div class="rev-pos" id="rev-pos">— / —</div>
       <div style="flex:1"></div>
@@ -2603,22 +2604,72 @@ let REV_NOTE_AUTOSAVE = null;  // debounce timer for review-notes autosave
 // MM stays the special gold one.
 const PRESET_TAGS = ['Must Watch','Best Lessons','Potential Future Setup','To Edit','No Screenshot'];
 
-let REV_MODE = 'trades';   // 'trades' | 'misses'
+let REV_MODE = 'trades';   // 'trades' | 'misses' | 'ross' | 'all'
+
+function setModeButtons(m){
+  document.getElementById('rev-mode-trades').classList.toggle('active', m==='trades');
+  document.getElementById('rev-mode-misses').classList.toggle('active', m==='misses');
+  document.getElementById('rev-mode-ross').classList.toggle('active', m==='ross');
+  document.getElementById('rev-mode-all').classList.toggle('active', m==='all');
+}
 
 function setRevMode(m){
   REV_MODE = m;
   REV_FILTER = '';        // don't carry a tag filter across into the other deck
   REV_SETUP_FILTER = '';  // setups differ per deck — stale filter = empty deck
-  document.getElementById('rev-mode-trades').classList.toggle('active', m==='trades');
-  document.getElementById('rev-mode-misses').classList.toggle('active', m==='misses');
-  document.getElementById('rev-mode-ross').classList.toggle('active', m==='ross');
+  setModeButtons(m);
   REV_IDX = revTrades().length - 1;  // open on newest in the new deck
   renderReview();
+}
+
+// 'All' mode: which real deck a merged-list entry actually came from —
+// entries carry a __src tag set by combinedDeck(). Outside 'all' mode
+// this is just REV_MODE (unchanged behavior for every existing caller).
+function curSrc(t){ return REV_MODE==='all' ? (t&&t.__src||'trades') : REV_MODE; }
+
+// The Supabase-backed array object matching `t` (same reference the
+// filter/sort chains everywhere else preserve) — used to mirror an
+// edit into the master array after a successful PATCH.
+function findBacking(t){
+  const src=curSrc(t);
+  if(src==='misses') return ALL_MISSES.find(x=>x.id===t.id);
+  if(src==='ross')   return ALL_ROSS.find(x=>x.id===t.id);
+  return ALL_TRADES.find(x=>x===t||
+    (x.date===t.date&&x.ticker===t.ticker&&x.buyTime===t.buyTime&&x.buy===t.buy));
+}
+
+// Trades + Misses + Ross Small as one list, each entry tagged with
+// its origin (__src). Tagging mutates the shared objects in place —
+// harmless (they're already mutated elsewhere on every edit) and
+// means every existing array (ALL_TRADES etc.) still holds the exact
+// same references, so edits made while browsing 'All' still land on
+// the real backing array with zero extra bookkeeping.
+function combinedDeck(){
+  const tr=getFilteredTrades('review'); tr.forEach(t=>t.__src='trades');
+  ALL_MISSES.forEach(t=>t.__src='misses');
+  ALL_ROSS.forEach(t=>t.__src='ross');
+  return [...tr, ...ALL_MISSES, ...ALL_ROSS];
+}
+// Chronological compare across sources whose buyTime formats differ
+// (ISO vs sheet clock strings) — ptMinutes() already normalizes both.
+function combinedSort(a,b){
+  if(a.date!==b.date) return a.date<b.date?-1:1;
+  const am=ptMinutes(a), bm=ptMinutes(b);
+  if(am!=null&&bm!=null) return am-bm;
+  const at=a.buyTime||'', bt=b.buyTime||'';
+  return at<bt?-1:(at>bt?1:0);
 }
 
 function revTrades(){
   // Chronological oldest → newest so → (right) moves toward more
   // recent trades; opens on the most recent trade
+  if(REV_MODE==='all'){
+    const combined = combinedDeck();
+    const scoped = (REV_FILTER
+      ? combined.filter(t=>(t.tags||[]).includes(REV_FILTER))
+      : combined).filter(psMatch).filter(extraMatch);
+    return scoped.slice().sort(combinedSort);
+  }
   if(REV_MODE==='misses'){
     const scoped = (REV_FILTER
       ? ALL_MISSES.filter(t=>(t.tags||[]).includes(REV_FILTER))
@@ -2685,6 +2736,7 @@ function setPsFilter(v){
 }
 function psMatch(t){
   if(!REV_PS_FILTER) return true;
+  if(curSrc(t)==='misses') return true;   // no real fill on misses — filter doesn't apply
   if(t.pnl==null||!t.shares) return false;
   const ps=t.pnl/t.shares;
   const [op,a,b]=REV_PS_FILTER.split(':');
@@ -2726,7 +2778,7 @@ function ptMinutes(t){
 function extraMatch(t){
   // W/L — misses have no result; skip the check there
   if(REV_WL_FILTER&&t.result&&t.result!==REV_WL_FILTER) return false;
-  if(REV_WL_FILTER&&!t.result&&REV_MODE!=='misses') return false;
+  if(REV_WL_FILTER&&!t.result&&curSrc(t)!=='misses') return false;
   if(REV_SETUP_FILTER){
     const parts=String(t.setup||'').split(' + ').map(x=>x.trim());
     if(!parts.includes(REV_SETUP_FILTER)) return false;
@@ -2758,7 +2810,8 @@ function fmtET(iso){
 function renderReview(){
   // Filter dropdown: All + MM + presets + any custom tags in use,
   // with live counts
-  const all = REV_MODE==='misses' ? ALL_MISSES : REV_MODE==='ross' ? ALL_ROSS : getFilteredTrades('review');
+  const all = REV_MODE==='misses' ? ALL_MISSES : REV_MODE==='ross' ? ALL_ROSS
+    : REV_MODE==='all' ? [...getFilteredTrades('review'),...ALL_MISSES,...ALL_ROSS] : getFilteredTrades('review');
   const counts = {};
   all.forEach(t=>(t.tags||[]).forEach(x=>counts[x]=(counts[x]||0)+1));
   const opts = ['MM',...PRESET_TAGS,
@@ -2783,7 +2836,7 @@ function renderReview(){
   const holder = document.getElementById('rev-card-holder');
   if(!trades.length){
     document.getElementById('rev-pos').textContent='0 / 0';
-    const label = REV_MODE==='misses'?'misses':REV_MODE==='ross'?'Ross trades':'trades';
+    const label = REV_MODE==='misses'?'misses':REV_MODE==='ross'?'Ross trades':REV_MODE==='all'?'trades/misses/Ross':'trades';
     holder.innerHTML=`<div class="rev-nochart">No ${label} for this period</div>`;
     return;
   }
@@ -2792,7 +2845,7 @@ function renderReview(){
   if(REV_IDX<0) REV_IDX=0;
   const t = trades[REV_IDX];
   document.getElementById('rev-pos').textContent=`${REV_IDX+1} / ${trades.length}`;
-  if(REV_MODE==='misses'){ renderMissCard(t); return; }
+  if(curSrc(t)==='misses'){ renderMissCard(t); return; }
   const pct=((t.pnl/t.buy)*100).toFixed(2);
   // [label, value, editableField] — field names are Supabase columns;
   // prices/times/shares stay locked
@@ -2813,7 +2866,7 @@ function renderReview(){
     ['Time to execute', t.timeToExec||'—', null],
   ];
   // reason_lost only exists on the trades table — hide on the Ross deck
-  if(REV_MODE!=='ross') cells.push(['Reason lost', t.reasonLost||'—', 'reason_lost']);
+  if(curSrc(t)!=='ross') cells.push(['Reason lost', t.reasonLost||'—', 'reason_lost']);
   const notes=[];
   if(t.esNote)      notes.push(['es','Entry',t.esNote]);
   if(t.exsNote)     notes.push(['exs','Exit',t.exsNote]);
@@ -3135,9 +3188,7 @@ function revEditSetup(cell){
     const ok=await patchTradeField(t,{setup:val});
     if(ok){
       t.setup=val;
-      const m=REV_MODE==='misses' ? ALL_MISSES.find(x=>x.id===t.id)
-        : REV_MODE==='ross' ? ALL_ROSS.find(x=>x.id===t.id)
-        : ALL_TRADES.find(x=>x.date===t.date&&x.ticker===t.ticker&&x.buyTime===t.buyTime&&x.buy===t.buy);
+      const m=findBacking(t);
       if(m) m.setup=val;
     }
     renderReview();
@@ -3156,7 +3207,7 @@ function revEdit(cell,field){
   if(!def.num && !document.getElementById(listId)){
     const dl=document.createElement('datalist');
     dl.id=listId;
-    [...new Set((REV_MODE==='misses'?ALL_MISSES:REV_MODE==='ross'?ALL_ROSS:ALL_TRADES).map(x=>x[def.prop]).filter(Boolean))].sort()
+    [...new Set((curSrc(t)==='misses'?ALL_MISSES:curSrc(t)==='ross'?ALL_ROSS:ALL_TRADES).map(x=>x[def.prop]).filter(Boolean))].sort()
       .forEach(o=>{const op=document.createElement('option');op.value=o;dl.appendChild(op);});
     document.body.appendChild(dl);
   }
@@ -3192,7 +3243,7 @@ function revEdit(cell,field){
     // share count (old potential ÷ old spread) is preserved so the
     // position-size assumption survives a price correction.
     const extraProps={};
-    if(REV_MODE==='misses'&&(field==='buy_price'||field==='sell_price')){
+    if(curSrc(t)==='misses'&&(field==='buy_price'||field==='sell_price')){
       const nb=field==='buy_price'?val:t.buy, ns=field==='sell_price'?val:t.sell;
       if(nb!=null&&ns!=null&&nb>0){
         payload.pct_change=((ns-nb)/nb*100).toFixed(2)+'%';
@@ -3210,9 +3261,7 @@ function revEdit(cell,field){
       t[def.prop]=val;
       if(derived) t.timeToOpen=derived;
       Object.assign(t,extraProps);
-      const m=REV_MODE==='misses' ? ALL_MISSES.find(x=>x.id===t.id)
-        : REV_MODE==='ross' ? ALL_ROSS.find(x=>x.id===t.id)
-        : ALL_TRADES.find(x=>x.date===t.date&&x.ticker===t.ticker&&x.buyTime===t.buyTime&&x.buy===t.buy);
+      const m=findBacking(t);
       if(m){ m[def.prop]=val; if(derived) m.timeToOpen=derived; Object.assign(m,extraProps); }
     }
     renderReview();
@@ -3231,7 +3280,8 @@ async function patchTradeField(t,payload,mode){
   // the fill scripts do (date + ticker + buy_time when present).
   // `mode` overrides REV_MODE for callers acting on a specific deck
   // (e.g. the Best-of toggle, whose items span all three sources).
-  mode=mode||REV_MODE;
+  // In 'all' mode, default to the ENTRY's own source, not the view mode.
+  mode=mode||curSrc(t);
   let url;
   if(mode==='misses'&&t.id!=null){
     url=`${SUPABASE_URL}/rest/v1/misses?id=eq.${t.id}`;
@@ -3261,9 +3311,7 @@ async function saveTags(t,tags){
   const ok=await patchTradeField(t,{tags:tags.join(',')});
   if(ok){
     t.tags=tags;
-    const m=REV_MODE==='misses' ? ALL_MISSES.find(x=>x.id===t.id)
-      : REV_MODE==='ross' ? ALL_ROSS.find(x=>x.id===t.id)
-      : ALL_TRADES.find(x=>x.date===t.date&&x.ticker===t.ticker&&x.buyTime===t.buyTime&&x.buy===t.buy);
+    const m=findBacking(t);
     if(m) m.tags=tags;
   }
   renderReview();
@@ -3344,7 +3392,7 @@ function openPlaylist(){
   const cf=document.querySelector('#rev-disp-video iframe');
   if(cf&&cf.src!=='about:blank'){ cf.src='about:blank'; REV_PS=-1; REV_LISTENING=false; }
   PL_IDX=0; PL_ACTIVE=true;
-  const modeLbl=REV_MODE==='misses'?'Misses':REV_MODE==='ross'?'Ross Small':'Trades';
+  const modeLbl=REV_MODE==='misses'?'Misses':REV_MODE==='ross'?'Ross Small':REV_MODE==='all'?'All':'Trades';
   document.getElementById('pl-title').innerHTML=
     `▶ ${modeLbl}${REV_FILTER?` · <span class="tag">${String(REV_FILTER).replace(/</g,'&lt;')}</span>`:''}`;
   document.getElementById('pl-overlay').style.display='flex';
@@ -3360,12 +3408,14 @@ function closePlaylist(){
 
 function plItemLabel(t){
   const esc=s=>String(s??'').replace(/</g,'&lt;');
-  if(REV_MODE==='misses'){
+  const src=curSrc(t);
+  if(src==='misses'){
     const chip=t.potential!=null?`<span class="chip pot">pot $${(+t.potential).toFixed(2)}</span>`:'';
     return {main:`${esc(t.ticker)} · Miss ${esc(t.missNo)}`, sub:esc(t.reason||t.setup||''), chip, date:t.date};
   }
   const chip=t.pnl!=null?`<span class="chip ${t.pnl>=0?'win':'loss'}">${t.pnl>=0?'+':'−'}$${Math.abs(t.pnl).toFixed(2)}</span>`:'';
-  return {main:esc(t.ticker), sub:esc(t.setup||''), chip, date:t.date};
+  const rossTag=(REV_MODE==='all'&&src==='ross')?' <i class="tags">Ross</i>':'';
+  return {main:esc(t.ticker)+rossTag, sub:esc(t.setup||''), chip, date:t.date};
 }
 
 function plLoad(){
@@ -3480,28 +3530,35 @@ function cmpTime(x){
 }
 
 function cmpOptLabel(t){
-  if(REV_MODE==='misses')
+  if(curSrc(t)==='misses')
     return `${t.date} · Miss ${t.missNo} · ${t.ticker}`+(t.potential!=null?` · pot $${(+t.potential).toFixed(2)}`:'');
-  return `${t.date} · ${t.ticker} · ${cmpTime(t.buyTime)} · ${t.pnl>=0?'+':'−'}$${Math.abs(t.pnl).toFixed(2)}`;
+  const rossTag=(REV_MODE==='all'&&curSrc(t)==='ross')?' (Ross)':'';
+  return `${t.date} · ${t.ticker}${rossTag} · ${cmpTime(t.buyTime)} · ${t.pnl>=0?'+':'−'}$${Math.abs(t.pnl).toFixed(2)}`;
 }
 
 function openCompare(){
   // Full current deck (tag filter deliberately ignored — comparing
   // across tags is the point), chronological
-  CMP_DECK = (REV_MODE==='misses'?ALL_MISSES:REV_MODE==='ross'?ALL_ROSS:ALL_TRADES)
-    .slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:String(a.buyTime||a.missNo)<String(b.buyTime||b.missNo)?-1:1);
+  CMP_DECK = REV_MODE==='all'
+    ? combinedDeck().slice().sort(combinedSort)
+    : (REV_MODE==='misses'?ALL_MISSES:REV_MODE==='ross'?ALL_ROSS:ALL_TRADES)
+        .slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:String(a.buyTime||a.missNo)<String(b.buyTime||b.missNo)?-1:1);
   if(!CMP_DECK.length) return;
   CMP_ACTIVE=true;
   document.getElementById('cmp-mode-lbl').textContent=
-    REV_MODE==='misses'?'Misses':REV_MODE==='ross'?'Ross Small':'Trades';
+    REV_MODE==='misses'?'Misses':REV_MODE==='ross'?'Ross Small':REV_MODE==='all'?'All':'Trades';
   const esc=s=>String(s??'').replace(/</g,'&lt;');
   const cur=revTrades()[REV_IDX];
-  const curIdx=cur?CMP_DECK.indexOf(REV_MODE==='misses'||REV_MODE==='ross'
+  // 'all' mode: CMP_DECK and revTrades() share the same object
+  // references (combinedDeck() never clones), so a plain identity
+  // lookup works; single-deck modes keep their original match logic.
+  const curIdx=cur?CMP_DECK.indexOf(REV_MODE==='all' ? cur
+    : REV_MODE==='misses'||REV_MODE==='ross'
     ? CMP_DECK.find(x=>x.id===cur.id)
     : CMP_DECK.find(x=>x.date===cur.date&&x.ticker===cur.ticker&&x.buyTime===cur.buyTime)):-1;
   ['a','b'].forEach(side=>{
     const sel=document.getElementById('cmp-sel-'+side);
-    sel.innerHTML=`<option value="">— pick a ${REV_MODE==='misses'?'miss':'trade'} —</option>`
+    sel.innerHTML=`<option value="">— pick a ${REV_MODE==='misses'?'miss':REV_MODE==='all'?'trade/miss/Ross':'trade'} —</option>`
       +CMP_DECK.map((t,i)=>`<option value="${i}">${esc(cmpOptLabel(t))}</option>`).join('');
   });
   document.getElementById('cmp-overlay').style.display='flex';
@@ -3522,7 +3579,7 @@ function cmpPick(side,val){
   if(val===''){ view.innerHTML='<div class="cmp-empty">Pick a card above to compare</div>'; return; }
   const t=CMP_DECK[+val];
   const esc=s=>String(s??'—').replace(/</g,'&lt;');
-  const isMiss=REV_MODE==='misses';
+  const isMiss=curSrc(t)==='misses';
   const chip=isMiss
     ? (t.potential!=null?`<span class="pnl win">pot $${(+t.potential).toFixed(2)}</span>`:'')
     : `<span class="pnl ${t.pnl>=0?'win':'loss'}">${t.pnl>=0?'+':'−'}$${Math.abs(t.pnl).toFixed(2)}</span>`;
@@ -4153,9 +4210,7 @@ async function uploadChartImage(file){
     const ok=await patchTradeField(t,{chart_url:url});
     if(!ok) throw new Error('Supabase PATCH failed');
     t.chart=url;
-    const m=REV_MODE==='misses' ? ALL_MISSES.find(x=>x.id===t.id)
-      : REV_MODE==='ross' ? ALL_ROSS.find(x=>x.id===t.id)
-      : ALL_TRADES.find(x=>x.date===t.date&&x.ticker===t.ticker&&x.buyTime===t.buyTime&&x.buy===t.buy);
+    const m=findBacking(t);
     if(m) m.chart=url;
     renderReview();
   }catch(e){
@@ -4354,9 +4409,7 @@ function jumpToHomeHighlight(i){
   switchTab('review');
   REV_MODE=h.source;
   REV_FILTER=''; REV_WL_FILTER=''; REV_SETUP_FILTER=''; REV_TOD_FILTER=''; REV_DOW_FILTER=''; REV_PS_FILTER='';
-  document.getElementById('rev-mode-trades').classList.toggle('active', REV_MODE==='trades');
-  document.getElementById('rev-mode-misses').classList.toggle('active', REV_MODE==='misses');
-  document.getElementById('rev-mode-ross').classList.toggle('active', REV_MODE==='ross');
+  setModeButtons(REV_MODE);
   const list=revTrades();
   let idx=list.indexOf(h.entry);
   if(idx<0){
@@ -4398,9 +4451,7 @@ function jumpToHighlight(i){
   if(!h) return;
   REV_MODE=h.source;
   REV_FILTER='';
-  document.getElementById('rev-mode-trades').classList.toggle('active', REV_MODE==='trades');
-  document.getElementById('rev-mode-misses').classList.toggle('active', REV_MODE==='misses');
-  document.getElementById('rev-mode-ross').classList.toggle('active', REV_MODE==='ross');
+  setModeButtons(REV_MODE);
   const list=revTrades();
   let idx=list.indexOf(h.entry);
   if(idx<0){
@@ -4424,39 +4475,16 @@ async function saveReviewNote(){
   if(!t||!ta) return;
   const note=ta.value;
   status.textContent='saving…';
-  // Misses/Ross PATCH by primary key; trades match the same way the
-  // fill scripts do: date + ticker + buy_time when present, else prices
-  let url;
-  if(REV_MODE==='misses'&&t.id!=null){
-    url=`${SUPABASE_URL}/rest/v1/misses?id=eq.${t.id}`;
-  }else if(REV_MODE==='ross'&&t.id!=null){
-    url=`${SUPABASE_URL}/rest/v1/ross_trades?id=eq.${t.id}`;
-  }else{
-    let q=`trade_date=eq.${t.date}&ticker=eq.${encodeURIComponent(t.ticker)}`;
-    q += t.buyTime
-      ? `&buy_time=eq.${encodeURIComponent(t.buyTime)}`
-      : `&buy_price=eq.${t.buy}&sell_price=eq.${t.sell}`;
-    url=`${SUPABASE_URL}/rest/v1/trades?${q}`;
-  }
-  try{
-    const r=await fetch(url,{
-      method:'PATCH',
-      headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+(SB_TOKEN||SUPABASE_KEY),
-        'Content-Type':'application/json'},
-      body:JSON.stringify({review_note:note})
-    });
-    if(!r.ok) throw new Error('HTTP '+r.status);
+  const ok=await patchTradeField(t,{review_note:note});
+  if(ok){
     t.reviewNote=note;
     // Update the master list too so a re-sort doesn't lose it
-    const m=REV_MODE==='misses' ? ALL_MISSES.find(x=>x.id===t.id)
-      : REV_MODE==='ross' ? ALL_ROSS.find(x=>x.id===t.id)
-      : ALL_TRADES.find(x=>x===t||
-        (x.date===t.date&&x.ticker===t.ticker&&x.buyTime===t.buyTime&&x.buy===t.buy));
+    const m=findBacking(t);
     if(m) m.reviewNote=note;
     status.textContent='saved ✓';
     renderHighlights();
     setTimeout(()=>{ if(status.textContent==='saved ✓') status.textContent=''; },2000);
-  }catch(e){
+  }else{
     status.textContent='save failed';
   }
 }
@@ -4556,9 +4584,7 @@ function jumpToDateEntry(source, arrIdx){
   switchTab('review');
   REV_MODE=source;
   REV_FILTER=''; REV_WL_FILTER=''; REV_SETUP_FILTER=''; REV_TOD_FILTER=''; REV_DOW_FILTER=''; REV_PS_FILTER='';
-  document.getElementById('rev-mode-trades').classList.toggle('active', REV_MODE==='trades');
-  document.getElementById('rev-mode-misses').classList.toggle('active', REV_MODE==='misses');
-  document.getElementById('rev-mode-ross').classList.toggle('active', REV_MODE==='ross');
+  setModeButtons(REV_MODE);
   const list=revTrades();
   let idx=list.indexOf(entry);
   if(idx<0) idx=Math.max(list.length-1,0);
