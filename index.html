@@ -279,6 +279,8 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .rev-date-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:50}
 .rev-date-modal{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;width:320px;max-height:70vh;overflow-y:auto}
 .rev-date-modal h4{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin:0 0 10px}
+.rev-date-group-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin:10px 0 6px}
+.rev-date-group-lbl:first-of-type{margin-top:0}
 .rev-mode{display:flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden}
 .rev-mode-btn{background:var(--panel);border:none;color:var(--muted);font-size:12px;padding:6px 14px;cursor:pointer}
 .rev-mode-btn.active{background:var(--card);color:var(--accent);font-weight:700}
@@ -329,6 +331,8 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .cal-day-pnl.pos{color:#4ade80}
 .cal-day-pnl.neg{color:#f87171}
 .cal-day-count{font-size:10px;color:var(--muted);margin-top:3px}
+.cal-day-count.miss{color:#ffd54a}
+.cal-day-count.ross{color:#c4b5fd}
 .cal-week-cell{background:#0f1a2a;padding:8px 10px;min-height:80px;display:flex;flex-direction:column;justify-content:center;border-left:2px solid var(--border)}
 .cal-week-lbl{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
 .cal-week-pnl{font-size:13px;font-weight:700;font-family:'JetBrains Mono',monospace}
@@ -1821,13 +1825,19 @@ function renderCalendar(){
   const DOWS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const todayStr = new Date().toISOString().slice(0,10);
 
-  // Build daily lookup from ALL_TRADES
+  // Build daily lookup from ALL_TRADES — $ P&L stays real-trades-only,
+  // matching every other Home/Weekly stat. Misses/Ross are count-only
+  // annotations on the cell, not folded into the $ figure.
   const byDate = {};
   ALL_TRADES.forEach(t => {
     if(!byDate[t.date]) byDate[t.date] = {pnl:0, count:0};
     byDate[t.date].pnl += t.pnl;
     byDate[t.date].count++;
   });
+  const missByDate = {};
+  ALL_MISSES.forEach(t => { missByDate[t.date] = (missByDate[t.date]||0) + 1; });
+  const rossByDate = {};
+  ALL_ROSS.forEach(t => { rossByDate[t.date] = (rossByDate[t.date]||0) + 1; });
 
   // Month bounds
   const firstDay = new Date(calYear, calMonth, 1);
@@ -1856,7 +1866,8 @@ function renderCalendar(){
   // current month days
   for(let d=1;d<=daysInMonth;d++){
     const dk = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    cells.push({day:d, dk, month:'cur', data:byDate[dk]||null, isToday:dk===todayStr});
+    cells.push({day:d, dk, month:'cur', data:byDate[dk]||null, isToday:dk===todayStr,
+      missCount:missByDate[dk]||0, rossCount:rossByDate[dk]||0});
   }
   // trailing empty days to complete last row
   while(cells.length % 7 !== 0) cells.push({day:null,month:'next'});
@@ -1882,13 +1893,16 @@ function renderCalendar(){
         html += `<div class="cal-day other-month"><div class="cal-day-num">${cell.day}</div></div>`;
       } else {
         const d = cell.data;
-        const cls = ['cal-day', cell.isToday?'today':'', d?'has-trades':''].filter(Boolean).join(' ');
+        const hasAny = d || cell.missCount || cell.rossCount;
+        const cls = ['cal-day', cell.isToday?'today':'', hasAny?'has-trades':''].filter(Boolean).join(' ');
         const pnlStr = d ? `${d.pnl>=0?'+':''}$${d.pnl.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',')}` : '';
         const pnlCls = d ? (d.pnl>=0?'pos':'neg') : '';
         const countStr = d ? `${d.count} trade${d.count===1?'':'s'}` : '';
-        html += `<div class="${cls}"${d?` onclick="showDateList('${cell.dk}')" title="Show trades"`:''}>
+        html += `<div class="${cls}"${hasAny?` onclick="showDateList('${cell.dk}')" title="Show trades/misses/Ross"`:''}>
           <div class="cal-day-num">${cell.day}</div>
           ${d ? `<div class="cal-day-pnl ${pnlCls}">${pnlStr}</div><div class="cal-day-count">${countStr}</div>` : ''}
+          ${cell.missCount ? `<div class="cal-day-count miss">${cell.missCount} miss${cell.missCount===1?'':'es'}</div>` : ''}
+          ${cell.rossCount ? `<div class="cal-day-count ross">${cell.rossCount} Ross</div>` : ''}
         </div>`;
       }
     });
@@ -4499,33 +4513,56 @@ function showCalendar(date){
   document.body.appendChild(overlay);
 }
 
+// Combined date drill-down — trades + misses + Ross for that day,
+// regardless of the Review tab's current deck/filters (this is a
+// straight "what happened on this date" view).
 function showDateList(date){
-  const trades = revTrades();
   const esc=s=>String(s).replace(/</g,'&lt;');
-  const rows = trades.map((t,i)=>({t,i})).filter(x=>x.t.date===date);
+  const groups = [
+    ['Trades',     ALL_TRADES.filter(t=>t.date===date), 'trades'],
+    ['Misses',     ALL_MISSES.filter(t=>t.date===date), 'misses'],
+    ['Ross Small', ALL_ROSS.filter(t=>t.date===date),   'ross'],
+  ];
+  const row=(t,source)=>{
+    const mm=(t.tags||[]).includes('MM');
+    if(source==='misses'){
+      const extraTag=(t.tags||[]).filter(x=>x!=='MM').length
+        ? esc((t.tags||[]).filter(x=>x!=='MM').join(', ')) : (t.reason?esc(t.reason):'');
+      return `<div class="rev-date-row${mm?' mm':''}" onclick="jumpToDateEntry('misses',${ALL_MISSES.indexOf(t)})">
+        <span class="t">${mm?'★ ':''}${esc(t.ticker)} · ${esc(t.buyTime||'—')}${extraTag?` <i class="tags">${extraTag}</i>`:''}</span>
+        <span class="p miss">${t.potential!=null?'+$'+(+t.potential).toFixed(2):'—'}</span>
+      </div>`;
+    }
+    const extraTag=(t.tags||[]).filter(x=>x!=='MM').length ? esc((t.tags||[]).filter(x=>x!=='MM').join(', ')) : '';
+    return `<div class="rev-date-row${mm?' mm':''}" onclick="jumpToDateEntry('${source}',${(source==='ross'?ALL_ROSS:ALL_TRADES).indexOf(t)})">
+      <span class="t">${mm?'★ ':''}${esc(t.ticker)} · ${fmtET(t.buyTime)}${extraTag?` <i class="tags">${extraTag}</i>`:''}</span>
+      <span class="p ${t.result}">${(t.pnl>=0?'+':'−')}$${Math.abs(t.pnl).toFixed(2)}</span>
+    </div>`;
+  };
   const overlay=document.createElement('div');
   overlay.className='rev-date-overlay';
   overlay.onclick=(e)=>{ if(e.target===overlay) overlay.remove(); };
-  const isMiss = REV_MODE==='misses';
   overlay.innerHTML=`<div class="rev-date-modal">
-    <h4>${isMiss?'Misses':'Trades'} on ${esc(date)}</h4>
-    ${rows.map(({t,i})=>isMiss
-      ? `<div class="rev-date-row${i===REV_IDX?' active':''}${(t.tags||[]).includes('MM')?' mm':''}" onclick="jumpToTrade(${i})">
-      <span class="t">${(t.tags||[]).includes('MM')?'★ ':''}${esc(t.ticker)} · ${esc(t.buyTime||'—')}${(t.tags||[]).filter(x=>x!=='MM').length?` <i class="tags">${esc((t.tags||[]).filter(x=>x!=='MM').join(', '))}</i>`:t.reason?` <i class="tags">${esc(t.reason)}</i>`:''}</span>
-      <span class="p miss">${t.potential!=null?'+$'+t.potential.toFixed(2):'—'}</span>
-    </div>`
-      : `<div class="rev-date-row${i===REV_IDX?' active':''}${(t.tags||[]).includes('MM')?' mm':''}" onclick="jumpToTrade(${i})">
-      <span class="t">${(t.tags||[]).includes('MM')?'★ ':''}${esc(t.ticker)} · ${fmtET(t.buyTime)}${(t.tags||[]).filter(x=>x!=='MM').length?` <i class="tags">${esc((t.tags||[]).filter(x=>x!=='MM').join(', '))}</i>`:''}</span>
-      <span class="p ${t.result}">${(t.pnl>=0?'+':'−')}$${Math.abs(t.pnl).toFixed(2)}</span>
-    </div>`).join('')}
+    <h4>${esc(date)}</h4>
+    ${groups.map(([label,list,source])=>list.length
+      ? `<div class="rev-date-group-lbl">${label}</div>${list.map(t=>row(t,source)).join('')}` : '').join('')}
   </div>`;
   document.body.appendChild(overlay);
 }
 
-function jumpToTrade(idx){
-  REV_IDX = idx;
-  REV_INIT = true;  // don't let first-open "start at newest" clobber the jump
-  switchTab('review');  // works from the Calendar tab too
+function jumpToDateEntry(source, arrIdx){
+  const entry=(source==='misses'?ALL_MISSES:source==='ross'?ALL_ROSS:ALL_TRADES)[arrIdx];
+  if(!entry) return;
+  switchTab('review');
+  REV_MODE=source;
+  REV_FILTER=''; REV_WL_FILTER=''; REV_SETUP_FILTER=''; REV_TOD_FILTER=''; REV_DOW_FILTER=''; REV_PS_FILTER='';
+  document.getElementById('rev-mode-trades').classList.toggle('active', REV_MODE==='trades');
+  document.getElementById('rev-mode-misses').classList.toggle('active', REV_MODE==='misses');
+  document.getElementById('rev-mode-ross').classList.toggle('active', REV_MODE==='ross');
+  const list=revTrades();
+  let idx=list.indexOf(entry);
+  if(idx<0) idx=Math.max(list.length-1,0);
+  REV_IDX=idx; REV_INIT=true;
   renderReview();
   const ov=document.querySelector('.rev-date-overlay');
   if(ov) ov.remove();
