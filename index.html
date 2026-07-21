@@ -868,6 +868,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
       <div class="rev-pos" id="rev-pos">— / —</div>
       <div style="flex:1"></div>
       <button class="rev-act-btn" id="rev-playlist-btn" onclick="openPlaylist()" title="Autoplay all videos in the current deck + tag filter">▶ Playlist</button>
+      <button class="rev-act-btn" onclick="playToday()" title="Autoplay every trade + miss with video from today, chronologically">▶ Today</button>
       <button class="rev-act-btn" id="rev-compare-btn" onclick="openCompare()" title="Side-by-side: current card vs any other">⇄ Compare</button>
       <button class="rev-act-btn" onclick="openTagMgr()" title="Rename or delete tags across every trade/miss/Ross entry">🏷 Tags</button>
       <div class="rev-nav-btns">
@@ -2654,6 +2655,7 @@ function setRevMode(m){
   REV_MODE = m;
   REV_FILTER = '';        // don't carry a tag filter across into the other deck
   REV_SETUP_FILTER = '';  // setups differ per deck — stale filter = empty deck
+  REV_DATE_FILTER = '';   // don't carry a single-day scope across a manual deck switch
   setModeButtons(m);
   REV_IDX = revTrades().length - 1;  // open on newest in the new deck
   renderReview();
@@ -2786,6 +2788,9 @@ function psMatch(t){
 
 // ── W/L · Setup · Time-of-day (PT) · Day-of-week filters ────────
 let REV_WL_FILTER='', REV_SETUP_FILTER='', REV_TOD_FILTER='', REV_DOW_FILTER='';
+// Single calendar-date scope — only set transiently by playDateAll(),
+// cleared when the playlist overlay closes (see closePlaylist)
+let REV_DATE_FILTER='';
 function setWlFilter(v){ REV_WL_FILTER=v; REV_IDX=revTrades().length-1; renderReview(); }
 function setSetupFilter(v){ REV_SETUP_FILTER=v; REV_IDX=revTrades().length-1; renderReview(); }
 function setTodFilter(v){ REV_TOD_FILTER=v; REV_IDX=revTrades().length-1; renderReview(); }
@@ -2833,6 +2838,7 @@ function extraMatch(t){
     const d=new Date(t.date+'T12:00:00');
     if(d.getDay()!==+REV_DOW_FILTER) return false;
   }
+  if(REV_DATE_FILTER&&t.date!==REV_DATE_FILTER) return false;
   return true;
 }
 
@@ -3441,7 +3447,25 @@ function closePlaylist(){
   document.getElementById('pl-overlay').style.display='none';
   const f=document.getElementById('pl-iframe');
   f.src='about:blank'; REV_PS=-1; REV_LISTENING=false;
+  // Date scope only ever exists to launch a single day's playlist —
+  // drop it on close so Review goes back to normal browsing instead
+  // of silently staying pinned to one day
+  if(REV_DATE_FILTER){ REV_DATE_FILTER=''; renderReview(); }
 }
+
+// Combined Trades+Misses+Ross playlist for one specific date — used
+// by the Review "Today" button and the Calendar day drill-down's
+// "Play all" button. Switches to the 'all' deck, scopes to just that
+// date, and opens the playlist overlay in one step.
+function playDateAll(date){
+  switchTab('review');
+  setRevMode('all');
+  REV_DATE_FILTER=date;
+  REV_IDX=revTrades().length-1;
+  renderReview();
+  openPlaylist();
+}
+function playToday(){ playDateAll(new Date().toISOString().slice(0,10)); }
 
 function plItemLabel(t){
   const esc=s=>String(s??'').replace(/</g,'&lt;');
@@ -4445,7 +4469,7 @@ function jumpToHomeHighlight(i){
   if(!h) return;
   switchTab('review');
   REV_MODE=h.source;
-  REV_FILTER=''; REV_WL_FILTER=''; REV_SETUP_FILTER=''; REV_TOD_FILTER=''; REV_DOW_FILTER=''; REV_PS_FILTER='';
+  REV_FILTER=''; REV_WL_FILTER=''; REV_SETUP_FILTER=''; REV_TOD_FILTER=''; REV_DOW_FILTER=''; REV_PS_FILTER=''; REV_DATE_FILTER='';
   setModeButtons(REV_MODE);
   const list=revTrades();
   let idx=list.indexOf(h.entry);
@@ -4608,7 +4632,7 @@ function showDateList(date){
   overlay.className='rev-date-overlay';
   overlay.onclick=(e)=>{ if(e.target===overlay) overlay.remove(); };
   overlay.innerHTML=`<div class="rev-date-modal">
-    <h4>${esc(date)}</h4>
+    <h4>${esc(date)} <button class="rev-cal-btn" style="width:auto;padding:0 10px;font-size:12px;vertical-align:middle" onclick="playDateAll('${date}')" title="Autoplay every trade + miss with video from this day">▶ Play all</button></h4>
     ${groups.map(([label,list,source])=>list.length
       ? `<div class="rev-date-group-lbl">${label}</div>${list.map(t=>row(t,source)).join('')}` : '').join('')}
   </div>`;
@@ -4620,7 +4644,7 @@ function jumpToDateEntry(source, arrIdx){
   if(!entry) return;
   switchTab('review');
   REV_MODE=source;
-  REV_FILTER=''; REV_WL_FILTER=''; REV_SETUP_FILTER=''; REV_TOD_FILTER=''; REV_DOW_FILTER=''; REV_PS_FILTER='';
+  REV_FILTER=''; REV_WL_FILTER=''; REV_SETUP_FILTER=''; REV_TOD_FILTER=''; REV_DOW_FILTER=''; REV_PS_FILTER=''; REV_DATE_FILTER='';
   setModeButtons(REV_MODE);
   const list=revTrades();
   let idx=list.indexOf(entry);
