@@ -225,6 +225,8 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .rev-act-btn:hover{border-color:var(--accent);color:var(--accent)}
 .rev-nav-btns{display:flex;gap:8px}
 .rev-filter{background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Inter',sans-serif;font-size:12px;padding:6px 10px;cursor:pointer;max-width:180px;text-overflow:ellipsis}
+.rev-pl-chk{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);cursor:pointer;white-space:nowrap;user-select:none}
+.rev-pl-chk input{cursor:pointer}
 #rev-setup-filter{max-width:230px}
 .rev-filter:focus{outline:none;border-color:var(--accent)}
 .rev-tag.preset{cursor:pointer;color:var(--muted);border-style:dashed;background:transparent}
@@ -868,7 +870,14 @@ tr:hover td{background:rgba(255,255,255,0.025)}
       <div class="rev-pos" id="rev-pos">— / —</div>
       <div style="flex:1"></div>
       <button class="rev-act-btn" id="rev-playlist-btn" onclick="openPlaylist()" title="Autoplay all videos in the current deck + tag filter">▶ Playlist</button>
-      <button class="rev-act-btn" onclick="playToday()" title="Autoplay every trade + miss with video from today, chronologically">▶ Today</button>
+      <select class="rev-filter" id="rev-pl-range" title="Time range for the ▶ Play button" style="width:auto">
+        <option value="today" selected>Today</option>
+        <option value="week">This week</option>
+        <option value="month">This month</option>
+      </select>
+      <label class="rev-pl-chk" title="Include trades"><input type="checkbox" id="rev-pl-trades" checked onchange="setPlType('trades',this.checked)"> Trades</label>
+      <label class="rev-pl-chk" title="Include misses"><input type="checkbox" id="rev-pl-misses" checked onchange="setPlType('misses',this.checked)"> Misses</label>
+      <button class="rev-act-btn" onclick="launchPlaylist()" title="Autoplay videos matching the range + type filters to the left">▶ Play</button>
       <button class="rev-act-btn" id="rev-compare-btn" onclick="openCompare()" title="Side-by-side: current card vs any other">⇄ Compare</button>
       <button class="rev-act-btn" onclick="openTagMgr()" title="Rename or delete tags across every trade/miss/Ross entry">🏷 Tags</button>
       <div class="rev-nav-btns">
@@ -2655,7 +2664,7 @@ function setRevMode(m){
   REV_MODE = m;
   REV_FILTER = '';        // don't carry a tag filter across into the other deck
   REV_SETUP_FILTER = '';  // setups differ per deck — stale filter = empty deck
-  REV_DATE_FILTER = '';   // don't carry a single-day scope across a manual deck switch
+  REV_DATE_FROM = ''; REV_DATE_TO = '';  // don't carry a date-range scope across a manual deck switch
   setModeButtons(m);
   REV_IDX = revTrades().length - 1;  // open on newest in the new deck
   renderReview();
@@ -2788,9 +2797,10 @@ function psMatch(t){
 
 // ── W/L · Setup · Time-of-day (PT) · Day-of-week filters ────────
 let REV_WL_FILTER='', REV_SETUP_FILTER='', REV_TOD_FILTER='', REV_DOW_FILTER='';
-// Single calendar-date scope — only set transiently by playDateAll(),
-// cleared when the playlist overlay closes (see closePlaylist)
-let REV_DATE_FILTER='';
+// Calendar-date range scope (inclusive) — only set transiently by
+// playDateAll()/launchPlaylist(), cleared when the playlist overlay
+// closes (see closePlaylist). Single-day scope is just from===to.
+let REV_DATE_FROM='', REV_DATE_TO='';
 function setWlFilter(v){ REV_WL_FILTER=v; REV_IDX=revTrades().length-1; renderReview(); }
 function setSetupFilter(v){ REV_SETUP_FILTER=v; REV_IDX=revTrades().length-1; renderReview(); }
 function setTodFilter(v){ REV_TOD_FILTER=v; REV_IDX=revTrades().length-1; renderReview(); }
@@ -2838,7 +2848,7 @@ function extraMatch(t){
     const d=new Date(t.date+'T12:00:00');
     if(d.getDay()!==+REV_DOW_FILTER) return false;
   }
-  if(REV_DATE_FILTER&&t.date!==REV_DATE_FILTER) return false;
+  if(REV_DATE_FROM&&(t.date<REV_DATE_FROM||t.date>REV_DATE_TO)) return false;
   return true;
 }
 
@@ -3423,8 +3433,8 @@ function revVideoCmd(func,args){
 // ── Playlist mode — autoplay queue over the current deck + tag filter ──
 let PL_ACTIVE=false, PL_QUEUE=[], PL_IDX=0;
 
-function openPlaylist(){
-  const src=revTrades();                    // already deck- and tag-scoped
+function openPlaylist(list){
+  const src=list||revTrades();              // already deck- and tag-scoped
   PL_QUEUE=src.filter(t=>t.video);
   const btn=document.getElementById('rev-playlist-btn');
   if(!PL_QUEUE.length){
@@ -3436,8 +3446,9 @@ function openPlaylist(){
   if(cf&&cf.src!=='about:blank'){ cf.src='about:blank'; REV_PS=-1; REV_LISTENING=false; }
   PL_IDX=0; PL_ACTIVE=true;
   const modeLbl=REV_MODE==='misses'?'Misses':REV_MODE==='ross'?'Ross Small':REV_MODE==='all'?'All':'Trades';
+  const rangeLbl=REV_DATE_FROM?` · <span class="tag">${REV_DATE_FROM===REV_DATE_TO?REV_DATE_FROM:REV_DATE_FROM+' → '+REV_DATE_TO}</span>`:'';
   document.getElementById('pl-title').innerHTML=
-    `▶ ${modeLbl}${REV_FILTER?` · <span class="tag">${String(REV_FILTER).replace(/</g,'&lt;')}</span>`:''}`;
+    `▶ ${modeLbl}${REV_FILTER?` · <span class="tag">${String(REV_FILTER).replace(/</g,'&lt;')}</span>`:''}${rangeLbl}`;
   document.getElementById('pl-overlay').style.display='flex';
   plLoad();
 }
@@ -3447,25 +3458,53 @@ function closePlaylist(){
   document.getElementById('pl-overlay').style.display='none';
   const f=document.getElementById('pl-iframe');
   f.src='about:blank'; REV_PS=-1; REV_LISTENING=false;
-  // Date scope only ever exists to launch a single day's playlist —
-  // drop it on close so Review goes back to normal browsing instead
-  // of silently staying pinned to one day
-  if(REV_DATE_FILTER){ REV_DATE_FILTER=''; renderReview(); }
+  // Date scope only ever exists to launch a scoped playlist — drop it
+  // on close so Review goes back to normal browsing instead of
+  // silently staying pinned to that range
+  if(REV_DATE_FROM){ REV_DATE_FROM=''; REV_DATE_TO=''; renderReview(); }
 }
 
 // Combined Trades+Misses+Ross playlist for one specific date — used
-// by the Review "Today" button and the Calendar day drill-down's
-// "Play all" button. Switches to the 'all' deck, scopes to just that
-// date, and opens the playlist overlay in one step.
+// by the Calendar day drill-down's "Play all" button. Switches to
+// the 'all' deck, scopes to just that date, and opens the playlist
+// overlay in one step.
 function playDateAll(date){
   switchTab('review');
   setRevMode('all');
-  REV_DATE_FILTER=date;
+  REV_DATE_FROM=date; REV_DATE_TO=date;
   REV_IDX=revTrades().length-1;
   renderReview();
   openPlaylist();
 }
-function playToday(){ playDateAll(new Date().toISOString().slice(0,10)); }
+
+// ── Scoped playlist launcher (Review toolbar) ───────────────────
+// Time range + Trades/Misses toggle feeding one "▶ Play" button,
+// instead of a separate button per range (today/week/month/...).
+let PL_TYPE_TRADES=true, PL_TYPE_MISSES=true;
+function setPlType(type,on){
+  if(type==='trades') PL_TYPE_TRADES=on;
+  if(type==='misses') PL_TYPE_MISSES=on;
+}
+function launchPlaylist(){
+  const range=document.getElementById('rev-pl-range').value;
+  const today=new Date().toISOString().slice(0,10);
+  let from='',to='';
+  if(range==='today'){ from=to=today; }
+  else if(range==='week'){ from=weekKey(today); to=today; }
+  else if(range==='month'){ from=today.slice(0,7)+'-01'; to=today; }
+  switchTab('review');
+  setRevMode('all');
+  REV_DATE_FROM=from; REV_DATE_TO=to;
+  REV_IDX=revTrades().length-1;
+  renderReview();
+  const list=revTrades().filter(t=>{
+    const src=curSrc(t);
+    if(src==='trades'&&!PL_TYPE_TRADES) return false;
+    if(src==='misses'&&!PL_TYPE_MISSES) return false;
+    return true;
+  });
+  openPlaylist(list);
+}
 
 function plItemLabel(t){
   const esc=s=>String(s??'').replace(/</g,'&lt;');
@@ -4469,7 +4508,7 @@ function jumpToHomeHighlight(i){
   if(!h) return;
   switchTab('review');
   REV_MODE=h.source;
-  REV_FILTER=''; REV_WL_FILTER=''; REV_SETUP_FILTER=''; REV_TOD_FILTER=''; REV_DOW_FILTER=''; REV_PS_FILTER=''; REV_DATE_FILTER='';
+  REV_FILTER=''; REV_WL_FILTER=''; REV_SETUP_FILTER=''; REV_TOD_FILTER=''; REV_DOW_FILTER=''; REV_PS_FILTER=''; REV_DATE_FROM=''; REV_DATE_TO='';
   setModeButtons(REV_MODE);
   const list=revTrades();
   let idx=list.indexOf(h.entry);
@@ -4644,7 +4683,7 @@ function jumpToDateEntry(source, arrIdx){
   if(!entry) return;
   switchTab('review');
   REV_MODE=source;
-  REV_FILTER=''; REV_WL_FILTER=''; REV_SETUP_FILTER=''; REV_TOD_FILTER=''; REV_DOW_FILTER=''; REV_PS_FILTER=''; REV_DATE_FILTER='';
+  REV_FILTER=''; REV_WL_FILTER=''; REV_SETUP_FILTER=''; REV_TOD_FILTER=''; REV_DOW_FILTER=''; REV_PS_FILTER=''; REV_DATE_FROM=''; REV_DATE_TO='';
   setModeButtons(REV_MODE);
   const list=revTrades();
   let idx=list.indexOf(entry);
