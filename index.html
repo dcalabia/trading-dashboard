@@ -1160,9 +1160,14 @@ async function saveDefs(){
   clSaveStatus('busy','Saving…');
   const cloudOk=await pushDefs();  // auto-save to Supabase on every change
   if(cloudOk){
+    localStorage.removeItem('trading-cl-dirty');
     const t=new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
     clSaveStatus('ok',`✓ Saved to cloud · ${t}`);
   }else{
+    // Dirty flag: local copy is now AHEAD of the cloud. The boot
+    // sequence checks this and pushes local up instead of letting
+    // pullDefs() stomp the unsynced edits (the vanish-on-refresh bug).
+    localStorage.setItem('trading-cl-dirty','1');
     clSaveStatus('err',localOk
       ?'⚠ Cloud save FAILED — saved on this device only, hit 💾 Save to retry'
       :'⚠ SAVE FAILED (local + cloud) — do not close, hit 💾 Save');
@@ -1483,13 +1488,22 @@ async function init(){
     }
 
     setDates();
-    const hadCloudDefs = await pullDefs();   // cloud copy of custom sections/items first
-    initDefs();
-    // Only auto-push if the cloud has NEVER had a row for this key
-    // (first-ever seed). Once a cloud copy exists, only explicit user
-    // edits push (via saveDefs()) — never blindly overwrite a good
-    // cloud copy just because this device's load produced defaults.
-    if(!hadCloudDefs) pushDefs();
+    if(localStorage.getItem('trading-cl-dirty')==='1'){
+      // A previous cloud save FAILED (stale auth, offline) — local is
+      // ahead of the cloud. Pulling now would stomp the unsynced edits
+      // (the vanish-on-refresh bug), so push local up instead.
+      initDefs();
+      if(await pushDefs()) localStorage.removeItem('trading-cl-dirty');
+      else clSaveStatus('err','⚠ Unsynced checklist edits on this device — sign in again, then hit 💾 Save');
+    }else{
+      const hadCloudDefs = await pullDefs();   // cloud copy of custom sections/items first
+      initDefs();
+      // Only auto-push if the cloud has NEVER had a row for this key
+      // (first-ever seed). Once a cloud copy exists, only explicit user
+      // edits push (via saveDefs()) — never blindly overwrite a good
+      // cloud copy just because this device's load produced defaults.
+      if(!hadCloudDefs) pushDefs();
+    }
     buildPeriodSelect();
     const savedPeriod = localStorage.getItem('trading-period')||'all';
     if(savedPeriod.startsWith('month:')){
@@ -1549,8 +1563,31 @@ let SB_TOKEN=null, SB_REFRESH_T=null;
 function sbScheduleRefresh(s){
   clearTimeout(SB_REFRESH_T);
   const ms=Math.max(60e3,(s.expires_at*1000-Date.now())-5*60*1000);
-  SB_REFRESH_T=setTimeout(()=>sbRefresh(s.refresh_token),ms);
+  SB_REFRESH_T=setTimeout(sbRefreshFromStore,ms);
 }
+// Multi-tab safe renewal: Supabase ROTATES the refresh token on every
+// use, so a token captured at load time goes stale the moment any other
+// tab/dashboard (same origin, shared session) renews first. Always
+// re-read the CURRENT stored session before refreshing, and adopt
+// rotations made by other tabs live via the storage event. A genuinely
+// failed renewal shows the login overlay instead of going silently
+// stale (stale token = cloud saves quietly failing = edits lost on
+// refresh — the Jul 22 vanishing-checklist bug).
+async function sbRefreshFromStore(){
+  let ok=false;
+  try{
+    const s=JSON.parse(localStorage.getItem(SB_SESS_KEY));
+    if(s.expires_at*1000-Date.now()>5*60*1000){SB_TOKEN=s.access_token;ok=true;sbScheduleRefresh(s);}
+    else ok=await sbRefresh(s.refresh_token);
+  }catch(e){}
+  if(ok){}
+  else{const ov=document.getElementById('sb-login-overlay');if(ov)ov.style.display='flex';}
+  return ok;
+}
+window.addEventListener('storage',e=>{
+  if(e.key!==SB_SESS_KEY||!e.newValue)return;
+  try{const s=JSON.parse(e.newValue);SB_TOKEN=s.access_token;sbScheduleRefresh(s);}catch(_){}
+});
 async function sbRefresh(rt){
   try{
     const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,
