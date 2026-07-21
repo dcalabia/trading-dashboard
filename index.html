@@ -703,6 +703,22 @@ tr:hover td{background:rgba(255,255,255,0.025)}
   <div class="chart-wrap"><canvas id="missMoneyChart"></canvas></div>
 </div>
 
+<div class="rev-hls" style="margin-bottom:16px">
+  <div class="rev-hls-hdr" onclick="toggleHomeHls()">
+    <span>★ Highlights <span class="rev-hls-count" id="home-hls-count">0</span></span>
+    <span class="rev-hls-chev" id="home-hls-chev">▼</span>
+  </div>
+  <div class="rev-hls-body" id="home-hls-body"></div>
+</div>
+
+<div class="rev-hls" style="margin-bottom:16px;border-color:rgba(255,213,74,0.45)">
+  <div class="rev-hls-hdr" onclick="toggleHomeBest()">
+    <span>🏆 Best of Highlights <span class="rev-hls-count" id="home-best-count">0</span></span>
+    <span class="rev-hls-chev" id="home-best-chev">▼</span>
+  </div>
+  <div class="rev-hls-body" id="home-best-body"></div>
+</div>
+
 <div class="panel" style="margin-bottom:16px">
   <div class="panel-title" id="trades-panel-title">Trades</div>
   <div style="overflow-x:auto">
@@ -2529,6 +2545,7 @@ function setPeriod(period){
   renderScoreTables();     // all-time — score bands vs outcome
   renderReasonPareto();    // all-time — reason_lost counts
   renderMissedMoney();     // weekly — banked vs missed potential
+  renderHomeHighlights();  // all-time, all-deck — mirrors the Review panels
   initChart(days, period);
 
   const lbl = document.getElementById('period-label');
@@ -4238,6 +4255,82 @@ function renderHighlights(){
   bbody.innerHTML=best.length
     ? best.map(([h,i])=>row(h,i)).join('')
     : '<div class="rev-hl-empty">Nothing promoted yet — hit the 🏆 on any highlight above</div>';
+}
+
+// ── Home versions — same ★ / ★★ data, but always ALL-TIME and
+// unaffected by the Review tab's period/tag/setup filters, matching
+// every other Home panel. Clicking a row jumps into Review on the
+// right deck/card, same as the Review-tab version.
+let HOME_HL_ITEMS=[];
+let HOME_HLS_OPEN = localStorage.getItem('home-hls-open')!=='0';
+let HOME_BEST_OPEN = localStorage.getItem('home-best-open')!=='0';
+function toggleHomeHls(){
+  HOME_HLS_OPEN=!HOME_HLS_OPEN;
+  localStorage.setItem('home-hls-open',HOME_HLS_OPEN?'1':'0');
+  renderHomeHighlights();
+}
+function toggleHomeBest(){
+  HOME_BEST_OPEN=!HOME_BEST_OPEN;
+  localStorage.setItem('home-best-open',HOME_BEST_OPEN?'1':'0');
+  renderHomeHighlights();
+}
+function renderHomeHighlights(){
+  const esc=s=>String(s).replace(/</g,'&lt;');
+  const items=[];
+  const collect=(list,mark,source)=>list.forEach(t=>{
+    if(!t.reviewNote||t.reviewNote.indexOf('★')===-1) return;
+    t.reviewNote.split('\n').forEach(line=>{
+      if(line.indexOf('★')===-1) return;
+      const best=line.indexOf('★★')!==-1;
+      const txt=line.replace(/^\s*•\s*/,'').replace(/★+\s?/,'').trim();
+      if(txt) items.push({date:t.date,ticker:t.ticker+mark,txt,source,entry:t,best});
+    });
+  });
+  collect(ALL_TRADES,'','trades');
+  collect(ALL_MISSES,' (miss)','misses');
+  collect(ALL_ROSS,' (Ross)','ross');
+  items.sort((a,b)=>a.date<b.date?1:(a.date>b.date?-1:0));
+  HOME_HL_ITEMS=items;
+  const row=(h,i)=>`<div class="rev-hl-item">
+    <span class="m hl-jump" onclick="jumpToHomeHighlight(${i})" title="Open in Review">${esc(h.date)} · ${esc(h.ticker)}</span>
+    <mark>${esc(h.txt)}</mark></div>`;
+  const hc=document.getElementById('home-hls-count');
+  if(!hc) return;   // Home panel not in the DOM yet on first paint
+  hc.textContent=items.length;
+  document.getElementById('home-hls-chev').textContent=HOME_HLS_OPEN?'▼':'▶';
+  const body=document.getElementById('home-hls-body');
+  body.style.display=HOME_HLS_OPEN?'':'none';
+  body.innerHTML=items.length
+    ? items.map(row).join('')
+    : '<div class="rev-hl-empty">No highlighted notes yet</div>';
+  const best=items.map((h,i)=>[h,i]).filter(([h])=>h.best);
+  document.getElementById('home-best-count').textContent=best.length;
+  document.getElementById('home-best-chev').textContent=HOME_BEST_OPEN?'▼':'▶';
+  const bbody=document.getElementById('home-best-body');
+  bbody.style.display=HOME_BEST_OPEN?'':'none';
+  bbody.innerHTML=best.length
+    ? best.map(([h,i])=>row(h,i)).join('')
+    : '<div class="rev-hl-empty">Nothing promoted yet</div>';
+}
+function jumpToHomeHighlight(i){
+  const h=HOME_HL_ITEMS[i];
+  if(!h) return;
+  switchTab('review');
+  REV_MODE=h.source;
+  REV_FILTER=''; REV_WL_FILTER=''; REV_SETUP_FILTER=''; REV_TOD_FILTER=''; REV_DOW_FILTER=''; REV_PS_FILTER='';
+  document.getElementById('rev-mode-trades').classList.toggle('active', REV_MODE==='trades');
+  document.getElementById('rev-mode-misses').classList.toggle('active', REV_MODE==='misses');
+  document.getElementById('rev-mode-ross').classList.toggle('active', REV_MODE==='ross');
+  const list=revTrades();
+  let idx=list.indexOf(h.entry);
+  if(idx<0){
+    idx=list.findIndex(x=> h.source==='misses'
+      ? x.id===h.entry.id
+      : x.date===h.entry.date&&x.ticker===h.entry.ticker&&x.buyTime===h.entry.buyTime&&x.buy===h.entry.buy);
+  }
+  REV_IDX = idx>=0 ? idx : Math.max(list.length-1,0);
+  REV_INIT=true;
+  renderReview();
 }
 
 let BEST_OPEN = localStorage.getItem('rev-best-open')!=='0';
