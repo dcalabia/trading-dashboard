@@ -492,10 +492,11 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 <div class="tabbar">
   <button class="tab-btn active" onclick="switchTab('home')">Home</button>
   <button class="tab-btn" onclick="switchTab('calendar')">Calendar</button>
-  <button class="tab-btn" onclick="switchTab('checklists')">Checklists</button>
   <button class="tab-btn" onclick="switchTab('review')">Review</button>
-  <button class="tab-btn" onclick="switchTab('playbook')">Playbook</button>
+  <button class="tab-btn" onclick="switchTab('daily')">Daily</button>
   <button class="tab-btn" onclick="switchTab('weekly')">Weekly</button>
+  <button class="tab-btn" onclick="switchTab('checklists')">Checklists</button>
+  <button class="tab-btn" onclick="switchTab('playbook')">Playbook</button>
 </div>
 
 <!-- HOME TAB -->
@@ -955,6 +956,62 @@ tr:hover td{background:rgba(255,255,255,0.025)}
       <div class="rev-hls-body" id="rev-best-body"></div>
     </div>
 
+  </div>
+</div>
+
+<!-- DAILY RECAP TAB — one day at a time, same shape as Weekly:
+     scorecard, setups, discipline, highlights, reflection -->
+<div class="tab-pane" id="tab-daily">
+  <div class="rev-wrap">
+    <div class="wk-bar">
+      <button class="rev-nav-btn" onclick="dyNav(-1)">←</button>
+      <div class="wk-label" id="dy-label">—</div>
+      <button class="rev-nav-btn" onclick="dyNav(1)">→</button>
+      <div class="wk-pos" id="dy-pos"></div>
+    </div>
+    <div class="kpi-grid" id="dy-kpis"></div>
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-title">Setups Today</div>
+        <div style="overflow-x:auto"><table>
+          <thead><tr><th>Setup</th><th>Trades</th><th>Win %</th><th>W:L</th><th>Total</th></tr></thead>
+          <tbody id="dy-setups"></tbody>
+        </table></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Discipline Today</div>
+        <div id="dy-discipline"></div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-title" style="color:var(--red,#ff5d5d)">Why I Lost Today</div>
+        <div id="dy-lost"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title" style="color:#ffd54a">Why I Missed Today</div>
+        <div id="dy-missed"></div>
+      </div>
+    </div>
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-title" style="color:#ffd54a">★ Highlights Today</div>
+      <div id="dy-highlights"></div>
+    </div>
+    <div class="panel" style="margin-bottom:16px;border-color:rgba(255,213,74,0.45)">
+      <div class="panel-title" style="color:#ffd54a">🎯 One Thing Tomorrow
+        <span class="cl-save-status" id="dy-focus-status" style="float:right;text-transform:none;letter-spacing:0"></span>
+      </div>
+      <div id="dy-focus-prev" style="font-size:11px;color:var(--muted);margin-bottom:8px"></div>
+      <input class="wk-note" id="dy-focus" style="height:auto;min-height:0;padding:10px" placeholder="The single fix you commit to for tomorrow (e.g. hold CH1 past 2 candles)" oninput="dyFocusChanged()">
+      <button class="rev-notes-save" style="width:100%" onclick="dyFocusSaveNow()">Save focus</button>
+    </div>
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-title">Daily Reflection
+        <span class="cl-save-status" id="dy-note-status" style="float:right;text-transform:none;letter-spacing:0"></span>
+      </div>
+      <textarea class="wk-note" id="dy-note" placeholder="What worked today? What gets fixed tomorrow?" oninput="dyNoteChanged()"></textarea>
+      <button class="rev-notes-save" style="width:100%" onclick="dyNoteSaveNow()">Save note</button>
+    </div>
   </div>
 </div>
 
@@ -1429,7 +1486,7 @@ function resetTab(tab){
 }
 
 // ── Tabs ────────────────────────────────────────────────────────
-const TAB_IDS=['home','calendar','checklists','review','playbook','weekly'];
+const TAB_IDS=['home','calendar','review','daily','weekly','checklists','playbook'];
 function toggleAcc(key){
   const el=document.getElementById(`acc-${key}`);
   el.classList.toggle('open');
@@ -1458,6 +1515,7 @@ function switchTab(id){
   if(id==='review') renderReview();
   if(id==='playbook') pbLoad().then(renderPlaybook);
   if(id==='weekly') renderWeekly();
+  if(id==='daily') renderDaily();
 }
 
 // ── Date display ────────────────────────────────────────────────
@@ -3983,6 +4041,244 @@ async function renderFocusBanner(){
   document.getElementById('focus-banner-text').textContent=WK_FOCUS[prior];
   document.getElementById('focus-banner-sub').textContent=
     'Committed in the week of '+prior+' — the one thing this week.';
+}
+
+// ── DAILY RECAP — one day at a time, mirrors Weekly above ──────
+let DY_DATE=null, DY_NOTE_TIMER=null, DY_NOTES={};
+
+function dyList(){
+  // Every distinct date with a trade, miss, or Ross entry — plus
+  // always today, so the tab has somewhere to land even before the
+  // first trade of the day
+  const s=new Set([
+    ...ALL_TRADES.map(t=>t.date),
+    ...ALL_MISSES.map(t=>t.date),
+    ...ALL_ROSS.map(t=>t.date),
+    todayKey(),
+  ]);
+  return [...s].filter(Boolean).sort();
+}
+function dyTrades(d){ return ALL_TRADES.filter(t=>t.date===d); }
+
+function dyStats(d){
+  const ts=dyTrades(d);
+  const wins=ts.filter(t=>t.pnl>=0), losses=ts.filter(t=>t.pnl<0);
+  const avgWin=wins.length?wins.reduce((s,t)=>s+t.pnl,0)/wins.length:0;
+  const avgLoss=losses.length?losses.reduce((s,t)=>s+t.pnl,0)/losses.length:0;
+  return {
+    n:ts.length,
+    pnl:ts.reduce((s,t)=>s+t.pnl,0),
+    winRate:ts.length?wins.length/ts.length*100:0,
+    ratio:avgLoss<0?avgWin/-avgLoss:(avgWin>0?Infinity:0),
+  };
+}
+
+function dyNav(delta){
+  const list=dyList();
+  let idx=list.indexOf(DY_DATE);
+  if(idx<0) idx=list.length-1;
+  idx=Math.min(Math.max(idx+delta,0),list.length-1);
+  DY_DATE=list[idx];
+  renderDaily();
+}
+
+function dyLabel(d){
+  return new Date(d+'T12:00:00').toLocaleDateString('en-US',
+    {weekday:'long',month:'short',day:'numeric',year:'numeric'});
+}
+
+function renderDaily(){
+  const list=dyList();
+  if(!list.length) return;
+  if(!DY_DATE || !list.includes(DY_DATE)) DY_DATE=list.includes(todayKey())?todayKey():list[list.length-1];
+  const d=DY_DATE;
+  const idx=list.indexOf(d);
+  const s=dyStats(d), p=idx>0?dyStats(list[idx-1]):null;
+  const esc=x=>String(x).replace(/</g,'&lt;');
+  document.getElementById('dy-label').textContent=dyLabel(d);
+  document.getElementById('dy-pos').textContent=`day ${idx+1} / ${list.length}`;
+  const $=n=>`$${(n>=0?'+':'−')}${Math.abs(n).toFixed(2)}`.replace('$+','+$').replace('$−','−$');
+  const rtxt=r=>r===Infinity?'∞':r.toFixed(2);
+  document.getElementById('dy-kpis').innerHTML=`
+    <div class="kpi"><div class="kpi-accent blue"></div><div class="kpi-label">Trades</div>
+      <div class="kpi-value blue">${s.n}${wkDelta(s.n,p?.n,v=>v.toFixed(0),false)}</div>
+      <div class="kpi-sub">${d===todayKey()?'today':''}</div></div>
+    <div class="kpi"><div class="kpi-accent ${s.pnl>=0?'green':'red'}"></div><div class="kpi-label">Day P&L</div>
+      <div class="kpi-value ${s.pnl>=0?'':'red'}">${$(s.pnl)}${wkDelta(s.pnl,p?.pnl,v=>'$'+v.toFixed(2))}</div>
+      <div class="kpi-sub">${p?'prev '+$(p.pnl):''}</div></div>
+    <div class="kpi"><div class="kpi-accent ${s.winRate>=65?'green':'red'}"></div><div class="kpi-label">Win Rate</div>
+      <div class="kpi-value ${s.n?(s.winRate>=65?'':s.winRate>=50?'white':'red'):''}">${s.n?s.winRate.toFixed(0)+'%':'—'}${wkDelta(s.n?s.winRate:null,p&&p.n?p.winRate:null,v=>v.toFixed(0)+'pt')}</div>
+      <div class="kpi-sub">target 65%</div></div>
+    <div class="kpi"><div class="kpi-accent ${s.ratio>=1.5?'green':'red'}"></div><div class="kpi-label">W:L Ratio</div>
+      <div class="kpi-value ${s.n?(s.ratio>=1.5?'':s.ratio>=1?'white':'red'):''}">${s.n?rtxt(s.ratio):'—'}${wkDelta(s.ratio===Infinity?null:(s.n?s.ratio:null),p&&p.n&&p.ratio!==Infinity?p.ratio:null,v=>v.toFixed(2))}</div>
+      <div class="kpi-sub">target 1.5</div></div>`;
+
+  // Setups today
+  const groups={};
+  dyTrades(d).filter(t=>t.setup).forEach(t=>
+    String(t.setup).split(SETUP_SEP).map(x=>x.trim()).filter(Boolean)
+      .forEach(x=>(groups[x]=groups[x]||[]).push(t)));
+  const rows=Object.entries(groups).map(([name,ts])=>{
+    const w=ts.filter(t=>t.pnl>=0), l=ts.filter(t=>t.pnl<0);
+    const aw=w.length?w.reduce((s2,t)=>s2+t.pnl,0)/w.length:0;
+    const al=l.length?l.reduce((s2,t)=>s2+t.pnl,0)/l.length:0;
+    const r=al<0?aw/-al:(aw>0?Infinity:0);
+    return {name,n:ts.length,wp:w.length/ts.length*100,r,tot:ts.reduce((s2,t)=>s2+t.pnl,0)};
+  }).sort((a,b)=>b.n-a.n);
+  document.getElementById('dy-setups').innerHTML=rows.map(r=>`<tr>
+    <td><b>${esc(r.name)}</b></td><td>${r.n}</td>
+    <td class="${r.wp>=65?'win':r.wp>=50?'be':'loss'}">${r.wp.toFixed(0)}%</td>
+    <td class="${r.r>=1.5?'win':r.r>=1?'be':'loss'}">${r.r===Infinity?'∞':r.r.toFixed(2)}</td>
+    <td class="${r.tot>=0?'win':'loss'}">${$(r.tot)}</td></tr>`).join('')
+    ||'<tr><td colspan="5" style="color:var(--muted);text-align:center;padding:14px">No setup data today</td></tr>';
+
+  // Discipline today — single day, reuse the shared Referee rules
+  const dts=dyTrades(d);
+  document.getElementById('dy-discipline').innerHTML=dts.length
+    ? (()=>{ const {ts,pnl,viol}=dayViolations(dts);
+        return `<div class="wk-day"><span class="d">${d.slice(5)} · ${ts.length}t · ${$(pnl)}</span>
+          ${viol.length?viol.map(v=>`<span class="bad">✗ ${esc(v)}</span>`).join(' '):'<span class="ok">✓ Clean</span>'}</div>`; })()
+    : '<div style="color:var(--muted);font-size:12px">No trades today yet</div>';
+
+  // Why I lost — today's losing trades with reason_lost
+  const lost=dyTrades(d).filter(t=>t.pnl<0)
+    .sort((a,b)=>String(a.buyTime)<String(b.buyTime)?-1:1);
+  document.getElementById('dy-lost').innerHTML=lost.length
+    ? lost.map(t=>`<div class="wk-day"><span class="d">${esc(t.ticker)} · ${$(t.pnl)}</span>
+        ${t.reasonLost?`<span class="bad">${esc(t.reasonLost)}</span>`:'<span style="color:var(--muted)">— no reason logged yet</span>'}</div>`).join('')
+    : '<div style="color:var(--muted);font-size:12px">No losing trades today 🎯</div>';
+
+  // Why I missed — today's misses with reason
+  const missed=ALL_MISSES.filter(m=>m.date===d)
+    .sort((a,b)=>(a.missNo||0)-(b.missNo||0));
+  document.getElementById('dy-missed').innerHTML=missed.length
+    ? missed.map(m=>`<div class="wk-day"><span class="d">Miss ${m.missNo} · ${esc(m.ticker)}${m.potential!=null?' · pot $'+(+m.potential).toFixed(2):''}</span>
+        ${m.reason?`<span class="bad">${esc(m.reason)}</span>`:'<span style="color:var(--muted)">— no reason logged yet</span>'}</div>`).join('')
+    : '<div style="color:var(--muted);font-size:12px">No misses today</div>';
+
+  // Highlights created on today's entries (trades + misses + Ross)
+  const hls=[];
+  [[ALL_TRADES,''],[ALL_MISSES,' (miss)'],[ALL_ROSS,' (Ross)']].forEach(([arr,tag])=>
+    arr.forEach(t=>{
+      if(!t.reviewNote||t.reviewNote.indexOf('★')===-1||t.date!==d) return;
+      t.reviewNote.split('\n').forEach(l=>{
+        if(l.indexOf('★')===-1) return;
+        const txt=l.replace(/^\s*•\s*/,'').replace(/★+\s?/,'').trim();
+        if(txt) hls.push({tk:t.ticker+tag,txt});
+      });
+    }));
+  document.getElementById('dy-highlights').innerHTML=hls.length
+    ? hls.map(h=>`<div class="wk-hl"><span class="m">${esc(h.tk)}</span><mark>${esc(h.txt)}</mark></div>`).join('')
+    : '<div style="color:var(--muted);font-size:12px">No highlights today</div>';
+
+  dyNoteLoad(d);
+  dyFocusLoad(d);
+}
+
+// ── Daily reflection — autosaved to dashboard_data per day ─────
+function dyStatus(cls,msg){
+  const el=document.getElementById('dy-note-status');
+  if(el){ el.className='cl-save-status '+cls; el.textContent=msg; }
+}
+
+async function dyNoteLoad(d){
+  const ta=document.getElementById('dy-note');
+  ta.dataset.d=d;
+  if(DY_NOTES[d]!==undefined){ ta.value=DY_NOTES[d]; dyStatus('',''); return; }
+  ta.value=''; dyStatus('busy','Loading…');
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/dashboard_data?key=eq.daily-review:${d}&select=value`,
+      {headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+(SB_TOKEN||SUPABASE_KEY)}});
+    const rows=await r.json();
+    DY_NOTES[d]=rows&&rows[0]?rows[0].value:'';
+    if(ta.dataset.d===d) ta.value=DY_NOTES[d];   // ignore if user already navigated on
+    dyStatus('','');
+  }catch(e){ dyStatus('err','⚠ Load failed'); }
+}
+
+async function dyNoteSave(){
+  const ta=document.getElementById('dy-note');
+  const d=ta.dataset.d, val=ta.value;
+  DY_NOTES[d]=val;
+  dyStatus('busy','Saving…');
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/dashboard_data`,{
+      method:'POST',
+      headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+(SB_TOKEN||SUPABASE_KEY),
+        'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},
+      body:JSON.stringify({key:`daily-review:${d}`,value:val,updated_at:new Date().toISOString()})});
+    if(r.ok){ const t=new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+      dyStatus('ok',`✓ Saved · ${t}`); }
+    else dyStatus('err','⚠ Save FAILED — hit Save note to retry');
+  }catch(e){ dyStatus('err','⚠ Save FAILED — offline? hit Save note to retry'); }
+}
+
+function dyNoteChanged(){
+  clearTimeout(DY_NOTE_TIMER);
+  dyStatus('busy','unsaved');
+  DY_NOTE_TIMER=setTimeout(dyNoteSave,800);
+}
+
+function dyNoteSaveNow(){
+  clearTimeout(DY_NOTE_TIMER);
+  dyNoteSave();
+}
+
+// ── One Thing — the single focus committed for TOMORROW ────────
+let DY_FOCUS={}, DY_FOCUS_LOADED=false, DY_FOCUS_TIMER=null;
+function dyFocusStatus(cls,msg){
+  const el=document.getElementById('dy-focus-status');
+  if(el){ el.className='cl-save-status '+cls; el.textContent=msg; }
+}
+async function fetchDailyFocusAll(){
+  if(DY_FOCUS_LOADED) return;
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/dashboard_data?key=like.daily-focus:*&select=key,value`,
+      {headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+(SB_TOKEN||SUPABASE_KEY)}});
+    (await r.json()).forEach(row=>{ DY_FOCUS[row.key.slice('daily-focus:'.length)]=row.value; });
+    DY_FOCUS_LOADED=true;
+  }catch(e){}
+}
+function priorFocusDay(beforeD){
+  return Object.keys(DY_FOCUS).filter(k=>k<beforeD&&String(DY_FOCUS[k]).trim()).sort().pop();
+}
+async function dyFocusLoad(d){
+  const inp=document.getElementById('dy-focus'); if(!inp) return;
+  inp.dataset.d=d;
+  await fetchDailyFocusAll();
+  if(inp.dataset.d!==d) return;   // user navigated on during the fetch
+  inp.value=DY_FOCUS[d]||'';
+  dyFocusStatus('','');
+  const esc=x=>String(x).replace(/</g,'&lt;');
+  const prior=priorFocusDay(d);
+  document.getElementById('dy-focus-prev').innerHTML=prior
+    ? `Carried into today (set ${prior}): <b style="color:var(--text)">${esc(DY_FOCUS[prior])}</b>`
+    : 'No focus carried in from a prior day yet.';
+}
+async function dyFocusSave(){
+  const inp=document.getElementById('dy-focus');
+  const d=inp.dataset.d, val=inp.value;
+  DY_FOCUS[d]=val;
+  dyFocusStatus('busy','Saving…');
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/dashboard_data`,{
+      method:'POST',
+      headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+(SB_TOKEN||SUPABASE_KEY),
+        'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},
+      body:JSON.stringify({key:`daily-focus:${d}`,value:val,updated_at:new Date().toISOString()})});
+    if(r.ok){ const t=new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+      dyFocusStatus('ok',`✓ Saved · ${t}`); }
+    else dyFocusStatus('err','⚠ Save FAILED — hit Save focus to retry');
+  }catch(e){ dyFocusStatus('err','⚠ Save FAILED — offline? hit Save focus to retry'); }
+}
+function dyFocusChanged(){
+  clearTimeout(DY_FOCUS_TIMER);
+  dyFocusStatus('busy','unsaved');
+  DY_FOCUS_TIMER=setTimeout(dyFocusSave,800);
+}
+function dyFocusSaveNow(){
+  clearTimeout(DY_FOCUS_TIMER);
+  dyFocusSave();
 }
 
 // ── Tag manager — rename/delete a tag across every entry ───────
