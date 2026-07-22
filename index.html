@@ -1167,6 +1167,16 @@ function clSaveStatus(cls,msg){
 async function saveDefs(){
   let localOk=true;
   try{localStorage.setItem('trading-cl-defs',JSON.stringify(CL_DEFS));}catch(e){localOk=false;}
+  // Dirty flag: set BEFORE the cloud push is even attempted, not only
+  // after it fails. pushDefs() is a network round-trip that a quick
+  // refresh (e.g. add an item, immediately reload) can interrupt
+  // before it resolves either way — with the flag only set on a
+  // confirmed failure, that interrupted push left no trace, so the
+  // next boot trusted the cloud and pullDefs() silently stomped the
+  // edit that never made it out (the vanish-on-refresh bug the old
+  // comment here thought was already fixed). Setting it optimistically
+  // means even a torn-down request still leaves the flag behind.
+  localStorage.setItem('trading-cl-dirty','1');
   clSaveStatus('busy','Saving…');
   const cloudOk=await pushDefs();  // auto-save to Supabase on every change
   if(cloudOk){
@@ -1174,10 +1184,6 @@ async function saveDefs(){
     const t=new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
     clSaveStatus('ok',`✓ Saved to cloud · ${t}`);
   }else{
-    // Dirty flag: local copy is now AHEAD of the cloud. The boot
-    // sequence checks this and pushes local up instead of letting
-    // pullDefs() stomp the unsynced edits (the vanish-on-refresh bug).
-    localStorage.setItem('trading-cl-dirty','1');
     clSaveStatus('err',localOk
       ?'⚠ Cloud save FAILED — saved on this device only, hit 💾 Save to retry'
       :'⚠ SAVE FAILED (local + cloud) — do not close, hit 💾 Save');
