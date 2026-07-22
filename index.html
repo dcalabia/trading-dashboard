@@ -3445,6 +3445,11 @@ function openPlaylist(list){
   const btn=document.getElementById('rev-playlist-btn');
   if(!PL_QUEUE.length){
     if(btn){ const old=btn.textContent; btn.textContent='No videos here'; setTimeout(()=>btn.textContent=old,1600); }
+    // The overlay never opens on this path, so closePlaylist() never
+    // runs to drop the date scope launchPlaylist()/playDateAll() just
+    // set — without this it silently pins the whole Review tab to
+    // that (empty) range even after the button text reverts
+    if(REV_DATE_FROM){ REV_DATE_FROM=''; REV_DATE_TO=''; renderReview(); }
     return;
   }
   // Kill the card player so its audio doesn't bleed under the overlay
@@ -3493,7 +3498,12 @@ function setPlType(type,on){
 }
 function launchPlaylist(){
   const range=document.getElementById('rev-pl-range').value;
-  const today=new Date().toISOString().slice(0,10);
+  // toISOString() is UTC — after evening in Dale's local timezone
+  // that's already tomorrow's date while it's still today locally,
+  // so "Today" would silently scope to a date with no data yet.
+  // todayKey() (used everywhere else "today" means "today") is
+  // local-timezone correct.
+  const today=todayKey();
   let from='',to='';
   if(range==='today'){ from=to=today; }
   else if(range==='week'){ from=weekKey(today); to=today; }
