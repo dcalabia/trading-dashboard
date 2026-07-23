@@ -3249,10 +3249,10 @@ function renderMissCard(t){
 const REV_FIELDS={
   setup:      {prop:'setup'},
   grade:      {prop:'grade'},
-  entry_score:{prop:'entryScore'},
-  exit_score: {prop:'exitScore'},
-  score_9:    {prop:'score9', num:true, max:9},
-  score_5:    {prop:'score5', num:true, max:5},
+  entry_score:{prop:'entryScore', fixedOpts:['Disciplined entry','Undisciplined entry']},
+  exit_score: {prop:'exitScore', fixedOpts:['Disciplined exit','Undisciplined exit']},
+  score_9:    {prop:'score9', num:true, max:9, dropdown:true},
+  score_5:    {prop:'score5', num:true, max:5, dropdown:true},
   reason_missed:{prop:'reason'},  // misses deck only
   reason_lost: {prop:'reasonLost'},  // trades deck — why the loss happened
   time_found:  {prop:'timeFound'},
@@ -3324,13 +3324,25 @@ function revEdit(cell,field){
   if(!def.num && !document.getElementById(listId)){
     const dl=document.createElement('datalist');
     dl.id=listId;
-    [...new Set((curSrc(t)==='misses'?ALL_MISSES:curSrc(t)==='ross'?ALL_ROSS:ALL_TRADES).map(x=>x[def.prop]).filter(Boolean))].sort()
-      .forEach(o=>{const op=document.createElement('option');op.value=o;dl.appendChild(op);});
+    const vals=def.fixedOpts
+      ? def.fixedOpts
+      : [...new Set((curSrc(t)==='misses'?ALL_MISSES:curSrc(t)==='ross'?ALL_ROSS:ALL_TRADES).map(x=>x[def.prop]).filter(Boolean))].sort();
+    vals.forEach(o=>{const op=document.createElement('option');op.value=o;dl.appendChild(op);});
     document.body.appendChild(dl);
   }
-  v.innerHTML=`<input class="rev-edit-inp" ${def.num?'type="number" step="'+(def.step||0.5)+'" min="0" max="'+def.max+'"':`list="${listId}"`} value="${String(cur??'').replace(/"/g,'&quot;')}">`;
-  const inp=v.querySelector('input');
-  inp.focus(); inp.select();
+  if(def.dropdown){
+    const step=def.step||0.5;
+    let opts='';
+    for(let n=0;n<=def.max+1e-9;n+=step){
+      const ov=+n.toFixed(2);
+      opts+=`<option value="${ov}"${cur!=null&&+cur===ov?' selected':''}>${ov}</option>`;
+    }
+    v.innerHTML=`<select class="rev-edit-inp">${opts}</select>`;
+  } else {
+    v.innerHTML=`<input class="rev-edit-inp" ${def.num?'type="number" step="'+(def.step||0.5)+'" min="0" max="'+def.max+'"':`list="${listId}"`} value="${String(cur??'').replace(/"/g,'&quot;')}">`;
+  }
+  const inp=v.querySelector('input,select');
+  inp.focus(); if(inp.select) inp.select();
   let done=false;
   const finish=async(save)=>{
     if(done)return; done=true;
@@ -3390,6 +3402,7 @@ function revEdit(cell,field){
   });
   inp.addEventListener('blur',()=>finish(true));
   inp.addEventListener('click',e=>e.stopPropagation());
+  if(def.dropdown) inp.addEventListener('change',()=>finish(true));
 }
 
 async function patchTradeField(t,payload,mode){
