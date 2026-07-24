@@ -2678,6 +2678,18 @@ let REV_INIT = false;
 let REV_FILTER = '';
 let REV_NOTE_AUTOSAVE = null;  // debounce timer for review-notes autosave
 
+// Pasted text (e.g. copied from a Sheets cell with multiple lines)
+// gets the same "• " bullet every typed line already gets — skips
+// lines that already have one and leaves blank lines blank
+function revBulletizePaste(text){
+  return text.split('\n').map(line=>{
+    const trimmed=line.replace(/^\s+/,'');
+    if(!trimmed) return line;
+    if(/^•\s?/.test(trimmed)) return line;
+    return '• '+line;
+  }).join('\n');
+}
+
 // Preset tags — always offered as one-click toggles on the card.
 // MM stays the special gold one.
 const PRESET_TAGS = ['Must Watch','Best Lessons','Potential Future Setup','To Edit','No Screenshot'];
@@ -3039,6 +3051,14 @@ function renderReview(){
       document.getElementById('rev-notes-status').textContent='unsaved';
     }
   });
+  ta.addEventListener('paste',e=>{
+    e.preventDefault();
+    const text=(e.clipboardData||window.clipboardData).getData('text');
+    ta.setRangeText(revBulletizePaste(text),ta.selectionStart,ta.selectionEnd,'end');
+    document.getElementById('rev-notes-status').textContent='unsaved';
+    clearTimeout(REV_NOTE_AUTOSAVE);
+    REV_NOTE_AUTOSAVE=setTimeout(saveReviewNote,800);
+  });
   ta.addEventListener('focus',()=>{
     if(!ta.value.trim()) ta.value='• ';
   });
@@ -3176,6 +3196,12 @@ function renderMissCard(t){
       }
       document.getElementById('rev-notes-status').textContent='unsaved';
     }
+  });
+  ta.addEventListener('paste',e=>{
+    e.preventDefault();
+    const text=(e.clipboardData||window.clipboardData).getData('text');
+    ta.setRangeText(revBulletizePaste(text),ta.selectionStart,ta.selectionEnd,'end');
+    document.getElementById('rev-notes-status').textContent='unsaved';
   });
   ta.addEventListener('focus',()=>{ if(!ta.value.trim()) ta.value='• '; });
   ta.addEventListener('blur',()=>{
