@@ -1228,6 +1228,28 @@ async function saveDefs(){
   // means even a torn-down request still leaves the flag behind.
   localStorage.setItem('trading-cl-dirty','1');
   clSaveStatus('busy','Saving…');
+  // Merge with whatever's currently in the cloud before pushing. A
+  // blind overwrite here is exactly what clobbered Dale's custom
+  // checklist on Jul 21 (see pullDefs() comment below) — any tab or
+  // device that's been open a while and then saves ANY edit pushes
+  // its whole in-memory CL_DEFS, silently erasing a section/item
+  // someone added elsewhere in the meantime. Sections merge by
+  // title, items within a section merge by their stable id — a
+  // section/item present on either side survives; this tab's label
+  // wins only for a genuinely same-id edit on both sides.
+  try{
+    const cloudDefs=await fetchCloudDefs();
+    if(cloudDefs){
+      const merged=mergeDefs(CL_DEFS,cloudDefs);
+      if(JSON.stringify(merged)!==JSON.stringify(CL_DEFS)){
+        CL_DEFS=merged;
+        localStorage.setItem('trading-cl-defs',JSON.stringify(CL_DEFS));
+        ['pre','live','post','bed'].forEach(t=>{
+          if(document.getElementById(`${t}-checklist`)) renderChecklist(t,`${t}-checklist`);
+        });
+      }
+    }
+  }catch(e){}
   const cloudOk=await pushDefs();  // auto-save to Supabase on every change
   if(cloudOk){
     localStorage.removeItem('trading-cl-dirty');
@@ -1256,6 +1278,53 @@ async function pushDefs(){
     });
     return r.ok;
   }catch(e){ return false; }
+}
+// Read-only cloud fetch — unlike pullDefs(), never writes localStorage
+// or CL_DEFS itself; saveDefs() uses this to merge before it pushes.
+async function fetchCloudDefs(){
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/dashboard_data?key=eq.trading-cl-defs&select=value`,
+      {headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+(SB_TOKEN||SUPABASE_KEY)}});
+    const rows=await r.json();
+    if(rows&&rows[0]&&rows[0].value){
+      const v=JSON.parse(rows[0].value);
+      if(v&&v.defs) return v.defs;
+    }
+    return null;
+  }catch(e){ return null; }
+}
+// Union-merge items within one section by their stable id — `a`'s
+// version wins on a same-id conflict (it's the side actively saving),
+// anything only in `b` gets appended so it's never dropped
+function mergeItems(a,b){
+  const out=(a||[]).slice();
+  const ids=new Set(out.map(it=>it.id));
+  (b||[]).forEach(it=>{ if(!ids.has(it.id)) out.push(it); });
+  return out;
+}
+// Union-merge two CL_DEFS trees — sections matched by title, items
+// within a matched section matched by id. A section/item present on
+// either side survives; nothing is ever silently dropped just because
+// this tab's in-memory copy predates it.
+function mergeDefs(local,cloud){
+  const merged={};
+  const tabs=new Set([...Object.keys(local||{}),...Object.keys(cloud||{})]);
+  tabs.forEach(tab=>{
+    const localSecs=(local&&local[tab])||[];
+    const cloudSecs=(cloud&&cloud[tab])||[];
+    const sections=localSecs.map(s=>({title:s.title,items:(s.items||[]).slice()}));
+    const idxByTitle=new Map(sections.map((s,i)=>[s.title,i]));
+    cloudSecs.forEach(cs=>{
+      if(idxByTitle.has(cs.title)){
+        const s=sections[idxByTitle.get(cs.title)];
+        s.items=mergeItems(s.items,cs.items);
+      }else{
+        sections.push({title:cs.title,items:(cs.items||[]).slice()});
+      }
+    });
+    merged[tab]=sections;
+  });
+  return merged;
 }
 // Returns true iff a real cloud row was found — the boot sequence
 // uses this to decide whether it's ever safe to auto-push (only when
