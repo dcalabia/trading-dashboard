@@ -1062,6 +1062,15 @@ tr:hover td{background:rgba(255,255,255,0.025)}
       <div class="panel-title" style="color:#ffd54a">★ Highlights This Week</div>
       <div id="wk-highlights"></div>
     </div>
+    <!-- [Opus 4.8] Ideal Trades reel — entries Dale tagged "Ideal Trades"
+         this week, with a one-click playlist to rewatch where he went
+         wrong / why he missed, and cut them down over time. -->
+    <div class="panel" style="margin-bottom:16px;border-color:rgba(94,234,212,0.4)">
+      <div class="panel-title" style="color:#5eead4">🎯 Ideal Trades This Week
+        <button class="rev-act-btn" style="float:right" onclick="playWeekIdeal()" title="Autoplay this week's ideal-tagged trades & misses">▶ Play ideal trades</button>
+      </div>
+      <div id="wk-ideal"></div>
+    </div>
     <div class="panel" style="margin-bottom:16px;border-color:rgba(255,213,74,0.45)">
       <div class="panel-title" style="color:#ffd54a">🎯 One Thing Next Week
         <span class="cl-save-status" id="wk-focus-status" style="float:right;text-transform:none;letter-spacing:0"></span>
@@ -3996,8 +4005,55 @@ function renderWeekly(){
     ? hls.map(h=>`<div class="wk-hl"><span class="m">${esc(h.date)} · ${esc(h.tk)}</span><mark>${esc(h.txt)}</mark></div>`).join('')
     : '<div style="color:var(--muted);font-size:12px">No highlights this week</div>';
 
+  // [Opus 4.8] Ideal Trades this week — every entry tagged "Ideal Trades"
+  // (trades + misses + Ross), same set playWeekIdeal() feeds the playlist.
+  const ideal=weekIdeal(wk);
+  document.getElementById('wk-ideal').innerHTML=ideal.length
+    ? ideal.map(({t,src})=>{
+        const lbl=src==='misses'?' · Miss '+(t.missNo||''):src==='ross'?' · Ross':'';
+        const val=src==='misses'
+          ? (t.potential!=null?'pot $'+(+t.potential).toFixed(2):'')
+          : (t.pnl!=null?$(t.pnl):'');
+        const desc=src==='misses'?(t.reason||t.setup||''):(t.setup||'');
+        const novid=t.video?'':' <span style="color:var(--muted)">· no video</span>';
+        return `<div class="wk-day"><span class="d">${esc(t.date.slice(5))} · ${esc(t.ticker)}${lbl}${val?' · '+val:''}</span>
+          ${desc?`<span class="ok" style="color:#5eead4">${esc(desc)}</span>`:''}${novid}</div>`;
+      }).join('')
+    : '<div style="color:var(--muted);font-size:12px">No ideal trades tagged this week — tag a card “Ideal Trades” to build the reel</div>';
+
   wkNoteLoad(wk);
   wkFocusLoad(wk);
+}
+
+// [Opus 4.8] Entries tagged "Ideal Trades" for a given week, across
+// trades + misses + Ross, oldest → newest. Returns {t,src} pairs so the
+// weekly list can label misses/Ross distinctly. Same tag + week window
+// that playWeekIdeal() hands the playlist, so list == playlist contents.
+function weekIdeal(wk){
+  const hit=t=>(t.tags||[]).includes('Ideal Trades')&&weekKey(t.date)===wk;
+  const out=[];
+  ALL_TRADES.filter(hit).forEach(t=>out.push({t,src:'trades'}));
+  ALL_MISSES.filter(hit).forEach(t=>out.push({t,src:'misses'}));
+  ALL_ROSS.filter(hit).forEach(t=>out.push({t,src:'ross'}));
+  return out.sort((a,b)=>a.t.date<b.t.date?-1:a.t.date>b.t.date?1:0);
+}
+
+// [Opus 4.8] Launch a playlist of THIS week's ideal-tagged entries.
+// Reuses the proven launchPlaylist() path: 'all' deck + "Ideal Trades"
+// tag filter + the week's Mon→Sun date scope, then openPlaylist() plays
+// exactly that scoped set (videos only) with correct trade/miss labels.
+function playWeekIdeal(){
+  const wk=(wkList()||[])[WK_IDX];
+  if(!wk) return;
+  const d=new Date(wk+'T12:00:00'); d.setDate(d.getDate()+6);
+  const sun=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  switchTab('review');
+  setRevMode('all');            // resets REV_FILTER + date scope — set ours after
+  REV_FILTER='Ideal Trades';
+  REV_DATE_FROM=wk; REV_DATE_TO=sun;
+  REV_IDX=revTrades().length-1;
+  renderReview();
+  openPlaylist();
 }
 
 // ── Weekly reflection — autosaved to dashboard_data per week ────
