@@ -419,13 +419,6 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 .cl-act-btn{background:transparent;border:none;color:var(--muted);font-size:11px;padding:3px 5px;cursor:pointer;border-radius:3px;font-family:'Inter',sans-serif;line-height:1;transition:all .1s}
 .cl-act-btn:hover{background:var(--panel);color:var(--text)}
 .cl-act-del:hover{color:var(--red)!important}
-.cl-note-btn{background:transparent;border:none;color:var(--muted);font-size:13px;padding:2px 4px;cursor:pointer;flex-shrink:0;opacity:0.4;transition:opacity .15s;line-height:1}
-.cl-note-btn:hover{opacity:1;color:var(--blue)}
-.cl-note-btn.has-note{opacity:1;color:var(--blue)}
-.cl-note-area{padding:0 14px 10px 42px}
-.cl-note-textarea{width:100%;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:'Inter',sans-serif;font-size:12px;padding:8px 10px;outline:none;resize:none;min-height:52px;line-height:1.5}
-.cl-note-textarea:focus{border-color:var(--blue)}
-.cl-note-textarea::placeholder{color:var(--muted)}
 .cl-edit-inp{flex:1;background:transparent;border:none;border-bottom:1px solid var(--accent);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;padding:0 2px;line-height:1.4}
 .cl-add-row{padding:6px 14px 10px;display:flex;gap:6px;align-items:center}
 .cl-add-inp{flex:1;background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:7px 10px;outline:none;transition:border-color .15s}
@@ -1364,20 +1357,14 @@ function renderChecklist(tab, containerId){
       </div>`;
     sec.items.forEach((it, ii)=>{
       const checked=!!data[it.id]?.checked;
-      const note=data[it.id]?.note||'';
-      const noteOpen=!!data[it.id]?.noteOpen;
       html+=`<div class="cl-item" id="item-${it.id}">
         <div class="cl-row">
           <div class="cl-box${checked?' on':''}" onclick="toggleItem('${tab}','${it.id}')">${SVG}</div>
           <div class="cl-label${checked?' done':''}" id="lbl-${it.id}" onclick="toggleItem('${tab}','${it.id}')">${it.label}</div>
           <div class="cl-item-actions">
-            <button class="cl-note-btn${note?' has-note':''}" id="notebtn-${it.id}" onclick="toggleNote('${tab}','${it.id}')" title="Note">📝</button>
             <button class="cl-act-btn" onclick="editItem('${tab}',${si},${ii})" title="Edit">✎</button>
             <button class="cl-act-btn cl-act-del" onclick="deleteItem('${tab}',${si},${ii})" title="Remove">✕</button>
           </div>
-        </div>
-        <div class="cl-note-area" id="notearea-${it.id}" style="display:${noteOpen?'block':'none'}">
-          <textarea class="cl-note-textarea" id="notetxt-${it.id}" placeholder="Add a note..." oninput="saveNote('${tab}','${it.id}',this.value)">${note}</textarea>
         </div>
       </div>`;
     });
@@ -1408,26 +1395,6 @@ function toggleItem(tab, id){
   data[id].checked=!data[id].checked;
   saveData(tab,data);
   renderChecklist(tab,`${tab}-checklist`);
-}
-
-function toggleNote(tab, id){
-  const data=loadData(tab);
-  if(!data[id])data[id]={};
-  data[id].noteOpen=!data[id].noteOpen;
-  saveData(tab,data);
-  const area=document.getElementById(`notearea-${id}`);
-  if(!area)return;
-  area.style.display=data[id].noteOpen?'block':'none';
-  if(data[id].noteOpen) setTimeout(()=>{const t=document.getElementById(`notetxt-${id}`);if(t)t.focus();},50);
-}
-
-function saveNote(tab, id, val){
-  const data=loadData(tab);
-  if(!data[id])data[id]={};
-  data[id].note=val;
-  saveData(tab,data);
-  const btn=document.getElementById(`notebtn-${id}`);
-  if(btn) btn.classList.toggle('has-note',val.trim().length>0);
 }
 
 // ── Edit / add / delete items ───────────────────────────────────
