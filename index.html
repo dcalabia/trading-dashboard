@@ -4007,19 +4007,38 @@ function renderWeekly(){
 
   // [Opus 4.8] Ideal Trades this week — every entry tagged "Ideal Trades"
   // (trades + misses + Ross), same set playWeekIdeal() feeds the playlist.
+  // Now also tallies profit: a compounded run (base + wins, ratchet) plus
+  // a flat-at-base figure, both recomputed from buy/sell so trades and
+  // misses size consistently. Mirrors the F1/sheet capital logic.
   const ideal=weekIdeal(wk);
-  document.getElementById('wk-ideal').innerHTML=ideal.length
-    ? ideal.map(({t,src})=>{
-        const lbl=src==='misses'?' · Miss '+(t.missNo||''):src==='ross'?' · Ross':'';
-        const val=src==='misses'
-          ? (t.potential!=null?'pot $'+(+t.potential).toFixed(2):'')
-          : (t.pnl!=null?$(t.pnl):'');
-        const desc=src==='misses'?(t.reason||t.setup||''):(t.setup||'');
-        const novid=t.video?'':' <span style="color:var(--muted)">· no video</span>';
-        return `<div class="wk-day"><span class="d">${esc(t.date.slice(5))} · ${esc(t.ticker)}${lbl}${val?' · '+val:''}</span>
-          ${desc?`<span class="ok" style="color:#5eead4">${esc(desc)}</span>`:''}${novid}</div>`;
-      }).join('')
-    : '<div style="color:var(--muted);font-size:12px">No ideal trades tagged this week — tag a card “Ideal Trades” to build the reel</div>';
+  if(!ideal.length){
+    document.getElementById('wk-ideal').innerHTML='<div style="color:var(--muted);font-size:12px">No ideal trades tagged this week — tag a card “Ideal Trades” to build the reel</div>';
+  } else {
+    const comp=idealCompound(ideal);
+    const gcls=comp.gain>=0?'ok':'bad';
+    const summary=`<div style="display:flex;flex-wrap:wrap;gap:4px 16px;align-items:baseline;margin-bottom:10px;font-size:12px">
+        <span><b style="color:#5eead4">${comp.counted} ideal</b> · ${comp.wins} green</span>
+        <span>compounded <b style="color:#5eead4">$${comp.base} → $${comp.finalCap.toFixed(2)}</b>
+          <span class="${gcls}">(${comp.gain>=0?'+':'−'}$${Math.abs(comp.gain).toFixed(2)})</span></span>
+        <span style="color:var(--muted)">flat @ $${comp.base}: +$${comp.flat.toFixed(2)}</span>
+      </div>`;
+    const rows=comp.rows.map(r=>{
+      const t=r.t, src=r.src;
+      const lbl=src==='misses'?' · Miss '+(t.missNo||''):src==='ross'?' · Ross':'';
+      const desc=src==='misses'?(t.reason||t.setup||''):(t.setup||'');
+      const novid=t.video?'':' <span style="color:var(--muted)">· no video</span>';
+      let calc;
+      if(r.priced){
+        const won=r.net>0;
+        calc=`<span class="${won?'ok':'bad'}">${r.sh}sh · ${won?'+':'−'}$${Math.abs(r.net).toFixed(2)}${won?'':' (no add)'} → $${r.after.toFixed(2)}</span>`;
+      } else {
+        calc='<span style="color:var(--muted)">no buy/sell price</span>';
+      }
+      return `<div class="wk-day"><span class="d">${esc(t.date.slice(5))} · ${esc(t.ticker)}${lbl}</span>
+        ${calc}${desc?` <span style="color:var(--muted)">· ${esc(desc)}</span>`:''}${novid}</div>`;
+    }).join('');
+    document.getElementById('wk-ideal').innerHTML=summary+rows;
+  }
 
   wkNoteLoad(wk);
   wkFocusLoad(wk);
@@ -4035,7 +4054,42 @@ function weekIdeal(wk){
   ALL_TRADES.filter(hit).forEach(t=>out.push({t,src:'trades'}));
   ALL_MISSES.filter(hit).forEach(t=>out.push({t,src:'misses'}));
   ALL_ROSS.filter(hit).forEach(t=>out.push({t,src:'ross'}));
-  return out.sort((a,b)=>a.t.date<b.t.date?-1:a.t.date>b.t.date?1:0);
+  // chronological (date, then intra-day buyTime) so the compounding
+  // runs in the order the trades actually happened
+  return out.sort((a,b)=>{
+    if(a.t.date!==b.t.date) return a.t.date<b.t.date?-1:1;
+    const am=ptMinutes(a.t), bm=ptMinutes(b.t);
+    if(am!=null&&bm!=null) return am-bm;
+    return 0;
+  });
+}
+
+// [Opus 4.8] Compound a week's ideal reel from a fixed base using the
+// same ratchet as the F1/sheet capital logic: size each trade at the
+// running capital (shares = ⌊cap ÷ buy⌋), add its net ONLY on a win —
+// a loss holds capital flat, never subtracts ("if I lose, don't add").
+// Net is recomputed from buy/sell so real trades and hypo misses size
+// consistently. Also totals a non-compounded "flat @ base" for compare.
+const IDEAL_BASE = 250;   // starting capital for the weekly ideal-reel tally
+function idealCompound(entries){
+  let cap=IDEAL_BASE, flat=0, wins=0, counted=0;
+  const rows=entries.map(o=>{
+    const t=o.t, buy=+t.buy, sell=+t.sell;
+    const priced=(t.buy!=null&&t.sell!=null&&buy>0);
+    let sh=null, net=null;
+    const before=cap;
+    if(priced){
+      sh=Math.floor(cap/buy);
+      net=+(sh*(sell-buy)).toFixed(2);
+      counted++;
+      if(net>0){ cap=+(cap+net).toFixed(2); wins++; }
+      const fnet=Math.floor(IDEAL_BASE/buy)*(sell-buy);   // flat, at base size
+      if(fnet>0) flat+=fnet;
+    }
+    return {...o, sh, net, before, after:cap, priced};
+  });
+  return {rows, base:IDEAL_BASE, finalCap:cap, gain:+(cap-IDEAL_BASE).toFixed(2),
+          flat:+flat.toFixed(2), wins, counted};
 }
 
 // [Opus 4.8] Launch a playlist of THIS week's ideal-tagged entries.
