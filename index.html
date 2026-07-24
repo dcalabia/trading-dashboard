@@ -3609,6 +3609,7 @@ function openPlaylist(list){
 
 function closePlaylist(){
   PL_ACTIVE=false;
+  PL_IDEAL=false;   // [Fable 5] leaving the ideal drill
   document.getElementById('pl-overlay').style.display='none';
   const f=document.getElementById('pl-iframe');
   f.src='about:blank'; REV_PS=-1; REV_LISTENING=false;
@@ -3681,6 +3682,7 @@ function plLoad(){
   const t=PL_QUEUE[PL_IDX];
   const f=document.getElementById('pl-iframe');
   const now=document.getElementById('pl-now');
+  if(PL_IDEAL) bumpIdealReview(t);   // [Fable 5] ideal drill — count the watch
   document.getElementById('pl-count').textContent=`${PL_IDX+1} / ${PL_QUEUE.length}`;
   const l=plItemLabel(t);
   now.innerHTML=`<span class="tk">${l.main}</span>`
@@ -4010,6 +4012,7 @@ function renderWeekly(){
   // Now also tallies profit: a compounded run (base + wins, ratchet) plus
   // a flat-at-base figure, both recomputed from buy/sell so trades and
   // misses size consistently. Mirrors the F1/sheet capital logic.
+  if(IDEAL_REVIEWS===null) loadIdealReviews();   // [Fable 5] lazy, re-renders when in
   const ideal=weekIdeal(wk);
   if(!ideal.length){
     document.getElementById('wk-ideal').innerHTML='<div style="color:var(--muted);font-size:12px">No ideal trades tagged this week — tag a card “Ideal Trades” to build the reel</div>';
@@ -4027,6 +4030,9 @@ function renderWeekly(){
       const lbl=src==='misses'?' · Miss '+(t.missNo||''):src==='ross'?' · Ross':'';
       const desc=src==='misses'?(t.reason||t.setup||''):(t.setup||'');
       const novid=t.video?'':' <span style="color:var(--muted)">· no video</span>';
+      // [Fable 5] watch count from the ideal drill — 0× means not reviewed yet
+      const rc=(IDEAL_REVIEWS||{})[idealKey(t,src)]||0;
+      const rcTag=` <span style="color:${rc?'var(--muted)':'#ffd54a'};font-size:11px">· 👁 ${rc}×</span>`;
       let calc;
       if(r.priced){
         const won=r.net>0;
@@ -4034,7 +4040,7 @@ function renderWeekly(){
       } else {
         calc='<span style="color:var(--muted)">no buy/sell price</span>';
       }
-      return `<div class="wk-day"><span class="d">${esc(t.date.slice(5))} · ${esc(t.ticker)}${lbl}</span>
+      return `<div class="wk-day"><span class="d">${esc(t.date.slice(5))} · ${esc(t.ticker)}${lbl}${rcTag}</span>
         ${calc}${desc?` <span style="color:var(--muted)">· ${esc(desc)}</span>`:''}${novid}</div>`;
     }).join('');
     document.getElementById('wk-ideal').innerHTML=summary+rows;
@@ -4092,6 +4098,48 @@ function idealCompound(entries){
           flat:+flat.toFixed(2), wins, counted};
 }
 
+// [Fable 5] Ideal-reel review counts — how many times each ideal-tagged
+// entry has been watched in the ideal playlist. Stored as one JSON map
+// in dashboard_data ('ideal-reviews'), keyed by src:id (falls back to
+// date_ticker for entries without a Supabase id). Drives the
+// least-reviewed-first playlist order so rewatching is a real drill.
+let IDEAL_REVIEWS=null, IR_TIMER=null, PL_IDEAL=false;
+function idealKey(t,src){
+  src=src||t.__src||'trades';   // section rows pass src; playlist entries carry __src
+  return src+':'+(t.id!=null?t.id:(t.date+'_'+t.ticker+'_'+(t.buyTime||'')));
+}
+let IR_LOADING=false;
+async function loadIdealReviews(){
+  if(IR_LOADING) return;
+  IR_LOADING=true;
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/dashboard_data?key=eq.ideal-reviews&select=value`,
+      {headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+(SB_TOKEN||SUPABASE_KEY)}});
+    const rows=await r.json();
+    IDEAL_REVIEWS=rows&&rows[0]?JSON.parse(rows[0].value||'{}'):{};
+  }catch(e){ IDEAL_REVIEWS={}; }
+  renderWeekly();   // re-render so the counts appear once loaded
+}
+function saveIdealReviews(){
+  clearTimeout(IR_TIMER);
+  IR_TIMER=setTimeout(async()=>{
+    try{
+      await fetch(`${SUPABASE_URL}/rest/v1/dashboard_data`,{
+        method:'POST',
+        headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+(SB_TOKEN||SUPABASE_KEY),
+          'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},
+        body:JSON.stringify({key:'ideal-reviews',value:JSON.stringify(IDEAL_REVIEWS),
+          updated_at:new Date().toISOString()})});
+    }catch(e){}
+  },1200);
+}
+function bumpIdealReview(t){
+  if(!IDEAL_REVIEWS) IDEAL_REVIEWS={};
+  const k=idealKey(t);
+  IDEAL_REVIEWS[k]=(IDEAL_REVIEWS[k]||0)+1;
+  saveIdealReviews();
+}
+
 // [Opus 4.8] Launch a playlist of THIS week's ideal-tagged entries.
 // Reuses the proven launchPlaylist() path: 'all' deck + "Ideal Trades"
 // tag filter + the week's Mon→Sun date scope, then openPlaylist() plays
@@ -4107,7 +4155,12 @@ function playWeekIdeal(){
   REV_DATE_FROM=wk; REV_DATE_TO=sun;
   REV_IDX=revTrades().length-1;
   renderReview();
-  openPlaylist();
+  // [Fable 5] least-reviewed first — the drill order: entries you've
+  // watched fewest times lead the queue (ties stay chronological)
+  const byReviews=revTrades().slice().sort((a,b)=>
+    ((IDEAL_REVIEWS||{})[idealKey(a)]||0)-((IDEAL_REVIEWS||{})[idealKey(b)]||0));
+  PL_IDEAL=true;
+  openPlaylist(byReviews);
 }
 
 // ── Weekly reflection — autosaved to dashboard_data per week ────
