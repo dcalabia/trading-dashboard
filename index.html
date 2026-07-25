@@ -3086,7 +3086,7 @@ function renderReview(){
              <button class="rev-shot-edit" onclick="pickChartImage()">＋ Add screenshot</button></div>`}</div>
         ${t.video?`<div class="rev-disp" id="rev-disp-video" style="display:none">
           <iframe class="rev-video" src="about:blank" data-src="https://www.youtube.com/embed/${esc(ytId(t.video))}?controls=${REV_CONTROLS}&modestbranding=1&rel=0&playsinline=1&enablejsapi=1" allow="fullscreen" allowfullscreen></iframe>
-          <div class="rev-video-hint">, / . = scrub 1s · space = play/pause · <button class="rev-hl-btn" onclick="toggleRevControls()" title="Show/hide the YouTube controls overlay (reloads at same timestamp)">🎬 controls</button></div>
+          <div class="rev-video-hint">, / . = 1s · Num4/6 = ±10s · Num1/3 = ±5s · space = play/pause · <button class="rev-hl-btn" onclick="toggleRevControls()" title="Show/hide the YouTube controls overlay (reloads at same timestamp)">🎬 controls</button></div>
         </div>`:''}
       </div>
       <div class="rev-body-notes">
@@ -3237,7 +3237,7 @@ function renderMissCard(t){
              <button class="rev-shot-edit" onclick="pickChartImage()">＋ Add screenshot</button></div>`}</div>
         ${t.video?`<div class="rev-disp" id="rev-disp-video" style="display:none">
           <iframe class="rev-video" src="about:blank" data-src="https://www.youtube.com/embed/${esc(ytId(t.video))}?controls=${REV_CONTROLS}&modestbranding=1&rel=0&playsinline=1&enablejsapi=1" allow="fullscreen" allowfullscreen></iframe>
-          <div class="rev-video-hint">, / . = scrub 1s · space = play/pause · <button class="rev-hl-btn" onclick="toggleRevControls()" title="Show/hide the YouTube controls overlay (reloads at same timestamp)">🎬 controls</button></div>
+          <div class="rev-video-hint">, / . = 1s · Num4/6 = ±10s · Num1/3 = ±5s · space = play/pause · <button class="rev-hl-btn" onclick="toggleRevControls()" title="Show/hide the YouTube controls overlay (reloads at same timestamp)">🎬 controls</button></div>
         </div>`:''}
       </div>
       <div class="rev-body-notes">
@@ -5267,6 +5267,11 @@ document.addEventListener('keydown',e=>{
     // from the same stale player-reported time
     if(e.key===','){ REV_VT=Math.max(REV_VT-1,0); revVideoCmd('seekTo',[REV_VT,true]); }
     else if(e.key==='.'){ REV_VT+=1; revVideoCmd('seekTo',[REV_VT,true]); }
+    // [Fable 5] same scrubs as the playlist overlay: Num4/6 ±10s, Num1/3 ±5s
+    else if(e.code==='Numpad4'){ REV_VT=Math.max(REV_VT-10,0); revVideoCmd('seekTo',[REV_VT,true]); }
+    else if(e.code==='Numpad6'){ REV_VT+=10; revVideoCmd('seekTo',[REV_VT,true]); }
+    else if(e.code==='Numpad1'){ REV_VT=Math.max(REV_VT-5,0); revVideoCmd('seekTo',[REV_VT,true]); }
+    else if(e.code==='Numpad3'){ REV_VT+=5; revVideoCmd('seekTo',[REV_VT,true]); }
     else if(e.key===' '){
       e.preventDefault();  // don't scroll the page
       revVideoCmd(REV_PS===1?'pauseVideo':'playVideo');
