@@ -2303,7 +2303,7 @@ function getFilteredTrades(period){
     else if(_sortCol==='sell')   { av=a.sell; bv=b.sell; }
     else if(_sortCol==='shares') { av=a.shares; bv=b.shares; }
     else if(_sortCol==='pnl')    { av=a.pnl;  bv=b.pnl; }
-    else if(_sortCol==='pct')    { av=a.pnl/a.buy; bv=b.pnl/b.buy; }
+    else if(_sortCol==='pct')    { av=a.buy?(a.sell-a.buy)/a.buy:0; bv=b.buy?(b.sell-b.buy)/b.buy:0; }  // [Opus 5] match the displayed %
     else if(_sortCol==='result') { av=a.result; bv=b.result; }
     if(av<bv) return _sortAsc?-1:1;
     if(av>bv) return _sortAsc?1:-1;
@@ -2321,7 +2321,7 @@ function renderTradesTable(trades, period){
   }
   document.getElementById('trades-tbody').innerHTML=shown.map(t=>{
     const pnlStr=(t.pnl>=0?'+':'')+t.pnl.toFixed(2);
-    const pct=((t.pnl/t.buy)*100);
+    const pct=(t.buy?((t.sell-t.buy)/t.buy)*100:0);   // [Opus 5] price move, not pnl/buy (see review card)
     const pctStr=(pct>=0?'+':'')+pct.toFixed(2)+'%';
     const cls=t.result;
     return `<tr>
@@ -3021,13 +3021,18 @@ function renderReview(){
   const t = trades[REV_IDX];
   document.getElementById('rev-pos').textContent=`${REV_IDX+1} / ${trades.length}`;
   if(curSrc(t)==='misses'){ renderMissCard(t); return; }
-  const pct=((t.pnl/t.buy)*100).toFixed(2);
+  // [Opus 5] % change is a PRICE move: (sell-buy)/buy. The old pnl/buy
+  // only matched while Dale traded 1 share — at N shares it reported
+  // N× the real move. Same value feeds the subtitle and the % Change cell.
+  const pctNum=(t.buy?((t.sell-t.buy)/t.buy)*100:null);
+  const pct=pctNum!=null?pctNum.toFixed(2):'—';
   // [label, value, editableField] — field names are Supabase columns;
   // prices/times/shares stay locked
   const cells=[
     ['Date', t.date, null],
     ['Buy → Sell', fmtET(t.buyTime)+' → '+fmtET(t.sellTime), null],
     ['Prices', '$'+t.buy.toFixed(2)+' → $'+t.sell.toFixed(2), null],
+    ['% Change', pct==='—'?'—':pct+'%', null],   // [Opus 5] parity with the miss card
     ['Shares', t.shares, null],
     ['Setup', t.setup||'—', 'setup'],
     ['Grade', t.grade||'—', 'grade'],
