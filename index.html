@@ -1285,8 +1285,26 @@ async function pushDefs(){
         value:JSON.stringify({ver:+localStorage.getItem('trading-cl-ver')||0,defs:CL_DEFS}),
         updated_at:new Date().toISOString()})
     });
+    // [Opus 5] 401/403 here means the write hit row-level security with
+    // no valid session — reads still succeed, so the dashboard looks
+    // completely normal while every checklist edit is quietly stranded
+    // in localStorage and never reaches the cloud. That is how custom
+    // sections kept "not saving permanently". Surface the sign-in
+    // overlay so it can't be missed instead of a small red status line.
+    if(r.status===401||r.status===403) sbAuthLost();
     return r.ok;
   }catch(e){ return false; }
+}
+// [Opus 5] Session is gone/expired and a write was rejected. Re-show the
+// login overlay and say plainly that edits are local-only until sign-in.
+function sbAuthLost(){
+  const ov=document.getElementById('sb-login-overlay');
+  if(ov&&ov.style.display==='none'){
+    ov.style.display='flex';
+    const m=document.getElementById('sb-login-msg');
+    if(m) m.textContent='Session expired — your checklist edits are saved on this device only. Sign in to sync them.';
+  }
+  clSaveStatus('err','⚠ NOT SAVED TO CLOUD — sign in, then hit 💾 Save');
 }
 // Read-only cloud fetch — unlike pullDefs(), never writes localStorage
 // or CL_DEFS itself; saveDefs() uses this to merge before it pushes.
