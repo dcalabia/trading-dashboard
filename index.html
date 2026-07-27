@@ -1223,8 +1223,33 @@ function clSaveStatus(cls,msg){
   el.textContent=msg;
 }
 
-async function saveDefs(){
+// allowRemoval=true ONLY for genuine deletes — see the merge note below.
+async function saveDefs(allowRemoval){
   let localOk=true;
+  // [Opus 5] Merge against the CURRENT localStorage copy BEFORE writing it.
+  // Previously this line blindly overwrote localStorage with whatever this
+  // tab had in memory. With the dashboard open on more than one monitor,
+  // any tab that loaded before a section was added would erase that section
+  // the moment it saved anything — reproduced exactly: disk had
+  // [Pre-market, To improve for tomorrow], a stale tab saved, disk became
+  // [Pre-market]. The Jul 24 fix added this merge for the CLOUD push only,
+  // and with cloud writes currently failing that merge is a no-op, so the
+  // local copy had no protection at all. Deletes skip the merge, otherwise
+  // a union would immediately resurrect what was just removed.
+  if(!allowRemoval){
+    try{
+      const disk=loadDefs();
+      if(disk){
+        const mergedLocal=mergeDefs(CL_DEFS,disk);
+        if(JSON.stringify(mergedLocal)!==JSON.stringify(CL_DEFS)){
+          CL_DEFS=mergedLocal;
+          ['pre','live','post','bed'].forEach(t=>{
+            if(document.getElementById(`${t}-checklist`)) renderChecklist(t,`${t}-checklist`);
+          });
+        }
+      }
+    }catch(e){}
+  }
   try{localStorage.setItem('trading-cl-defs',JSON.stringify(CL_DEFS));}catch(e){localOk=false;}
   // Dirty flag: set BEFORE the cloud push is even attempted, not only
   // after it fails. pushDefs() is a network round-trip that a quick
@@ -1247,7 +1272,7 @@ async function saveDefs(){
   // section/item present on either side survives; this tab's label
   // wins only for a genuinely same-id edit on both sides.
   try{
-    const cloudDefs=await fetchCloudDefs();
+    const cloudDefs=allowRemoval?null:await fetchCloudDefs();   // [Opus 5] deletes skip it too
     if(cloudDefs){
       const merged=mergeDefs(CL_DEFS,cloudDefs);
       if(JSON.stringify(merged)!==JSON.stringify(CL_DEFS)){
@@ -1517,7 +1542,7 @@ function saveEditItem(tab, si, ii, val){
 
 function deleteItem(tab, si, ii){
   CL_DEFS[tab][si].items.splice(ii,1);
-  saveDefs();
+  saveDefs(true);   // [Opus 5] real delete — don't merge it back
   renderChecklist(tab,`${tab}-checklist`);
 }
 
@@ -1538,7 +1563,7 @@ function addSection(tab,name){
 function deleteSection(tab, si){
   if(CL_DEFS[tab][si].items.length>0&&!confirm(`Delete section "${CL_DEFS[tab][si].title}" and all its items?`))return;
   CL_DEFS[tab].splice(si,1);
-  saveDefs();
+  saveDefs(true);   // [Opus 5] real delete — don't merge it back
   renderChecklist(tab,`${tab}-checklist`);
 }
 
