@@ -3717,10 +3717,14 @@ function revVideoCmd(func,args){
 // ── Playlist mode — autoplay queue over the current deck + tag filter ──
 let PL_ACTIVE=false, PL_QUEUE=[], PL_IDX=0;
 
-function openPlaylist(list){
+function openPlaylist(list,btnEl){
   const src=list||revTrades();              // already deck- and tag-scoped
   PL_QUEUE=src.filter(t=>t.video);
-  const btn=document.getElementById('rev-playlist-btn');
+  // [Sonnet 5] btnEl lets the Calendar day-list modal's own "Play all"
+  // button show the feedback — the old hardcoded rev-playlist-btn sits
+  // in the Review toolbar, which is hidden behind that modal's opaque
+  // backdrop, so the message was invisible and the click looked dead.
+  const btn=btnEl||document.getElementById('rev-playlist-btn');
   if(!PL_QUEUE.length){
     if(btn){ const old=btn.textContent; btn.textContent='No videos here'; setTimeout(()=>btn.textContent=old,1600); }
     // The overlay never opens on this path, so closePlaylist() never
@@ -3730,6 +3734,11 @@ function openPlaylist(list){
     if(REV_DATE_FROM){ REV_DATE_FROM=''; REV_DATE_TO=''; renderReview(); }
     return;
   }
+  // [Sonnet 5] the Calendar day-list modal that launched this (if any)
+  // was never closed on success — it sat behind the playlist at a
+  // lower z-index and reappeared, backdrop and all, the moment the
+  // playlist closed.
+  document.querySelectorAll('.rev-date-overlay').forEach(o=>o.remove());
   // Kill the card player so its audio doesn't bleed under the overlay
   const cf=document.querySelector('#rev-disp-video iframe');
   if(cf&&cf.src!=='about:blank'){ cf.src='about:blank'; REV_PS=-1; REV_LISTENING=false; }
@@ -3758,13 +3767,13 @@ function closePlaylist(){
 // by the Calendar day drill-down's "Play all" button. Switches to
 // the 'all' deck, scopes to just that date, and opens the playlist
 // overlay in one step.
-function playDateAll(date){
+function playDateAll(date,btnEl){
   switchTab('review');
   setRevMode('all');
   REV_DATE_FROM=date; REV_DATE_TO=date;
   REV_IDX=revTrades().length-1;
   renderReview();
-  openPlaylist();
+  openPlaylist(null,btnEl);
 }
 
 // ── Scoped playlist launcher (Review toolbar) ───────────────────
@@ -5359,7 +5368,7 @@ function showDateList(date){
   overlay.className='rev-date-overlay';
   overlay.onclick=(e)=>{ if(e.target===overlay) overlay.remove(); };
   overlay.innerHTML=`<div class="rev-date-modal">
-    <h4>${esc(date)} <button class="rev-cal-btn" style="width:auto;padding:0 10px;font-size:12px;vertical-align:middle" onclick="playDateAll('${date}')" title="Autoplay every trade + miss with video from this day">▶ Play all</button></h4>
+    <h4>${esc(date)} <button class="rev-cal-btn" style="width:auto;padding:0 10px;font-size:12px;vertical-align:middle" onclick="playDateAll('${date}',this)" title="Autoplay every trade + miss with video from this day">▶ Play all</button></h4>
     ${groups.map(([label,list,source])=>list.length
       ? `<div class="rev-date-group-lbl">${label}</div>${list.map(t=>row(t,source)).join('')}` : '').join('')}
   </div>`;
