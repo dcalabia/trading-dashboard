@@ -1722,9 +1722,32 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 // anon-key fallback keeps everything working exactly as before.
 const SB_SESS_KEY='sb-auth-session';
 let SB_TOKEN=null, SB_REFRESH_T=null;
+// [Opus 5] Adopt a session another tab just refreshed.
+// Supabase ROTATES the refresh token on every use, and every dashboard
+// on this origin shares one session. With two open, one wins the
+// rotation and the other's token is already spent — its refresh failed
+// and the old code went straight to the password prompt, even though a
+// valid session was sitting in localStorage unread.
+function sbAdoptStored(usedToken){
+  try{
+    const s=JSON.parse(localStorage.getItem(SB_SESS_KEY));
+    if(s && s.access_token && s.refresh_token!==usedToken
+       && s.expires_at*1000-Date.now()>60e3){
+      SB_TOKEN=s.access_token;
+      sbScheduleRefresh(s);
+      
+      return true;
+    }
+  }catch(e){}
+  return false;
+}
 function sbScheduleRefresh(s){
   clearTimeout(SB_REFRESH_T);
-  const ms=Math.max(60e3,(s.expires_at*1000-Date.now())-5*60*1000);
+  // [Opus 5] Jitter — every dashboard computed the SAME renewal moment,
+  // so open tabs fired in lockstep and raced over the rotating refresh
+  // token; the loser got a password prompt. Spread them over ~90s.
+  const jitter=Math.floor(Math.random()*90e3);
+  const ms=Math.max(60e3,(s.expires_at*1000-Date.now())-5*60*1000+jitter);
   SB_REFRESH_T=setTimeout(sbRefreshFromStore,ms);
 }
 // Multi-tab safe renewal: Supabase ROTATES the refresh token on every
@@ -1742,6 +1765,8 @@ async function sbRefreshFromStore(){
     if(s.expires_at*1000-Date.now()>5*60*1000){SB_TOKEN=s.access_token;ok=true;sbScheduleRefresh(s);}
     else ok=await sbRefresh(s.refresh_token);
   }catch(e){}
+  // [Opus 5] last look — another dashboard may have renewed
+  if(!ok) ok=sbAdoptStored(null);
   if(ok){}
   else{const ov=document.getElementById('sb-login-overlay');if(ov)ov.style.display='flex';}
   return ok;
@@ -1751,16 +1776,30 @@ window.addEventListener('storage',e=>{
   try{const s=JSON.parse(e.newValue);SB_TOKEN=s.access_token;sbScheduleRefresh(s);}catch(_){}
 });
 async function sbRefresh(rt){
-  try{
-    const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,
-      {method:'POST',headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json'},
-       body:JSON.stringify({refresh_token:rt})});
-    if(!r.ok) return false;
-    const s=await r.json();
-    localStorage.setItem(SB_SESS_KEY,JSON.stringify(s));
-    SB_TOKEN=s.access_token; sbScheduleRefresh(s);
-    return true;
-  }catch(e){ return false; }
+  // [Opus 5] two passes: a rotation race is settled by the winning tab's
+  // write, so on failure wait for it and adopt rather than prompting
+  for(let attempt=0; attempt<2; attempt++){
+    try{
+      const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,
+        {method:'POST',headers:{apikey:SUPABASE_KEY,'Content-Type':'application/json'},
+         body:JSON.stringify({refresh_token:rt})});
+      if(r.ok){
+        const s=await r.json();
+        localStorage.setItem(SB_SESS_KEY,JSON.stringify(s));
+        SB_TOKEN=s.access_token; sbScheduleRefresh(s);
+        return true;
+      }
+    }catch(e){}
+    if(sbAdoptStored(rt)) return true;
+    if(attempt===0){
+      await new Promise(r=>setTimeout(r,1200));
+      try{
+        const cur=JSON.parse(localStorage.getItem(SB_SESS_KEY));
+        if(cur&&cur.refresh_token&&cur.refresh_token!==rt) rt=cur.refresh_token;
+      }catch(e){}
+    }
+  }
+  return false;
 }
 async function sbAuthInit(){
   try{
