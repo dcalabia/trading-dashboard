@@ -928,6 +928,18 @@ tr:hover td{background:rgba(255,255,255,0.025)}
         <option value="4">Thu</option>
         <option value="5">Fri</option>
       </select>
+      <select class="rev-filter" id="rev-period-filter" onchange="setPeriodFilter(this.value)" title="Filter by date range">
+        <option value="">Period: all</option>
+        <option value="today">Today</option>
+        <option value="yesterday">Yesterday</option>
+        <option value="week">This week</option>
+        <option value="lastweek">Last week</option>
+        <option value="month">This month</option>
+        <option value="last7">Last 7 days</option>
+        <option value="last30">Last 30 days</option>
+      </select>
+      <input class="rev-filter" type="date" id="rev-date-filter" onchange="setExactDate(this.value)"
+             title="Filter to one specific date" style="max-width:150px">
     </div>
     <div id="rev-card-holder"></div>
 
@@ -3058,6 +3070,52 @@ function setSetupFilter(v){ REV_SETUP_FILTER=v; REV_IDX=revTrades().length-1; re
 function setTodFilter(v){ REV_TOD_FILTER=v; REV_IDX=revTrades().length-1; renderReview(); }
 function setDowFilter(v){ REV_DOW_FILTER=v; REV_IDX=revTrades().length-1; renderReview(); }
 
+// Persistent date-range filter. Deliberately SEPARATE from
+// REV_DATE_FROM/REV_DATE_TO above: those are transient playlist scope
+// that closePlaylist()/setRevMode() wipe, so reusing them would make
+// this filter silently reset itself every time a playlist closed.
+// extraMatch() applies both, so a playlist launched while this is set
+// stays correctly scoped to the intersection.
+let REV_PERIOD_FROM='', REV_PERIOD_TO='';
+
+function shiftDate(dateStr, days){
+  const d = new Date(dateStr+'T12:00:00');
+  d.setDate(d.getDate()+days);
+  // Local-timezone safe: toISOString() would roll to the next day in
+  // the evening (same trap documented in launchPlaylist).
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function setPeriodFilter(v){
+  const today = todayKey();
+  let from='', to='';
+  if(v==='today'){        from=to=today; }
+  else if(v==='yesterday'){ from=to=shiftDate(today,-1); }
+  else if(v==='week'){    from=weekKey(today); to=today; }
+  else if(v==='lastweek'){
+    const thisMon=weekKey(today);
+    from=shiftDate(thisMon,-7); to=shiftDate(thisMon,-1);
+  }
+  else if(v==='month'){   from=today.slice(0,7)+'-01'; to=today; }
+  else if(v==='last7'){   from=shiftDate(today,-6);  to=today; }
+  else if(v==='last30'){  from=shiftDate(today,-29); to=today; }
+  REV_PERIOD_FROM=from; REV_PERIOD_TO=to;
+  // Picking a named period clears any exact-date pick, so the two
+  // controls can't silently contradict each other.
+  const dEl=document.getElementById('rev-date-filter');
+  if(dEl && v) dEl.value='';
+  REV_IDX=revTrades().length-1;
+  renderReview();
+}
+
+function setExactDate(v){
+  REV_PERIOD_FROM = REV_PERIOD_TO = v || '';
+  const pEl=document.getElementById('rev-period-filter');
+  if(pEl && v) pEl.value='';
+  REV_IDX=revTrades().length-1;
+  renderReview();
+}
+
 // Buy time as minutes-since-midnight on Dale's trading clock (PT).
 // The stored ISO timestamps carry an ET offset but their WALL CLOCK
 // already matches the scanner log's PT times (verified Jul 18 vs
@@ -3101,6 +3159,10 @@ function extraMatch(t){
     if(d.getDay()!==+REV_DOW_FILTER) return false;
   }
   if(REV_DATE_FROM&&(t.date<REV_DATE_FROM||t.date>REV_DATE_TO)) return false;
+  // Persistent period filter, applied on top of any transient playlist
+  // scope above — a playlist launched while this is set stays scoped to
+  // the intersection of the two rather than overriding it.
+  if(REV_PERIOD_FROM&&(t.date<REV_PERIOD_FROM||t.date>REV_PERIOD_TO)) return false;
   return true;
 }
 
