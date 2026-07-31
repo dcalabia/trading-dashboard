@@ -203,6 +203,8 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .rev-hl-best{background:transparent;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:0 2px;line-height:1}
 .rev-hl-best:hover{color:#ffd54a}
 .rev-hl-best.on{color:#ffd54a}
+.rev-hl-del{background:transparent;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:0 2px;line-height:1}
+.rev-hl-del:hover{color:#ff6b6b}
 .rev-hl-empty{color:var(--muted);font-size:12px;padding:8px 0;border-top:1px solid var(--border)}
 .rev-body-chart .rev-nochart{min-height:380px;display:flex;align-items:center;justify-content:center}
 .rev-notes-hdr{display:flex;justify-content:space-between;align-items:baseline;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
@@ -5203,6 +5205,7 @@ function renderHighlights(){
   HL_ITEMS=items;
   const row=(h,i)=>`<div class="rev-hl-item">
     <button class="rev-hl-best${h.best?' on':''}" onclick="toggleBestHl(${i})" title="${h.best?'Remove from':'Promote to'} Best of Highlights">🏆</button>
+    <button class="rev-hl-del" onclick="removeHl(${i})" title="Remove this highlight">🗑</button>
     <span class="m hl-jump" onclick="jumpToHighlight(${i})" title="Jump to this ${h.source==='misses'?'miss':'trade'}">${esc(h.date)} · ${esc(h.ticker)}</span>
     <mark>${esc(h.txt)}</mark></div>`;
   document.getElementById('rev-hls-count').textContent=items.length;
@@ -5249,7 +5252,7 @@ function renderHomeHighlights(){
       if(line.indexOf('★')===-1) return;
       const best=line.indexOf('★★')!==-1;
       const txt=line.replace(/^\s*•\s*/,'').replace(/★+\s?/,'').trim();
-      if(txt) items.push({date:t.date,ticker:t.ticker+mark,txt,source,entry:t,best});
+      if(txt) items.push({date:t.date,ticker:t.ticker+mark,txt,source,entry:t,best,raw:line});
     });
   });
   collect(ALL_TRADES,'','trades');
@@ -5258,6 +5261,7 @@ function renderHomeHighlights(){
   items.sort((a,b)=>a.date<b.date?1:(a.date>b.date?-1:0));
   HOME_HL_ITEMS=items;
   const row=(h,i)=>`<div class="rev-hl-item">
+    <button class="rev-hl-del" onclick="removeHomeHl(${i})" title="Remove this highlight">🗑</button>
     <span class="m hl-jump" onclick="jumpToHomeHighlight(${i})" title="Open in Review">${esc(h.date)} · ${esc(h.ticker)}</span>
     <mark>${esc(h.txt)}</mark></div>`;
   const hc=document.getElementById('home-hls-count');
@@ -5320,6 +5324,28 @@ async function toggleBestHl(i){
     renderHighlights();
   }
 }
+
+// Un-stars the line in the underlying review note (doesn't delete the
+// note text, just drops it out of the Highlights lists) — the note IS
+// the storage, so this is the only way a highlight can be "removed".
+async function stripHighlight(h){
+  if(!h) return;
+  if(!confirm('Remove this highlight?')) return;
+  const newLine=h.raw.replace(/★+\s?/,'');
+  const newNote=h.entry.reviewNote.replace(h.raw,newLine);
+  if(newNote===h.entry.reviewNote) return;
+  const ok=await patchTradeField(h.entry,{review_note:newNote},h.source);
+  if(!ok) return;
+  h.entry.reviewNote=newNote;
+  const m=findBacking(h.entry);
+  if(m) m.reviewNote=newNote;
+  const ta=document.getElementById('rev-notes-ta');
+  if(ta && revTrades()[REV_IDX]===h.entry) ta.value=newNote;
+  renderHighlights();
+  renderHomeHighlights();
+}
+function removeHl(i){ stripHighlight(HL_ITEMS[i]); }
+function removeHomeHl(i){ stripHighlight(HOME_HL_ITEMS[i]); }
 
 function jumpToHighlight(i){
   const h=HL_ITEMS[i];
