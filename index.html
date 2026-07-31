@@ -3278,8 +3278,9 @@ function renderReview(){
         </div>`:''}
         <div class="rev-disp" id="rev-disp-shot">${t.chart
           ? `<div class="rev-shot-wrap"><img class="rev-chart" loading="lazy" src="${esc(t.chart)}" alt="chart">
-             <button class="rev-shot-edit" onclick="pickChartImage()">✎ Edit</button>
-             <button class="rev-shot-edit" style="right:76px" onclick="pbMarkFromCard(this)" title="Add this chart to the setup's playbook as a template example">📖 Playbook</button></div>`
+             <button class="rev-shot-edit" onclick="pickChartImage(); this.parentElement.querySelector('.rev-shot-delete').style.display='inline-block'">✎ Edit</button>
+             <button class="rev-shot-edit rev-shot-delete" style="right:76px;display:none" onclick="deleteChartImage()">🗑 Delete</button>
+             <button class="rev-shot-edit" style="right:160px" onclick="pbMarkFromCard(this)" title="Add this chart to the setup's playbook as a template example">📖 Playbook</button></div>`
           : `<div class="rev-nochart">No chart screenshot for this trade<br>
              <button class="rev-shot-edit" onclick="pickChartImage()">＋ Add screenshot</button></div>`}</div>
         ${t.video?`<div class="rev-disp" id="rev-disp-video" style="display:none">
@@ -3429,8 +3430,9 @@ function renderMissCard(t){
         </div>`:''}
         <div class="rev-disp" id="rev-disp-shot">${t.chart
           ? `<div class="rev-shot-wrap"><img class="rev-chart" loading="lazy" src="${esc(t.chart)}" alt="chart">
-             <button class="rev-shot-edit" onclick="pickChartImage()">✎ Edit</button>
-             <button class="rev-shot-edit" style="right:76px" onclick="pbMarkFromCard(this)" title="Add this chart to the setup's playbook as a template example">📖 Playbook</button></div>`
+             <button class="rev-shot-edit" onclick="pickChartImage(); this.parentElement.querySelector('.rev-shot-delete').style.display='inline-block'">✎ Edit</button>
+             <button class="rev-shot-edit rev-shot-delete" style="right:76px;display:none" onclick="deleteChartImage()">🗑 Delete</button>
+             <button class="rev-shot-edit" style="right:160px" onclick="pbMarkFromCard(this)" title="Add this chart to the setup's playbook as a template example">📖 Playbook</button></div>`
           : `<div class="rev-nochart">No chart screenshot for this miss<br>
              <button class="rev-shot-edit" onclick="pickChartImage()">＋ Add screenshot</button></div>`}</div>
         ${t.video?`<div class="rev-disp" id="rev-disp-video" style="display:none">
@@ -5078,6 +5080,18 @@ async function uploadChartImage(file){
     status.textContent='Upload failed: '+e.message;
     setTimeout(()=>status.remove(),3000);
   }
+}
+
+async function deleteChartImage(){
+  const t=revTrades()[REV_IDX];
+  if(!t||!t.chart) return;
+  if(!confirm('Delete this chart screenshot?')) return;
+  const ok=await patchTradeField(t,{chart_url:null});
+  if(!ok){ alert('Delete failed — Supabase PATCH did not go through.'); return; }
+  t.chart=null;
+  const m=findBacking(t);
+  if(m) m.chart=null;
+  renderReview();
 }
 
 // Subscribe to time/state updates from a (re)loaded player — retry
