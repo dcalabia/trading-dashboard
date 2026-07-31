@@ -1893,6 +1893,7 @@ function sbShowLogin(){
   if(ov){ ov.style.display='flex'; setTimeout(()=>document.getElementById('sb-login-email').focus(),50); }
 }
 const IMGBB_API_KEY = '64c3ec970d032c02a6b91be4f2b8def2'; // same free key trading_journal_fill.py uses
+const SUPABASE_CHART_BUCKET = 'charts'; // same bucket trading_journal_fill.py's upload_to_supabase_storage() uses
 
 async function loadSupabaseTrades() {
   try {
@@ -5053,19 +5054,20 @@ async function uploadChartImage(file){
   shot.style.position='relative';
   shot.appendChild(status);
   try{
-    const b64=await new Promise((res,rej)=>{
-      const r=new FileReader();
-      r.onload=()=>res(r.result.split(',')[1]);
-      r.onerror=rej;
-      r.readAsDataURL(file);
-    });
-    const body=new URLSearchParams();
-    body.set('key',IMGBB_API_KEY);
-    body.set('image',b64);
-    const up=await fetch('https://api.imgbb.com/1/upload',{method:'POST',body});
-    const json=await up.json();
-    if(!json.success) throw new Error(json.error?.message||'imgbb upload failed');
-    const url=json.data.url;
+    // Supabase Storage, not imgbb — imgbb's free-tier quota is shared
+    // with trading_journal_fill.py and gets exhausted mid-session
+    // (that's what silently dropped this exact upload). Same fix
+    // upload_to_supabase_storage() already applies on the Python side.
+    const key=`${t.date||new Date().toISOString().slice(0,10)}/`
+      +`${Date.now()}_${file.name.replace(/[^\w.\-]/g,'_')}`;
+    const up=await fetch(
+      `${SUPABASE_URL}/storage/v1/object/${SUPABASE_CHART_BUCKET}/${key}`,
+      {method:'POST',
+       headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+(SB_TOKEN||SUPABASE_KEY),
+         'Content-Type':file.type||'image/png'},
+       body:file});
+    if(!up.ok) throw new Error(`Storage upload failed: HTTP ${up.status} ${(await up.text()).slice(0,120)}`);
+    const url=`${SUPABASE_URL}/storage/v1/object/public/${SUPABASE_CHART_BUCKET}/${key}`;
     const ok=await patchTradeField(t,{chart_url:url});
     if(!ok) throw new Error('Supabase PATCH failed');
     t.chart=url;
