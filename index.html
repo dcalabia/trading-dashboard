@@ -3795,10 +3795,12 @@ function openPlaylist(list,btnEl){
   if(!PL_QUEUE.length){
     if(btn){ const old=btn.textContent; btn.textContent='No videos here'; setTimeout(()=>btn.textContent=old,1600); }
     // The overlay never opens on this path, so closePlaylist() never
-    // runs to drop the date scope launchPlaylist()/playDateAll() just
-    // set — without this it silently pins the whole Review tab to
-    // that (empty) range even after the button text reverts
-    if(REV_DATE_FROM){ REV_DATE_FROM=''; REV_DATE_TO=''; renderReview(); }
+    // runs to drop the scope launchPlaylist()/playDateAll()/
+    // playWeekIdeal() just set — without this it silently pins the
+    // whole Review tab to that (empty) range/filter even after the
+    // button text reverts, landing on some unrelated stale view
+    // instead of a clear "no videos" state.
+    if(REV_DATE_FROM||REV_FILTER){ REV_DATE_FROM=''; REV_DATE_TO=''; REV_FILTER=''; renderReview(); }
     return;
   }
   // [Sonnet 5] the Calendar day-list modal that launched this (if any)
@@ -4363,6 +4365,16 @@ function playWeekIdeal(){
   switchTab('review');
   setRevMode('all');            // resets REV_FILTER + date scope — set ours after
   REV_FILTER='Ideal Trades';
+  // A leftover persistent period filter (e.g. "Last week" from earlier
+  // browsing) intersects with the date scope below in extraMatch() —
+  // if it doesn't happen to overlap this week, that silently zeroes
+  // the result set and openPlaylist() falls back to showing whatever
+  // stale broader view is left instead of this week's ideal reel.
+  REV_PERIOD_FROM=''; REV_PERIOD_TO='';
+  const pEl=document.getElementById('rev-period-filter');
+  if(pEl) pEl.value='';
+  const dEl=document.getElementById('rev-date-filter');
+  if(dEl) dEl.value='';
   REV_DATE_FROM=wk; REV_DATE_TO=sun;
   REV_IDX=revTrades().length-1;
   renderReview();
