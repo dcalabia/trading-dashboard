@@ -5108,6 +5108,26 @@ async function deleteChartImage(){
   renderReview();
 }
 
+// Paste a screenshot (Ctrl+V) straight onto the open Review card —
+// same upload path as the Edit button, just skipping the file picker.
+// Ignored while the playlist overlay is open (no single card in view)
+// and while the notes textarea has its own paste handler running —
+// that one only consumes plain text, so an image in the clipboard
+// still reaches here via bubbling even if the textarea is focused.
+document.addEventListener('paste', async (e)=>{
+  if(!document.getElementById('tab-review')?.classList.contains('active')) return;
+  if(PL_ACTIVE) return;
+  const items=(e.clipboardData||window.clipboardData)?.items;
+  if(!items) return;
+  let imgItem=null;
+  for(const it of items){ if(it.type&&it.type.startsWith('image/')){ imgItem=it; break; } }
+  if(!imgItem) return;
+  const file=imgItem.getAsFile();
+  if(!file) return;
+  e.preventDefault();
+  await uploadChartImage(file);
+});
+
 // Subscribe to time/state updates from a (re)loaded player — retry
 // until it answers (a single message races player readiness and
 // leaves REV_VT stuck at 0, breaking , / . scrubbing)
