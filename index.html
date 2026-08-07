@@ -942,6 +942,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
       </select>
       <input class="rev-filter" type="date" id="rev-date-filter" onchange="setExactDate(this.value)"
              title="Filter to one specific date" style="max-width:150px">
+      <button class="rev-act-btn" onclick="applyIdealThisWeekFilter()" title="All deck (Trades+Misses+Ross) + Ideal Trades tag + This week">🎯 Ideal This Week</button>
     </div>
     <div id="rev-card-holder"></div>
 
@@ -3109,6 +3110,20 @@ function setPeriodFilter(v){
   if(dEl && v) dEl.value='';
   REV_IDX=revTrades().length-1;
   renderReview();
+}
+
+// One-click combo: All deck (Trades+Misses+Ross) + Ideal Trades tag + This week —
+// setRevMode('all') resets REV_FILTER/date scope first, so it must run before
+// the other two. rev-period-filter isn't rebuilt by renderReview() (static
+// options), so its displayed value needs setting by hand; rev-filter IS
+// rebuilt each render with the matching option flagged selected, so
+// setRevFilter() alone keeps that one in sync.
+function applyIdealThisWeekFilter(){
+  setRevMode('all');
+  setRevFilter('Ideal Trades');
+  const pEl=document.getElementById('rev-period-filter');
+  if(pEl) pEl.value='week';
+  setPeriodFilter('week');
 }
 
 function setExactDate(v){
