@@ -923,8 +923,8 @@ tr:hover td{background:rgba(255,255,255,0.025)}
       </select>
       <input class="rev-filter" type="date" id="rev-date-filter" onchange="setExactDate(this.value)"
              title="Filter to one specific date" style="max-width:150px">
-      <button class="rev-act-btn" onclick="applyIdealThisWeekFilter()" title="All deck (Trades+Misses+Ross) + Ideal Trades tag + This week">🎯 Ideal This Week</button>
-      <select class="rev-filter" id="rev-ideal-week-filter" onchange="applyIdealWeekFilter(this.value)" title="Jump to a past week's Ideal Trades">
+      <button class="rev-act-btn" id="rev-tag-week-btn" onclick="applyTagThisWeekFilter()" title="All deck (Trades+Misses+Ross) + the tag picked in Tags: all + This week">🎯 This Week</button>
+      <select class="rev-filter" id="rev-tag-week-filter" onchange="applyTagWeekFilter(this.value)" title="Jump to a past week for the tag picked in Tags: all">
         <option value="">Jump to week…</option>
       </select>
     </div>
@@ -3094,27 +3094,28 @@ function setPeriodFilter(v){
   renderReview();
 }
 
-// One-click combo: All deck (Trades+Misses+Ross) + Ideal Trades tag + This week —
-// setRevMode('all') resets REV_FILTER/date scope first, so it must run before
-// the other two. rev-period-filter isn't rebuilt by renderReview() (static
-// options), so its displayed value needs setting by hand; rev-filter IS
-// rebuilt each render with the matching option flagged selected, so
-// setRevFilter() alone keeps that one in sync.
-function applyIdealThisWeekFilter(){
+// One-click combo: All deck (Trades+Misses+Ross) + whichever tag is
+// currently picked in the Tags: all dropdown + This week. Not hardcoded
+// to "Ideal Trades" — works for any tag (Must Watch, a custom "must
+// rewatch", whatever). Capture the tag BEFORE setRevMode('all'), since
+// that resets REV_FILTER to '' as part of switching decks.
+function applyTagThisWeekFilter(){
+  const tag=document.getElementById('rev-filter').value;
   setRevMode('all');
-  setRevFilter('Ideal Trades');
+  if(tag) setRevFilter(tag);
   const pEl=document.getElementById('rev-period-filter');
   if(pEl) pEl.value='week';
   setPeriodFilter('week');
 }
 
-// Every Monday-key week that has at least one Ideal-Trades-tagged entry
+// Every Monday-key week that has at least one entry carrying `tag`,
 // anywhere in the combined deck, newest first — powers the week-jump
-// dropdown beside the Ideal This Week button.
-function idealWeekList(){
+// dropdown beside the This Week button. Empty when no tag is picked.
+function tagWeekList(tag){
+  if(!tag) return [];
   const weeks=new Set();
   combinedDeck().forEach(t=>{
-    if((t.tags||[]).includes('Ideal Trades')){
+    if((t.tags||[]).includes(tag)){
       const wk=weekKey(t.date);
       if(wk) weeks.add(wk);
     }
@@ -3122,12 +3123,13 @@ function idealWeekList(){
   return [...weeks].sort().reverse();
 }
 
-// Same combo as applyIdealThisWeekFilter, scoped to a past week picked
+// Same combo as applyTagThisWeekFilter, scoped to a past week picked
 // from the dropdown instead of always "this week".
-function applyIdealWeekFilter(wk){
+function applyTagWeekFilter(wk){
   if(!wk) return;
+  const tag=document.getElementById('rev-filter').value;
   setRevMode('all');
-  setRevFilter('Ideal Trades');
+  if(tag) setRevFilter(tag);
   const d=new Date(wk+'T12:00:00'); d.setDate(d.getDate()+6);
   const sun=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   REV_PERIOD_FROM=wk; REV_PERIOD_TO=sun;
@@ -3215,14 +3217,16 @@ function renderReview(){
     Object.keys(scounts).sort().map(s=>
       `<option value="${s.replace(/"/g,'&quot;')}"${s===REV_SETUP_FILTER?' selected':''}>${s} (${scounts[s]})</option>`).join('');
 
-  // Ideal Trades week-jump — always scanned across the full combined deck
-  // (not just the current mode's `all`), so it's a stable list regardless
-  // of which tab you're currently viewing
-  const iwsel = document.getElementById('rev-ideal-week-filter');
+  // Tag week-jump — follows whichever tag is picked in Tags: all, always
+  // scanned across the full combined deck (not just the current mode's
+  // `all`), so it's a stable list regardless of which tab you're on.
+  const tagBtn = document.getElementById('rev-tag-week-btn');
+  if(tagBtn) tagBtn.textContent = REV_FILTER ? `🎯 ${REV_FILTER} — This Week` : '🎯 This Week';
+  const iwsel = document.getElementById('rev-tag-week-filter');
   if(iwsel){
-    const weeks = idealWeekList();
+    const weeks = tagWeekList(REV_FILTER);
     const curWk = (REV_PERIOD_FROM && weeks.includes(REV_PERIOD_FROM)) ? REV_PERIOD_FROM : '';
-    iwsel.innerHTML = `<option value="">Jump to week…</option>` +
+    iwsel.innerHTML = `<option value="">${REV_FILTER ? 'Jump to week…' : 'Pick a tag first'}</option>` +
       weeks.map(wk=>`<option value="${wk}"${wk===curWk?' selected':''}>${weekLabel(wk)}</option>`).join('');
   }
 
