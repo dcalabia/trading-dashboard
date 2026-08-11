@@ -923,6 +923,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
       </select>
       <input class="rev-filter" type="date" id="rev-date-filter" onchange="setExactDate(this.value)"
              title="Filter to one specific date" style="max-width:150px">
+      <button class="rev-act-btn" onclick="applyTagThisWeekFilter('Ideal Trades')" title="All deck (Trades+Misses+Ross) + Ideal Trades tag + This week">🎯 Ideal This Week</button>
       <button class="rev-act-btn" id="rev-tag-week-btn" onclick="applyTagThisWeekFilter()" title="All deck (Trades+Misses+Ross) + the tag picked in Tags: all + This week">🎯 This Week</button>
       <select class="rev-filter" id="rev-tag-week-filter" onchange="applyTagWeekFilter(this.value)" title="Jump to a past week for the tag picked in Tags: all">
         <option value="">Jump to week…</option>
@@ -3094,13 +3095,15 @@ function setPeriodFilter(v){
   renderReview();
 }
 
-// One-click combo: All deck (Trades+Misses+Ross) + whichever tag is
-// currently picked in the Tags: all dropdown + This week. Not hardcoded
-// to "Ideal Trades" — works for any tag (Must Watch, a custom "must
+// One-click combo: All deck (Trades+Misses+Ross) + a tag + This week.
+// fixedTag lets the dedicated "Ideal This Week" button always target
+// Ideal Trades regardless of what's in the Tags dropdown; the generic
+// "This Week" button calls this with no argument, which falls back to
+// whatever tag is currently picked there (Must Watch, a custom "must
 // rewatch", whatever). Capture the tag BEFORE setRevMode('all'), since
 // that resets REV_FILTER to '' as part of switching decks.
-function applyTagThisWeekFilter(){
-  const tag=document.getElementById('rev-filter').value;
+function applyTagThisWeekFilter(fixedTag){
+  const tag=fixedTag != null ? fixedTag : document.getElementById('rev-filter').value;
   setRevMode('all');
   if(tag) setRevFilter(tag);
   const pEl=document.getElementById('rev-period-filter');
