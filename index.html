@@ -911,25 +911,6 @@ tr:hover td{background:rgba(255,255,255,0.025)}
       <select class="rev-filter" id="rev-setup-filter" onchange="setSetupFilter(this.value)" title="Filter by setup (separate from tags)">
         <option value="">Setup: all</option>
       </select>
-      <select class="rev-filter" id="rev-tod-filter" onchange="setTodFilter(this.value)" title="Filter by buy time (PT)">
-        <option value="">Time: all</option>
-        <option value="390">6:30–6:59</option>
-        <option value="420">7:00–7:29</option>
-        <option value="450">7:30–7:59</option>
-        <option value="480">8:00–8:29</option>
-        <option value="510">8:30–8:59</option>
-        <option value="540">9:00–9:29</option>
-        <option value="570">9:30–10:00</option>
-        <option value="out">Outside hours</option>
-      </select>
-      <select class="rev-filter" id="rev-dow-filter" onchange="setDowFilter(this.value)" title="Filter by day of week">
-        <option value="">Day: all</option>
-        <option value="1">Mon</option>
-        <option value="2">Tue</option>
-        <option value="3">Wed</option>
-        <option value="4">Thu</option>
-        <option value="5">Fri</option>
-      </select>
       <select class="rev-filter" id="rev-period-filter" onchange="setPeriodFilter(this.value)" title="Filter by date range">
         <option value="">Period: all</option>
         <option value="today">Today</option>
@@ -943,6 +924,9 @@ tr:hover td{background:rgba(255,255,255,0.025)}
       <input class="rev-filter" type="date" id="rev-date-filter" onchange="setExactDate(this.value)"
              title="Filter to one specific date" style="max-width:150px">
       <button class="rev-act-btn" onclick="applyIdealThisWeekFilter()" title="All deck (Trades+Misses+Ross) + Ideal Trades tag + This week">🎯 Ideal This Week</button>
+      <select class="rev-filter" id="rev-ideal-week-filter" onchange="applyIdealWeekFilter(this.value)" title="Jump to a past week's Ideal Trades">
+        <option value="">Jump to week…</option>
+      </select>
     </div>
     <div id="rev-card-holder"></div>
 
@@ -3063,16 +3047,14 @@ function psMatch(t){
   return true;
 }
 
-// ── W/L · Setup · Time-of-day (PT) · Day-of-week filters ────────
-let REV_WL_FILTER='', REV_SETUP_FILTER='', REV_TOD_FILTER='', REV_DOW_FILTER='';
+// ── W/L · Setup filters ────────
+let REV_WL_FILTER='', REV_SETUP_FILTER='';
 // Calendar-date range scope (inclusive) — only set transiently by
 // playDateAll()/launchPlaylist(), cleared when the playlist overlay
 // closes (see closePlaylist). Single-day scope is just from===to.
 let REV_DATE_FROM='', REV_DATE_TO='';
 function setWlFilter(v){ REV_WL_FILTER=v; REV_IDX=revTrades().length-1; renderReview(); }
 function setSetupFilter(v){ REV_SETUP_FILTER=v; REV_IDX=revTrades().length-1; renderReview(); }
-function setTodFilter(v){ REV_TOD_FILTER=v; REV_IDX=revTrades().length-1; renderReview(); }
-function setDowFilter(v){ REV_DOW_FILTER=v; REV_IDX=revTrades().length-1; renderReview(); }
 
 // Persistent date-range filter. Deliberately SEPARATE from
 // REV_DATE_FROM/REV_DATE_TO above: those are transient playlist scope
@@ -3126,6 +3108,37 @@ function applyIdealThisWeekFilter(){
   setPeriodFilter('week');
 }
 
+// Every Monday-key week that has at least one Ideal-Trades-tagged entry
+// anywhere in the combined deck, newest first — powers the week-jump
+// dropdown beside the Ideal This Week button.
+function idealWeekList(){
+  const weeks=new Set();
+  combinedDeck().forEach(t=>{
+    if((t.tags||[]).includes('Ideal Trades')){
+      const wk=weekKey(t.date);
+      if(wk) weeks.add(wk);
+    }
+  });
+  return [...weeks].sort().reverse();
+}
+
+// Same combo as applyIdealThisWeekFilter, scoped to a past week picked
+// from the dropdown instead of always "this week".
+function applyIdealWeekFilter(wk){
+  if(!wk) return;
+  setRevMode('all');
+  setRevFilter('Ideal Trades');
+  const d=new Date(wk+'T12:00:00'); d.setDate(d.getDate()+6);
+  const sun=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  REV_PERIOD_FROM=wk; REV_PERIOD_TO=sun;
+  const pEl=document.getElementById('rev-period-filter');
+  if(pEl) pEl.value='';
+  const dEl=document.getElementById('rev-date-filter');
+  if(dEl) dEl.value='';
+  REV_IDX=revTrades().length-1;
+  renderReview();
+}
+
 function setExactDate(v){
   REV_PERIOD_FROM = REV_PERIOD_TO = v || '';
   const pEl=document.getElementById('rev-period-filter');
@@ -3162,19 +3175,6 @@ function extraMatch(t){
   if(REV_SETUP_FILTER){
     const parts=String(t.setup||'').split(' + ').map(x=>x.trim());
     if(!parts.includes(REV_SETUP_FILTER)) return false;
-  }
-  if(REV_TOD_FILTER){
-    const mm=ptMinutes(t);
-    if(mm==null) return false;
-    if(REV_TOD_FILTER==='out'){ if(mm>=390&&mm<=600) return false; }
-    else{
-      const start=+REV_TOD_FILTER, end=start===570?601:start+30;  // last bucket includes 10:00
-      if(mm<start||mm>=end) return false;
-    }
-  }
-  if(REV_DOW_FILTER){
-    const d=new Date(t.date+'T12:00:00');
-    if(d.getDay()!==+REV_DOW_FILTER) return false;
   }
   if(REV_DATE_FROM&&(t.date<REV_DATE_FROM||t.date>REV_DATE_TO)) return false;
   // Persistent period filter, applied on top of any transient playlist
@@ -3214,6 +3214,17 @@ function renderReview(){
   ssel.innerHTML = `<option value="">Setup: all</option>` +
     Object.keys(scounts).sort().map(s=>
       `<option value="${s.replace(/"/g,'&quot;')}"${s===REV_SETUP_FILTER?' selected':''}>${s} (${scounts[s]})</option>`).join('');
+
+  // Ideal Trades week-jump — always scanned across the full combined deck
+  // (not just the current mode's `all`), so it's a stable list regardless
+  // of which tab you're currently viewing
+  const iwsel = document.getElementById('rev-ideal-week-filter');
+  if(iwsel){
+    const weeks = idealWeekList();
+    const curWk = (REV_PERIOD_FROM && weeks.includes(REV_PERIOD_FROM)) ? REV_PERIOD_FROM : '';
+    iwsel.innerHTML = `<option value="">Jump to week…</option>` +
+      weeks.map(wk=>`<option value="${wk}"${wk===curWk?' selected':''}>${weekLabel(wk)}</option>`).join('');
+  }
 
   renderHighlights();
 
@@ -5334,7 +5345,7 @@ function jumpToHomeHighlight(i){
   if(!h) return;
   switchTab('review');
   REV_MODE=h.source;
-  REV_FILTER=''; REV_WL_FILTER=''; REV_SETUP_FILTER=''; REV_TOD_FILTER=''; REV_DOW_FILTER=''; REV_PS_FILTER=''; REV_DATE_FROM=''; REV_DATE_TO='';
+  REV_FILTER=''; REV_WL_FILTER=''; REV_SETUP_FILTER=''; REV_PS_FILTER=''; REV_DATE_FROM=''; REV_DATE_TO='';
   setModeButtons(REV_MODE);
   const list=revTrades();
   let idx=list.indexOf(h.entry);
@@ -5531,7 +5542,7 @@ function jumpToDateEntry(source, arrIdx){
   if(!entry) return;
   switchTab('review');
   REV_MODE=source;
-  REV_FILTER=''; REV_WL_FILTER=''; REV_SETUP_FILTER=''; REV_TOD_FILTER=''; REV_DOW_FILTER=''; REV_PS_FILTER=''; REV_DATE_FROM=''; REV_DATE_TO='';
+  REV_FILTER=''; REV_WL_FILTER=''; REV_SETUP_FILTER=''; REV_PS_FILTER=''; REV_DATE_FROM=''; REV_DATE_TO='';
   setModeButtons(REV_MODE);
   const list=revTrades();
   let idx=list.indexOf(entry);
