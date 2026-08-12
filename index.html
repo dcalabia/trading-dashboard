@@ -209,6 +209,14 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .rev-body-chart .rev-nochart{min-height:380px;display:flex;align-items:center;justify-content:center}
 .rev-notes-hdr{display:flex;justify-content:space-between;align-items:baseline;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
 .rev-notes-status{text-transform:none;letter-spacing:0;color:var(--accent)}
+/* Scoring-snapshot slot — lives above the notes textarea, inside the
+   same flex column, so it eats into the textarea's height rather than
+   growing the notes panel taller than the chart beside it */
+.rev-score-shot{position:relative;flex-shrink:0;margin-bottom:8px;border:1px dashed var(--border);border-radius:8px;cursor:pointer;overflow:hidden;background:var(--panel)}
+.rev-score-shot.has-img{border-style:solid;cursor:default}
+.rev-score-shot img{display:block;width:100%;max-height:150px;object-fit:contain;background:#0a0a0a}
+.rev-score-empty{display:flex;align-items:center;justify-content:center;gap:6px;padding:14px 10px;color:var(--muted);font-size:11px;text-align:center}
+.rev-score-del{position:absolute;top:4px;right:4px;background:rgba(10,10,10,.75);border:1px solid var(--border);border-radius:5px;color:#fff;font-size:11px;padding:2px 7px;cursor:pointer}
 .rev-notes-ta{flex:1;min-height:380px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;resize:vertical;
   /* notebook: ruled lines that scroll with the text + red margin line */
   line-height:28px;padding:8px 14px 8px 34px;border:1px solid var(--border);border-radius:8px;
@@ -3327,13 +3335,15 @@ function renderReview(){
         <div class="rev-notes-hdr"><span>Review notes</span>
           <span><button class="rev-hl-btn" onclick="toggleHighlightLine()" title="Mark/unmark the line your cursor is on (Ctrl+H) — shows up in Highlights below">★ Highlight line</button>
           <span class="rev-notes-status" id="rev-notes-status"></span></span></div>
+        <div class="rev-score-shot" id="rev-score-shot" tabindex="0" title="Click to upload, or paste (Ctrl+V) the scanner's scoring snapshot"></div>
         <textarea class="rev-notes-ta" id="rev-notes-ta" placeholder="Jot down your review of this trade…"></textarea>
         <button class="rev-notes-save" onclick="saveReviewNote()">Save note</button>
       </div>
     </div>
   </div>`;
   const ta=document.getElementById('rev-notes-ta');
-  ta.value=t.reviewNote||'';
+  { const parsed=splitReviewNote(t.reviewNote||''); REV_SCORE_IMG=parsed.img; ta.value=parsed.text; }
+  renderScoreShot(); wireScoreShot();
   ta.addEventListener('input',()=>{
     // First keystroke into an empty pad starts the first bullet
     if(ta.value.length===1&&ta.value!=='•'&&ta.value.trim()){
@@ -3378,7 +3388,7 @@ function renderReview(){
   ta.addEventListener('blur',()=>{
     clearTimeout(REV_NOTE_AUTOSAVE);
     if(ta.value.trim()==='•') ta.value='';  // untouched empty bullet
-    if((ta.value||'')!==(t.reviewNote||'')) saveReviewNote();
+    if((ta.value||'')!==splitReviewNote(t.reviewNote||'').text) saveReviewNote();
   });
   // Tag input: Enter adds; datalist of all known tags
   if(!document.getElementById('dl-tags')){
@@ -3479,13 +3489,15 @@ function renderMissCard(t){
         <div class="rev-notes-hdr"><span>Review notes</span>
           <span><button class="rev-hl-btn" onclick="toggleHighlightLine()" title="Mark/unmark the line your cursor is on (Ctrl+H) — shows up in Highlights below">★ Highlight line</button>
           <span class="rev-notes-status" id="rev-notes-status"></span></span></div>
+        <div class="rev-score-shot" id="rev-score-shot" tabindex="0" title="Click to upload, or paste (Ctrl+V) the scanner's scoring snapshot"></div>
         <textarea class="rev-notes-ta" id="rev-notes-ta" placeholder="Jot down your review of this miss…"></textarea>
         <button class="rev-notes-save" onclick="saveReviewNote()">Save note</button>
       </div>
     </div>
   </div>`;
   const ta=document.getElementById('rev-notes-ta');
-  ta.value=t.reviewNote||'';
+  { const parsed=splitReviewNote(t.reviewNote||''); REV_SCORE_IMG=parsed.img; ta.value=parsed.text; }
+  renderScoreShot(); wireScoreShot();
   ta.addEventListener('input',()=>{
     if(ta.value.length===1&&ta.value!=='•'&&ta.value.trim()){
       ta.value='• '+ta.value;
@@ -3520,7 +3532,7 @@ function renderMissCard(t){
   ta.addEventListener('focus',()=>{ if(!ta.value.trim()) ta.value='• '; });
   ta.addEventListener('blur',()=>{
     if(ta.value.trim()==='•') ta.value='';
-    if((ta.value||'')!==(t.reviewNote||'')) saveReviewNote();
+    if((ta.value||'')!==splitReviewNote(t.reviewNote||'').text) saveReviewNote();
   });
   // Tag input: Enter adds; datalist of all known tags (trades + misses)
   if(!document.getElementById('dl-tags')){
@@ -5433,13 +5445,99 @@ function jumpToHighlight(i){
   document.querySelectorAll('.rev-date-overlay').forEach(o=>o.remove());
 }
 
+// Scoring-snapshot screenshot is stashed as a hidden marker line inside
+// review_note itself — no schema change needed, rides the existing
+// review_note sync (Supabase PATCH + the highlights scanner already
+// ignores any line without a ★, so the marker is invisible to it).
+const SCORE_IMG_RE=/^\[\[img:([^\]]+)\]\]\n?/;
+function splitReviewNote(raw){
+  const m=(raw||'').match(SCORE_IMG_RE);
+  return m ? {img:m[1],text:raw.slice(m[0].length)} : {img:null,text:raw||''};
+}
+function composeReviewNote(img,text){ return (img?`[[img:${img}]]\n`:'')+(text||''); }
+let REV_SCORE_IMG=null; // active card's score-shot URL, kept alongside the textarea's plain text
+
+function renderScoreShot(){
+  const el=document.getElementById('rev-score-shot');
+  if(!el) return;
+  el.classList.toggle('has-img',!!REV_SCORE_IMG);
+  el.innerHTML = REV_SCORE_IMG
+    ? `<img src="${REV_SCORE_IMG.replace(/"/g,'&quot;')}" alt="scoring snapshot" loading="lazy">
+       <button class="rev-score-del" onclick="event.stopPropagation();deleteScoreShot()" title="Remove">🗑</button>`
+    : `<div class="rev-score-empty">📷 Click or paste (Ctrl+V) the scanner's scoring snapshot</div>`;
+}
+function wireScoreShot(){
+  const el=document.getElementById('rev-score-shot');
+  if(!el) return;
+  el.onclick=()=>{ if(!REV_SCORE_IMG) pickScoreImage(); };
+  el.onpaste=e=>{
+    const items=(e.clipboardData||window.clipboardData).items||[];
+    for(const it of items){
+      if(it.type.indexOf('image')===0){ e.preventDefault(); uploadScoreImage(it.getAsFile()); return; }
+    }
+  };
+}
+function pickScoreImage(){
+  let inp=document.getElementById('rev-score-inp');
+  if(!inp){
+    inp=document.createElement('input');
+    inp.type='file'; inp.accept='image/*'; inp.id='rev-score-inp';
+    inp.style.display='none';
+    inp.onchange=()=>{ if(inp.files[0]) uploadScoreImage(inp.files[0]); inp.value=''; };
+    document.body.appendChild(inp);
+  }
+  inp.click();
+}
+async function uploadScoreImage(file){
+  const t=revTrades()[REV_IDX];
+  if(!t) return;
+  const el=document.getElementById('rev-score-shot');
+  if(el) el.innerHTML='<div class="rev-score-empty">Uploading…</div>';
+  try{
+    const key=`${t.date||new Date().toISOString().slice(0,10)}/`
+      +`score_${Date.now()}_${file.name.replace(/[^\w.\-]/g,'_')}`;
+    const up=await fetch(
+      `${SUPABASE_URL}/storage/v1/object/${SUPABASE_CHART_BUCKET}/${key}`,
+      {method:'POST',
+       headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+(SB_TOKEN||SUPABASE_KEY),
+         'Content-Type':file.type||'image/png'},
+       body:file});
+    if(!up.ok) throw new Error(`Storage upload failed: HTTP ${up.status} ${(await up.text()).slice(0,120)}`);
+    const url=`${SUPABASE_URL}/storage/v1/object/public/${SUPABASE_CHART_BUCKET}/${key}`;
+    await saveScoreImg(t,url);
+  }catch(e){
+    alert('Upload failed: '+e.message);
+    renderScoreShot();
+  }
+}
+async function deleteScoreShot(){
+  const t=revTrades()[REV_IDX];
+  if(!t) return;
+  await saveScoreImg(t,null);
+}
+async function saveScoreImg(t,url){
+  const ta=document.getElementById('rev-notes-ta');
+  const text=ta?ta.value:splitReviewNote(t.reviewNote||'').text;
+  const note=composeReviewNote(url,text);
+  const ok=await patchTradeField(t,{review_note:note});
+  if(ok){
+    REV_SCORE_IMG=url;
+    t.reviewNote=note;
+    const m=findBacking(t);
+    if(m) m.reviewNote=note;
+  }else{
+    alert('Save failed — Supabase PATCH did not go through.');
+  }
+  renderScoreShot();
+}
+
 async function saveReviewNote(){
   const trades=revTrades();
   const t=trades[REV_IDX];
   const ta=document.getElementById('rev-notes-ta');
   const status=document.getElementById('rev-notes-status');
   if(!t||!ta) return;
-  const note=ta.value;
+  const note=composeReviewNote(REV_SCORE_IMG,ta.value);
   status.textContent='saving…';
   const ok=await patchTradeField(t,{review_note:note});
   if(ok){
