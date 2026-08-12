@@ -3206,6 +3206,7 @@ function fmtET(iso){
 }
 
 function renderReview(){
+  REV_CHART_PASTE_ARMED=false;   // switching/reloading the card disarms any stale paste-target
   // Filter dropdown: All + MM + presets + any custom tags in use,
   // with live counts
   const all = REV_MODE==='misses' ? ALL_MISSES : REV_MODE==='ross' ? ALL_ROSS
@@ -3376,6 +3377,7 @@ function renderReview(){
   });
   ta.addEventListener('paste',e=>{
     e.preventDefault();
+    e.stopPropagation();
     const text=(e.clipboardData||window.clipboardData).getData('text');
     ta.setRangeText(revBulletizePaste(text),ta.selectionStart,ta.selectionEnd,'end');
     document.getElementById('rev-notes-status').textContent='unsaved';
@@ -3525,6 +3527,7 @@ function renderMissCard(t){
   });
   ta.addEventListener('paste',e=>{
     e.preventDefault();
+    e.stopPropagation();
     const text=(e.clipboardData||window.clipboardData).getData('text');
     ta.setRangeText(revBulletizePaste(text),ta.selectionStart,ta.selectionEnd,'end');
     document.getElementById('rev-notes-status').textContent='unsaved';
@@ -5094,6 +5097,7 @@ function renderDisciplineMap(){
 // ── Chart screenshot: manual add/replace (e.g. after a split/reverse
 // split makes the auto-captured chart's prices wrong) ──
 function pickChartImage(){
+  REV_CHART_PASTE_ARMED=true;   // Ctrl+V now targets the main screenshot, one-shot
   let inp=document.getElementById('rev-shot-inp');
   if(!inp){
     inp=document.createElement('input');
@@ -5153,15 +5157,17 @@ async function deleteChartImage(){
   renderReview();
 }
 
-// Paste a screenshot (Ctrl+V) straight onto the open Review card —
-// same upload path as the Edit button, just skipping the file picker.
-// Ignored while the playlist overlay is open (no single card in view)
-// and while the notes textarea has its own paste handler running —
-// that one only consumes plain text, so an image in the clipboard
-// still reaches here via bubbling even if the textarea is focused.
+// Paste a screenshot (Ctrl+V) onto the open Review card's main chart
+// screenshot — same upload path as the Edit button, just skipping the
+// file picker. Gated on REV_CHART_PASTE_ARMED (set by pickChartImage(),
+// i.e. clicking "✎ Edit"/"＋ Add screenshot" first) so a paste meant for
+// notes or the score-shot area doesn't silently overwrite the chart too.
+// One-shot: disarms itself after the first paste attempt either way.
 document.addEventListener('paste', async (e)=>{
   if(!document.getElementById('tab-review')?.classList.contains('active')) return;
   if(PL_ACTIVE) return;
+  if(!REV_CHART_PASTE_ARMED) return;
+  REV_CHART_PASTE_ARMED=false;
   const items=(e.clipboardData||window.clipboardData)?.items;
   if(!items) return;
   let imgItem=null;
@@ -5456,6 +5462,13 @@ function splitReviewNote(raw){
 }
 function composeReviewNote(img,text){ return (img?`[[img:${img}]]\n`:'')+(text||''); }
 let REV_SCORE_IMG=null; // active card's score-shot URL, kept alongside the textarea's plain text
+// [Model] Ctrl+V used to always overwrite the main chart screenshot
+// whenever the Review tab was open, no matter where you'd actually
+// clicked/pasted (notes, score-shot) - the document-level paste handler
+// below had nothing scoping it to that specific section. Now it only
+// fires once "✎ Edit"/"＋ Add screenshot" (pickChartImage) has armed it,
+// and disarms itself after one paste attempt or on switching cards.
+let REV_CHART_PASTE_ARMED=false;
 
 function renderScoreShot(){
   const el=document.getElementById('rev-score-shot');
@@ -5473,7 +5486,7 @@ function wireScoreShot(){
   el.onpaste=e=>{
     const items=(e.clipboardData||window.clipboardData).items||[];
     for(const it of items){
-      if(it.type.indexOf('image')===0){ e.preventDefault(); uploadScoreImage(it.getAsFile()); return; }
+      if(it.type.indexOf('image')===0){ e.preventDefault(); e.stopPropagation(); uploadScoreImage(it.getAsFile()); return; }
     }
   };
 }
