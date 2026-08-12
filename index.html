@@ -4301,7 +4301,8 @@ function renderWeekly(){
       let calc;
       if(r.priced){
         const won=r.net>0;
-        calc=`<span class="${won?'ok':'bad'}">${r.sh}sh · ${won?'+':'−'}$${Math.abs(r.net).toFixed(2)}${won?'':' (no add)'} → $${r.after.toFixed(2)}</span>`;
+        const perShare=(+t.sell-+t.buy);
+        calc=`<span class="${won?'ok':'bad'}">${r.sh}sh · ${won?'+':'−'}$${Math.abs(perShare).toFixed(2)}/sh · ${won?'+':'−'}$${Math.abs(r.net).toFixed(2)}${won?'':' (no add)'} → $${r.after.toFixed(2)}</span>`;
       } else {
         calc='<span style="color:var(--muted)">no buy/sell price</span>';
       }
