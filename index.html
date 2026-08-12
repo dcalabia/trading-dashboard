@@ -3337,14 +3337,16 @@ function renderReview(){
           <span><button class="rev-hl-btn" onclick="toggleHighlightLine()" title="Mark/unmark the line your cursor is on (Ctrl+H) — shows up in Highlights below">★ Highlight line</button>
           <span class="rev-notes-status" id="rev-notes-status"></span></span></div>
         <div class="rev-score-shot" id="rev-score-shot" tabindex="0" title="Click to upload, or paste (Ctrl+V) the scanner's scoring snapshot"></div>
+        <div class="rev-score-shot" id="rev-score-shot-2" tabindex="0" style="margin-bottom:16px" title="Click to upload, or paste (Ctrl+V) a second scoring-criteria screenshot"></div>
         <textarea class="rev-notes-ta" id="rev-notes-ta" placeholder="Jot down your review of this trade…"></textarea>
         <button class="rev-notes-save" onclick="saveReviewNote()">Save note</button>
       </div>
     </div>
   </div>`;
   const ta=document.getElementById('rev-notes-ta');
-  { const parsed=splitReviewNote(t.reviewNote||''); REV_SCORE_IMG=parsed.img; ta.value=parsed.text; }
+  { const parsed=splitReviewNote(t.reviewNote||''); REV_SCORE_IMG=parsed.img; REV_SCORE_IMG2=parsed.img2; ta.value=parsed.text; }
   renderScoreShot(); wireScoreShot();
+  renderScoreShot(2); wireScoreShot(2);
   ta.addEventListener('input',()=>{
     // First keystroke into an empty pad starts the first bullet
     if(ta.value.length===1&&ta.value!=='•'&&ta.value.trim()){
@@ -3498,8 +3500,9 @@ function renderMissCard(t){
     </div>
   </div>`;
   const ta=document.getElementById('rev-notes-ta');
-  { const parsed=splitReviewNote(t.reviewNote||''); REV_SCORE_IMG=parsed.img; ta.value=parsed.text; }
+  { const parsed=splitReviewNote(t.reviewNote||''); REV_SCORE_IMG=parsed.img; REV_SCORE_IMG2=parsed.img2; ta.value=parsed.text; }
   renderScoreShot(); wireScoreShot();
+  renderScoreShot(2); wireScoreShot(2);
   ta.addEventListener('input',()=>{
     if(ta.value.length===1&&ta.value!=='•'&&ta.value.trim()){
       ta.value='• '+ta.value;
@@ -5455,13 +5458,24 @@ function jumpToHighlight(i){
 // review_note itself — no schema change needed, rides the existing
 // review_note sync (Supabase PATCH + the highlights scanner already
 // ignores any line without a ★, so the marker is invisible to it).
+// Two independent scoring-criteria screenshots, both piggybacked on the
+// plain-text review_note field (no schema change) via prefix markers —
+// [[img:URL]] for the first, [[img2:URL]] for the second, in that order.
 const SCORE_IMG_RE=/^\[\[img:([^\]]+)\]\]\n?/;
+const SCORE_IMG2_RE=/^\[\[img2:([^\]]+)\]\]\n?/;
 function splitReviewNote(raw){
-  const m=(raw||'').match(SCORE_IMG_RE);
-  return m ? {img:m[1],text:raw.slice(m[0].length)} : {img:null,text:raw||''};
+  let s=raw||'', img=null, img2=null;
+  let m=s.match(SCORE_IMG_RE);
+  if(m){ img=m[1]; s=s.slice(m[0].length); }
+  m=s.match(SCORE_IMG2_RE);
+  if(m){ img2=m[1]; s=s.slice(m[0].length); }
+  return {img,img2,text:s};
 }
-function composeReviewNote(img,text){ return (img?`[[img:${img}]]\n`:'')+(text||''); }
-let REV_SCORE_IMG=null; // active card's score-shot URL, kept alongside the textarea's plain text
+function composeReviewNote(img,img2,text){
+  return (img?`[[img:${img}]]\n`:'')+(img2?`[[img2:${img2}]]\n`:'')+(text||'');
+}
+let REV_SCORE_IMG=null;  // active card's first score-shot URL, kept alongside the textarea's plain text
+let REV_SCORE_IMG2=null; // second score-shot URL, same idea, stacked below the first
 // [Model] Ctrl+V used to always overwrite the main chart screenshot
 // whenever the Review tab was open, no matter where you'd actually
 // clicked/pasted (notes, score-shot) - the document-level paste handler
@@ -5470,41 +5484,46 @@ let REV_SCORE_IMG=null; // active card's score-shot URL, kept alongside the text
 // and disarms itself after one paste attempt or on switching cards.
 let REV_CHART_PASTE_ARMED=false;
 
-function renderScoreShot(){
-  const el=document.getElementById('rev-score-shot');
+function scoreShotEl(slot){ return document.getElementById(slot===2?'rev-score-shot-2':'rev-score-shot'); }
+function scoreImgVal(slot){ return slot===2?REV_SCORE_IMG2:REV_SCORE_IMG; }
+
+function renderScoreShot(slot=1){
+  const el=scoreShotEl(slot);
   if(!el) return;
-  el.classList.toggle('has-img',!!REV_SCORE_IMG);
-  el.innerHTML = REV_SCORE_IMG
-    ? `<img src="${REV_SCORE_IMG.replace(/"/g,'&quot;')}" alt="scoring snapshot" loading="lazy">
-       <button class="rev-score-del" onclick="event.stopPropagation();deleteScoreShot()" title="Remove">🗑</button>`
+  const val=scoreImgVal(slot);
+  el.classList.toggle('has-img',!!val);
+  el.innerHTML = val
+    ? `<img src="${val.replace(/"/g,'&quot;')}" alt="scoring snapshot" loading="lazy">
+       <button class="rev-score-del" onclick="event.stopPropagation();deleteScoreShot(${slot})" title="Remove">🗑</button>`
     : `<div class="rev-score-empty">📷 Click or paste (Ctrl+V) the scanner's scoring snapshot</div>`;
 }
-function wireScoreShot(){
-  const el=document.getElementById('rev-score-shot');
+function wireScoreShot(slot=1){
+  const el=scoreShotEl(slot);
   if(!el) return;
-  el.onclick=()=>{ if(!REV_SCORE_IMG) pickScoreImage(); };
+  el.onclick=()=>{ if(!scoreImgVal(slot)) pickScoreImage(slot); };
   el.onpaste=e=>{
     const items=(e.clipboardData||window.clipboardData).items||[];
     for(const it of items){
-      if(it.type.indexOf('image')===0){ e.preventDefault(); e.stopPropagation(); uploadScoreImage(it.getAsFile()); return; }
+      if(it.type.indexOf('image')===0){ e.preventDefault(); e.stopPropagation(); uploadScoreImage(it.getAsFile(),slot); return; }
     }
   };
 }
-function pickScoreImage(){
-  let inp=document.getElementById('rev-score-inp');
+function pickScoreImage(slot=1){
+  const inpId=slot===2?'rev-score-inp-2':'rev-score-inp';
+  let inp=document.getElementById(inpId);
   if(!inp){
     inp=document.createElement('input');
-    inp.type='file'; inp.accept='image/*'; inp.id='rev-score-inp';
+    inp.type='file'; inp.accept='image/*'; inp.id=inpId;
     inp.style.display='none';
-    inp.onchange=()=>{ if(inp.files[0]) uploadScoreImage(inp.files[0]); inp.value=''; };
+    inp.onchange=()=>{ if(inp.files[0]) uploadScoreImage(inp.files[0],slot); inp.value=''; };
     document.body.appendChild(inp);
   }
   inp.click();
 }
-async function uploadScoreImage(file){
+async function uploadScoreImage(file,slot=1){
   const t=revTrades()[REV_IDX];
   if(!t) return;
-  const el=document.getElementById('rev-score-shot');
+  const el=scoreShotEl(slot);
   if(el) el.innerHTML='<div class="rev-score-empty">Uploading…</div>';
   try{
     const key=`${t.date||new Date().toISOString().slice(0,10)}/`
@@ -5517,31 +5536,33 @@ async function uploadScoreImage(file){
        body:file});
     if(!up.ok) throw new Error(`Storage upload failed: HTTP ${up.status} ${(await up.text()).slice(0,120)}`);
     const url=`${SUPABASE_URL}/storage/v1/object/public/${SUPABASE_CHART_BUCKET}/${key}`;
-    await saveScoreImg(t,url);
+    await saveScoreImg(t,url,slot);
   }catch(e){
     alert('Upload failed: '+e.message);
-    renderScoreShot();
+    renderScoreShot(slot);
   }
 }
-async function deleteScoreShot(){
+async function deleteScoreShot(slot=1){
   const t=revTrades()[REV_IDX];
   if(!t) return;
-  await saveScoreImg(t,null);
+  await saveScoreImg(t,null,slot);
 }
-async function saveScoreImg(t,url){
+async function saveScoreImg(t,url,slot=1){
   const ta=document.getElementById('rev-notes-ta');
   const text=ta?ta.value:splitReviewNote(t.reviewNote||'').text;
-  const note=composeReviewNote(url,text);
+  const img  = slot===2 ? REV_SCORE_IMG  : url;
+  const img2 = slot===2 ? url : REV_SCORE_IMG2;
+  const note=composeReviewNote(img,img2,text);
   const ok=await patchTradeField(t,{review_note:note});
   if(ok){
-    REV_SCORE_IMG=url;
+    if(slot===2) REV_SCORE_IMG2=url; else REV_SCORE_IMG=url;
     t.reviewNote=note;
     const m=findBacking(t);
     if(m) m.reviewNote=note;
   }else{
     alert('Save failed — Supabase PATCH did not go through.');
   }
-  renderScoreShot();
+  renderScoreShot(slot);
 }
 
 async function saveReviewNote(){
@@ -5550,7 +5571,7 @@ async function saveReviewNote(){
   const ta=document.getElementById('rev-notes-ta');
   const status=document.getElementById('rev-notes-status');
   if(!t||!ta) return;
-  const note=composeReviewNote(REV_SCORE_IMG,ta.value);
+  const note=composeReviewNote(REV_SCORE_IMG,REV_SCORE_IMG2,ta.value);
   status.textContent='saving…';
   const ok=await patchTradeField(t,{review_note:note});
   if(ok){
