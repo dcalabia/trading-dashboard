@@ -2228,6 +2228,18 @@ function weekLabel(k){
   const d = new Date(k+'T12:00:00');
   return 'Week of '+d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
 }
+// [Model] Display-only — underlying data stays ISO (t.date etc.), this
+// just reformats "2026-08-10" -> "Mon Aug 10" for Dale so the day of
+// week is visible at a glance. Built manually (not one locale call)
+// to avoid the "Mon, Aug 10" comma toLocaleDateString adds by default.
+function fmtDayDate(dateStr){
+  if(!dateStr) return '';
+  const d=new Date(dateStr+'T12:00:00');
+  if(isNaN(d)) return dateStr;
+  const wd=d.toLocaleDateString('en-US',{weekday:'short'});
+  const mo=d.toLocaleDateString('en-US',{month:'short'});
+  return `${wd} ${mo} ${d.getDate()}`;
+}
 function monthLabel(k){
   const [y,m]=k.split('-');
   return new Date(y,m-1,1).toLocaleDateString('en-US',{month:'long',year:'numeric'});
@@ -3297,7 +3309,7 @@ function renderReview(){
         ${perShare!=null?`<span class="rev-pnl-sub">· ${t.shares} sh · ${(perShare>=0?'+':'−')}$${Math.abs(perShare).toFixed(2)}/sh</span>`:''}
       </div>
     </div>
-    <div class="rev-sub">${t.result==='win'?'Win':'Loss'} · ${pct}% · ${esc(t.date)}</div>
+    <div class="rev-sub">${t.result==='win'?'Win':'Loss'} · ${pct}% · ${fmtDayDate(t.date)}</div>
     <div class="rev-tags" id="rev-tags">
       <button class="rev-tag mm-btn${(t.tags||[]).includes('MM')?' on':''}" onclick="toggleMM()" title="Money maker — gets a gold border in the date list">★ MM</button>
       ${PRESET_TAGS.map(p=>
@@ -3456,7 +3468,7 @@ function renderMissCard(t){
         ${perSh!=null?`<span class="rev-pnl-sub">· ${hypoSh!=null?'~'+hypoSh+' sh · ':''}${perSh>=0?'+':'−'}$${Math.abs(perSh).toFixed(2)}/sh</span>`:''}
       </div>
     </div>
-    <div class="rev-sub">Missed · ${esc(t.reason||'—')} · ${esc(t.date)}</div>
+    <div class="rev-sub">Missed · ${esc(t.reason||'—')} · ${fmtDayDate(t.date)}</div>
     <div class="rev-tags" id="rev-tags">
       <button class="rev-tag mm-btn${(t.tags||[]).includes('MM')?' on':''}" onclick="toggleMM()" title="Money maker — gets a gold border in the date list">★ MM</button>
       ${PRESET_TAGS.map(p=>
@@ -3936,11 +3948,11 @@ function plItemLabel(t){
   const src=curSrc(t);
   if(src==='misses'){
     const chip=t.potential!=null?`<span class="chip pot">pot $${(+t.potential).toFixed(2)}</span>`:'';
-    return {main:`${esc(t.ticker)} · Miss ${esc(t.missNo)}`, sub:esc(t.reason||t.setup||''), chip, date:t.date};
+    return {main:`${esc(t.ticker)} · Miss ${esc(t.missNo)}`, sub:esc(t.reason||t.setup||''), chip, date:fmtDayDate(t.date)};
   }
   const chip=t.pnl!=null?`<span class="chip ${t.pnl>=0?'win':'loss'}">${t.pnl>=0?'+':'−'}$${Math.abs(t.pnl).toFixed(2)}</span>`:'';
   const rossTag=(REV_MODE==='all'&&src==='ross')?' <i class="tags">Ross</i>':'';
-  return {main:esc(t.ticker)+rossTag, sub:esc(t.setup||''), chip, date:t.date};
+  return {main:esc(t.ticker)+rossTag, sub:esc(t.setup||''), chip, date:fmtDayDate(t.date)};
 }
 
 function plLoad(){
@@ -4120,7 +4132,7 @@ function cmpPick(side,val){
     <div class="cmp-head">
       <span class="tk">${esc(t.ticker)}${isMiss?` · Miss ${esc(t.missNo)}`:''}</span>
       ${chip}
-      <span class="meta">${esc(t.date)}</span>
+      <span class="meta">${fmtDayDate(t.date)}</span>
     </div>
     <div class="cmp-stats">${stats.map(([k,v])=>`<div class="cmp-stat"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`).join('')}</div>
     ${t.video?`<button class="cmp-vid-btn" id="cmp-vbtn-${side}" onclick="cmpVideo('${side}',${+val})">▶ Video</button>`:''}
