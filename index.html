@@ -470,8 +470,20 @@ tr:hover td{background:rgba(255,255,255,0.025)}
 .rem-add-btn{background:#3b82f6;border:none;border-radius:6px;color:#fff;font-size:14px;font-weight:700;width:28px;height:28px;cursor:pointer;flex-shrink:0}
 .rem-add-btn:hover{opacity:.8}
 .rem-empty{padding:16px 12px;text-align:center;font-size:12px;color:#4d6070}
-</style>
-</head>
+/* ── Hidden blocks — user-flagged data-cleanup entries ── */
+.rev-card.is-hidden{opacity:0.55;border-color:rgba(255,93,93,0.5)}
+.rev-card.is-hidden::before{
+  content:"🚫 HIDDEN — excluded from all statistics";
+  display:block;font-size:10px;letter-spacing:0.5px;color:#ff5d5d;
+  text-transform:uppercase;margin:-8px 0 10px;font-weight:600;
+}
+.rev-hide-btn{background:transparent;border:1px dashed var(--border);border-radius:10px;
+  color:var(--muted);font-size:10px;padding:2px 8px;cursor:pointer;
+  margin-right:8px;text-transform:none;letter-spacing:0}
+.rev-hide-btn:hover{color:#ff5d5d;border-color:#ff5d5d}
+.rev-hide-btn.unhide{color:#ffd54a;border-color:#ffd54a}
+.rev-hide-btn.unhide:hover{color:#26d97f;border-color:#26d97f}
+</style></head>
 <body>
 <div id="sb-login-overlay" style="display:none;position:fixed;inset:0;background:rgba(5,8,14,.94);z-index:9999;align-items:center;justify-content:center">
   <div style="background:var(--panel,#0d1420);border:1px solid var(--border,#1e2e45);border-radius:12px;padding:28px;width:320px;box-sizing:border-box">
@@ -939,6 +951,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
              title="Filter to one specific date" style="max-width:150px">
       <button class="rev-act-btn" onclick="applyTagThisWeekFilter('Ideal Trades')" title="All deck (Trades+Misses+Ross) + Ideal Trades tag + This week">🎯 Ideal This Week</button>
       <button class="rev-act-btn" id="rev-tag-week-btn" onclick="applyTagThisWeekFilter()" title="All deck (Trades+Misses+Ross) + the tag picked in Tags: all + This week">🎯 This Week</button>
+      <button class="rev-act-btn" id="rev-showhidden-btn" onclick="toggleShowHidden()" title="Show entries you've flagged as hidden (excluded from all statistics)">🚫 Hidden: off</button>
       <select class="rev-filter" id="rev-tag-week-filter" onchange="applyTagWeekFilter(this.value)" title="Jump to a past week for the tag picked in Tags: all">
         <option value="">Jump to week…</option>
       </select>
@@ -5748,7 +5761,7 @@ document.addEventListener('keydown',e=>{
       if(fsEl===f){
         const exit=document.exitFullscreen||document.webkitExitFullscreen;
         if(exit) exit.call(document);
-      }else{
+            }else{
         const req=f.requestFullscreen||f.webkitRequestFullscreen;
         FS_VIA_KEY=true;
         if(req) req.call(f);
@@ -5756,6 +5769,261 @@ document.addEventListener('keydown',e=>{
     }
   }
 });
+
+// ═══════════════════════════════════════════════════════════════
+// HIDDEN BLOCKS — user-flagged entries excluded from all statistics
+// ═══════════════════════════════════════════════════════════════
+// Any trade/miss/Ross row can be flagged as hidden. Hidden rows are
+// filtered out of ALL_TRADES / ALL_MISSES / ALL_ROSS at load time,
+// so every existing render function excludes them automatically.
+// Stored as one JSON blob in dashboard_data (key 'hidden-blocks'),
+// matching the storage pattern used by the checklist defs and
+// weekly focus. No schema change to trades/misses/ross_trades.
+(function(){
+  'use strict';
+
+  const HIDDEN_KEY_NAME = 'hidden-blocks';
+  let HIDDEN_KEYS = new Set();
+  let HIDDEN_LOADED = false;
+  let SHOW_HIDDEN = false;
+  let _FULL_TRADES = [];
+  let _FULL_MISSES = [];
+  let _FULL_ROSS   = [];
+
+  function hk(t, src){
+    src = src || (t && t.__src) || 'trades';
+    if((src === 'misses' || src === 'ross') && t.id != null) return `${src}:${t.id}`;
+    return `${src}:${t.date}:${t.ticker}:${t.buyTime || ''}`;
+  }
+
+  function sbHeaders(){
+    const token = (typeof SB_TOKEN !== 'undefined' && SB_TOKEN) ? SB_TOKEN : null;
+    const key   = (typeof SUPABASE_KEY !== 'undefined') ? SUPABASE_KEY : null;
+    return {apikey:key, Authorization:'Bearer '+(token||key), 'Content-Type':'application/json'};
+  }
+
+  async function loadHiddenKeys(){
+    if(HIDDEN_LOADED) return;
+    try{
+      const url = (typeof SUPABASE_URL !== 'undefined') ? SUPABASE_URL : '';
+      const r = await fetch(
+        `${url}/rest/v1/dashboard_data?key=eq.${HIDDEN_KEY_NAME}&select=value`,
+        {headers: sbHeaders()});
+      const rows = await r.json();
+      const arr = rows && rows[0] && rows[0].value ? JSON.parse(rows[0].value) : [];
+      HIDDEN_KEYS = new Set(Array.isArray(arr) ? arr : []);
+    }catch(e){
+      console.warn('[hidden-blocks] load failed, treating as empty:', e);
+      HIDDEN_KEYS = new Set();
+    }
+    HIDDEN_LOADED = true;
+  }
+
+  async function saveHiddenKeys(){
+    try{
+      const url = (typeof SUPABASE_URL !== 'undefined') ? SUPABASE_URL : '';
+      await fetch(`${url}/rest/v1/dashboard_data?on_conflict=key`,{
+        method:'POST',
+        headers:Object.assign(sbHeaders(), {Prefer:'resolution=merge-duplicates'}),
+        body:JSON.stringify({
+          key:HIDDEN_KEY_NAME,
+          value:JSON.stringify([...HIDDEN_KEYS]),
+          updated_at:new Date().toISOString()
+        })
+      });
+    }catch(e){ console.warn('[hidden-blocks] save failed:', e); }
+  }
+
+  function applyHiddenFilter(){
+    try{ ALL_TRADES = _FULL_TRADES.filter(t => !HIDDEN_KEYS.has(hk(t,'trades'))); }catch(e){}
+    try{ ALL_MISSES = _FULL_MISSES.filter(t => !HIDDEN_KEYS.has(hk(t,'misses'))); }catch(e){}
+    try{ ALL_ROSS   = _FULL_ROSS  .filter(t => !HIDDEN_KEYS.has(hk(t,'ross')));   }catch(e){}
+  }
+
+  // Wrap each loader so we can snapshot the full set and refilter
+  function wrapLoader(name, getFull, setFull){
+    const original = window[name];
+    if(typeof original !== 'function') return;
+    window[name] = async function(){
+      const result = await original.apply(this, arguments);
+      try{ setFull(getFull()); applyHiddenFilter(); }catch(e){}
+      return result;
+    };
+  }
+
+  function installLoaders(){
+    wrapLoader('loadSupabaseTrades',
+      () => (typeof ALL_TRADES !== 'undefined' ? ALL_TRADES.slice() : []),
+      (v) => { _FULL_TRADES = v; });
+    wrapLoader('loadSupabaseMisses',
+      () => (typeof ALL_MISSES !== 'undefined' ? ALL_MISSES.slice() : []),
+      (v) => { _FULL_MISSES = v; });
+    wrapLoader('loadSupabaseRoss',
+      () => (typeof ALL_ROSS !== 'undefined' ? ALL_ROSS.slice() : []),
+      (v) => { _FULL_ROSS = v; });
+  }
+
+  async function setHidden(t, hidden, src){
+    src = src || (t && t.__src) || 'trades';
+    const k = hk(t, src);
+    if(hidden) HIDDEN_KEYS.add(k); else HIDDEN_KEYS.delete(k);
+    applyHiddenFilter();
+    await saveHiddenKeys();
+    rerenderEverything();
+  }
+
+  function rerenderEverything(){
+    try{ renderReview(); }catch(e){}
+    try{ renderHomeHighlights(); }catch(e){}
+    try{
+      if(document.getElementById('tab-calendar') &&
+         document.getElementById('tab-calendar').classList.contains('active')) renderCalendar();
+    }catch(e){}
+    try{
+      if(document.getElementById('tab-weekly') &&
+         document.getElementById('tab-weekly').classList.contains('active')) renderWeekly();
+    }catch(e){}
+    try{
+      if(document.getElementById('tab-daily') &&
+         document.getElementById('tab-daily').classList.contains('active')) renderDaily();
+    }catch(e){}
+    try{ setPeriod(localStorage.getItem('trading-period') || 'all'); }catch(e){}
+  }
+
+  function currentReviewEntry(){
+    try{
+      const list = revTrades();
+      return list[REV_IDX] || null;
+    }catch(e){ return null; }
+  }
+
+  function currentSrc(t){
+    try{ return curSrc(t); }catch(e){ return (t && t.__src) || 'trades'; }
+  }
+
+  window.hideCurrentCard = function(){
+    const t = currentReviewEntry();
+    if(!t) return;
+    setHidden(t, true, currentSrc(t));
+  };
+
+  window.unhideCurrentCard = function(){
+    const t = currentReviewEntry();
+    if(!t) return;
+    setHidden(t, false, currentSrc(t));
+  };
+
+  window.toggleShowHidden = function(){
+    SHOW_HIDDEN = !SHOW_HIDDEN;
+    const btn = document.getElementById('rev-showhidden-btn');
+    if(btn){
+      btn.textContent = SHOW_HIDDEN ? '🚫 Hidden: shown' : '🚫 Hidden: off';
+      btn.style.borderStyle = SHOW_HIDDEN ? 'solid' : 'dashed';
+      btn.style.color = SHOW_HIDDEN ? '#ff5d5d' : '';
+      btn.style.borderColor = SHOW_HIDDEN ? '#ff5d5d' : '';
+    }
+    try{ renderReview(); }catch(e){}
+  };
+
+  // Post-process the rendered card: inject the hide button + hidden style
+  function decorateCard(){
+    const holder = document.getElementById('rev-card-holder');
+    if(!holder) return;
+    const card = holder.querySelector('.rev-card');
+    if(!card) return;
+    const t = currentReviewEntry();
+    if(!t) return;
+    const src = currentSrc(t);
+    const isHidden = HIDDEN_KEYS.has(hk(t, src));
+
+    const head = card.querySelector('.rev-head');
+    if(head && !head.querySelector('.rev-hide-btn')){
+      const btn = document.createElement('button');
+      if(SHOW_HIDDEN && isHidden){
+        btn.className = 'rev-hide-btn unhide';
+        btn.textContent = '♻ Unhide';
+        btn.title = 'Unhide — restores this block to all statistics';
+        btn.onclick = window.unhideCurrentCard;
+      }else{
+        btn.className = 'rev-hide-btn';
+        btn.textContent = '🚫 Hide';
+        btn.title = 'Hide this block — excludes it from every statistic';
+        btn.onclick = window.hideCurrentCard;
+      }
+      head.insertBefore(btn, head.firstChild);
+    }
+
+    if(SHOW_HIDDEN && isHidden){
+      card.classList.add('is-hidden');
+    }else{
+      card.classList.remove('is-hidden');
+    }
+  }
+
+  function wrapRenderer(name){
+    const original = window[name];
+    if(typeof original !== 'function') return;
+    window[name] = function(){
+      const result = original.apply(this, arguments);
+      try{ decorateCard(); }catch(e){}
+      return result;
+    };
+  }
+
+  function installRenderers(){
+    let wrapped = 0;
+    ['renderReview','renderMissCard'].forEach(fn=>{
+      if(typeof window[fn] === 'function'){ wrapRenderer(fn); wrapped++; }
+    });
+    if(wrapped === 0){
+      const holder = document.getElementById('rev-card-holder');
+      if(holder){
+        const obs = new MutationObserver(() => { try{ decorateCard(); }catch(e){} });
+        obs.observe(holder, {childList:true});
+      }
+    }
+  }
+
+  function installToolbarButton(){
+    if(document.getElementById('rev-showhidden-btn')) return;
+    const filterline = document.querySelector('#tab-review .rev-filterline');
+    if(!filterline) return;
+    const btn = document.createElement('button');
+    btn.className = 'rev-act-btn';
+    btn.id = 'rev-showhidden-btn';
+    btn.textContent = '🚫 Hidden: off';
+    btn.title = "Show entries you've flagged as hidden (excluded from all statistics)";
+    btn.onclick = window.toggleShowHidden;
+    filterline.appendChild(btn);
+  }
+
+  async function boot(){
+    await new Promise(r => {
+      if(document.readyState === 'complete' || document.readyState === 'interactive'){
+        setTimeout(r, 50);
+      }else{
+        document.addEventListener('DOMContentLoaded', () => setTimeout(r, 50), {once:true});
+      }
+    });
+
+    installLoaders();
+    installRenderers();
+    installToolbarButton();
+    await loadHiddenKeys();
+
+    try{
+      if(typeof loadSupabaseTrades === 'function') await loadSupabaseTrades();
+      if(typeof loadSupabaseMisses === 'function') await loadSupabaseMisses();
+      if(typeof loadSupabaseRoss === 'function')   await loadSupabaseRoss();
+    }catch(e){ console.warn('[hidden-blocks] initial refilter failed:', e); }
+
+    rerenderEverything();
+    console.log('[hidden-blocks] ready —', HIDDEN_KEYS.size, 'entries hidden');
+  }
+
+  if(document.readyState === 'complete') boot();
+  else window.addEventListener('load', boot, {once:true});
+})();
 </script>
 <script>
 (function(){
