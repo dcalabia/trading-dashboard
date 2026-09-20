@@ -2988,11 +2988,25 @@ function findBacking(t){
 // means every existing array (ALL_TRADES etc.) still holds the exact
 // same references, so edits made while browsing 'All' still land on
 // the real backing array with zero extra bookkeeping.
+// Cache the combined deck — it only changes when a loader refills
+// ALL_TRADES / ALL_MISSES / ALL_ROSS (or the raw counts change). We
+// fingerprint on array lengths + the first/last element references;
+// any refill rebuilds. Avoids re-tagging and re-spreading ~300
+// entries on every arrow key during All-mode browsing.
+let _combinedCache=null, _combinedFingerprint='';
 function combinedDeck(){
+  const fp = ALL_TRADES.length + '|' + ALL_MISSES.length + '|' + ALL_ROSS.length
+           + '|' + (ALL_TRADES[0]?.date||'') + '|' + (ALL_TRADES[ALL_TRADES.length-1]?.date||'')
+           + '|' + (ALL_MISSES[0]?.date||'') + '|' + (ALL_MISSES[ALL_MISSES.length-1]?.date||'')
+           + '|' + (ALL_ROSS[0]?.date||'')   + '|' + (ALL_ROSS[ALL_ROSS.length-1]?.date||'');
+  if(_combinedCache && _combinedFingerprint === fp)
+    return _combinedCache;
   const tr=getFilteredTrades('review'); tr.forEach(t=>t.__src='trades');
   ALL_MISSES.forEach(t=>t.__src='misses');
   ALL_ROSS.forEach(t=>t.__src='ross');
-  return [...tr, ...ALL_MISSES, ...ALL_ROSS];
+  _combinedCache = [...tr, ...ALL_MISSES, ...ALL_ROSS];
+  _combinedFingerprint = fp;
+  return _combinedCache;
 }
 // Chronological compare across sources whose buyTime formats differ
 // (ISO vs sheet clock strings) — ptMinutes() already normalizes both.
@@ -3201,20 +3215,32 @@ function setExactDate(v){
 // time_found), so read the wall clock as displayed — no shifting.
 // Sheet clock strings (misses/Ross) are the same wall clock.
 function ptMinutes(t){
+  // Memoized — ptMinutes runs inside sort comparators on every arrow
+  // key, and the ISO branch's toLocaleTimeString(tz) is expensive
+  // enough that All-mode (Trades+Misses+Ross, ~300 entries) crawled.
+  // Same object reference is reused all session, so caching the
+  // result on `t` makes repeat calls a plain property read.
+  if(t.__ptMin !== undefined) return t.__ptMin;
   const bt=t.buyTime||'';
-  if(!bt) return null;
-  if(/T/.test(bt)){
-    try{
-      const p=new Date(bt).toLocaleTimeString('en-GB',
-        {timeZone:'America/New_York',hour12:false,hour:'2-digit',minute:'2-digit'}).split(':');
-      return (+p[0])*60+(+p[1]);
-    }catch(e){ return null; }
+  let out=null;
+  if(bt){
+    if(/T/.test(bt)){
+      try{
+        const p=new Date(bt).toLocaleTimeString('en-GB',
+          {timeZone:'America/New_York',hour12:false,hour:'2-digit',minute:'2-digit'}).split(':');
+        out=(+p[0])*60+(+p[1]);
+      }catch(e){ out=null; }
+    } else {
+      const m=String(bt).match(/(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?/i);
+      if(m){
+        let h=(+m[1])%12;
+        if(/pm/i.test(m[3]||'')) h+=12;
+        out=h*60+(+m[2]);
+      }
+    }
   }
-  const m=String(bt).match(/(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?/i);
-  if(!m) return null;
-  let h=(+m[1])%12;
-  if(/pm/i.test(m[3]||'')) h+=12;
-  return h*60+(+m[2]);
+  t.__ptMin=out;
+  return out;
 }
 function extraMatch(t){
   // W/L — misses have no result; skip the check there
