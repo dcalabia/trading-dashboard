@@ -1783,7 +1783,11 @@ async function init(){
 
 document.addEventListener('DOMContentLoaded', async()=>{
   const ok=await sbAuthInit();
-  if(!ok) sbShowLogin();   // pre-flip: page still works via anon fallback; post-flip: empty until sign-in
+  if(!ok) sbShowLogin();
+  // Pre-load the hidden-block list so the main loaders can filter
+  // against it on their first pass, instead of re-fetching and
+  // re-rendering everything after init() finishes.
+  if(window.__hiddenBlocksReady) await window.__hiddenBlocksReady;
   init();
 });
 
@@ -5783,12 +5787,17 @@ document.addEventListener('keydown',e=>{
   'use strict';
 
   const HIDDEN_KEY_NAME = 'hidden-blocks';
-  let HIDDEN_KEYS = new Set();
-  let HIDDEN_LOADED = false;
-  let SHOW_HIDDEN = false;
-  let _FULL_TRADES = [];
-  let _FULL_MISSES = [];
-  let _FULL_ROSS   = [];
+let HIDDEN_KEYS = new Set();
+let HIDDEN_LOADED = false;
+let SHOW_HIDDEN = false;
+let _FULL_TRADES = [];
+let _FULL_MISSES = [];
+let _FULL_ROSS   = [];
+// Exposed so DOMContentLoaded can await this before init() runs,
+// instead of letting the IIFE's boot() re-fetch and re-render
+// everything after init() has already done it once.
+window.__hiddenBlocksReady = null;
+window.__hiddenBlocksKeys = HIDDEN_KEYS;
 
   function hk(t, src){
     src = src || (t && t.__src) || 'trades';
@@ -5997,32 +6006,18 @@ document.addEventListener('keydown',e=>{
     filterline.appendChild(btn);
   }
 
-  async function boot(){
-    await new Promise(r => {
-      if(document.readyState === 'complete' || document.readyState === 'interactive'){
-        setTimeout(r, 50);
-      }else{
-        document.addEventListener('DOMContentLoaded', () => setTimeout(r, 50), {once:true});
-      }
-    });
+  // Install the wrappers immediately so the main loaders pick up the
+  // hidden-key filter the moment they run. The KEYS themselves are
+  // fetched through window.__hiddenBlocksReady, which DOMContentLoaded
+  // awaits before calling init().
+  installLoaders();
+  installRenderers();
+  installToolbarButton();
 
-    installLoaders();
-    installRenderers();
-    installToolbarButton();
+  window.__hiddenBlocksReady = (async () => {
     await loadHiddenKeys();
-
-    try{
-      if(typeof loadSupabaseTrades === 'function') await loadSupabaseTrades();
-      if(typeof loadSupabaseMisses === 'function') await loadSupabaseMisses();
-      if(typeof loadSupabaseRoss === 'function')   await loadSupabaseRoss();
-    }catch(e){ console.warn('[hidden-blocks] initial refilter failed:', e); }
-
-    rerenderEverything();
     console.log('[hidden-blocks] ready —', HIDDEN_KEYS.size, 'entries hidden');
-  }
-
-  if(document.readyState === 'complete') boot();
-  else window.addEventListener('load', boot, {once:true});
+  })();
 })();
 </script>
 <script>
