@@ -355,6 +355,8 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .cal-week-lbl{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
 .cal-week-pnl{font-size:13px;font-weight:700;font-family:'JetBrains Mono',monospace}
 .cal-week-count{font-size:10px;color:var(--muted);margin-top:2px}
+.cal-week-play{margin-top:6px;background:var(--panel);border:1px solid var(--border);border-radius:5px;color:var(--accent);font-family:'Inter',sans-serif;font-size:10px;padding:3px 8px;cursor:pointer;letter-spacing:0.3px;width:100%}
+.cal-week-play:hover{border-color:var(--accent);background:rgba(0,230,118,0.08)}
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
 @media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
 .kpi{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:14px 16px;position:relative;overflow:hidden}
@@ -1694,6 +1696,18 @@ async function init(){
     badge.style.color='#5b7a99';
     badge.textContent='⏳ Syncing...';
 
+    // Fire-and-forget: the Session tab and Calendar ▶ Play button fall
+    // back to "no session" until this resolves, then re-render so they
+    // appear. If it throws, SESSION_VIDEOS stays {} and nothing breaks.
+    loadSessionVideos().then(()=>{
+      try{ renderReview(); }catch(e){}
+      try{
+        if(document.getElementById('tab-calendar') &&
+           document.getElementById('tab-calendar').classList.contains('active'))
+          renderCalendar();
+      }catch(e){}
+    });
+
     const live = await loadSupabaseTrades();
     if(live){
       ALL_TRADES = live.trades;
@@ -1783,7 +1797,11 @@ async function init(){
 
 document.addEventListener('DOMContentLoaded', async()=>{
   const ok=await sbAuthInit();
-  if(!ok) sbShowLogin();   // pre-flip: page still works via anon fallback; post-flip: empty until sign-in
+  if(!ok) sbShowLogin();
+  // Pre-load the hidden-block list so the main loaders can filter
+  // against it on their first pass, instead of re-fetching and
+  // re-rendering everything after init() finishes.
+  if(window.__hiddenBlocksReady) await window.__hiddenBlocksReady;
   init();
 });
 
@@ -2013,6 +2031,26 @@ async function loadSupabaseMisses(){
 }
 
 let ALL_ROSS = [];
+
+// Session-video map: { "2026-08-31": "<youtube id>", ... } — one per
+// trading day, written by youtube_upload.py's --backfill-sessions.
+// Fetched once at boot; the Session tab on a day's first card reads it,
+// and the Calendar's ▶ Play button builds week queues from it.
+let SESSION_VIDEOS = null;
+async function loadSessionVideos(){
+  if(SESSION_VIDEOS) return SESSION_VIDEOS;
+  SESSION_VIDEOS = {};
+  try{
+    const r = await fetch(
+      `${SUPABASE_URL}/rest/v1/dashboard_data?key=like.session-video:*&select=key,value`,
+      {headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+(SB_TOKEN||SUPABASE_KEY)}});
+    (await r.json()).forEach(row=>{
+      SESSION_VIDEOS[row.key.slice('session-video:'.length)] = row.value;
+    });
+  }catch(e){ console.warn('session videos fetch failed:', e); }
+  return SESSION_VIDEOS;
+}
+
 async function loadSupabaseRoss(){
   try{
     const resp = await fetch(
@@ -2221,13 +2259,26 @@ function renderCalendar(){
         </div>`;
       }
     });
-    // Week total cell
+    // Week total cell — plus a ▶ Play button if that week has any
+    // session videos linked (SESSION_VIDEOS is keyed by ISO date).
     const wCls = weekPnl>=0?'pos':'neg';
+    // Find this week's Monday from any cur-month day in the row
+    let wkMon=null;
+    for(const c of week){
+      if(c.month==='cur' && c.dk){ wkMon=weekKey(c.dk); break; }
+    }
+    const sessCount = wkMon && SESSION_VIDEOS
+      ? Object.keys(SESSION_VIDEOS).filter(d=>weekKey(d)===wkMon).length
+      : 0;
     html += `<div class="cal-week-cell">
       <div class="cal-week-lbl">Week</div>
       ${weekTrades>0
         ? `<div class="cal-week-pnl ${wCls}">${weekPnl>=0?'+':''}$${weekPnl.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',')}</div><div class="cal-week-count">${weekTrades} trades</div>`
         : `<div class="cal-week-pnl" style="color:var(--muted)">—</div>`
+      }
+      ${sessCount && wkMon
+        ? `<button class="cal-week-play" onclick="playWeekSessions('${wkMon}',this)" title="Play all ${sessCount} session recording${sessCount!==1?'s':''} for this week">▶ Play ${sessCount}</button>`
+        : ''
       }
     </div>`;
   });
@@ -3000,6 +3051,18 @@ function combinedSort(a,b){
   return at<bt?-1:(at>bt?1:0);
 }
 
+// True iff `t` is the chronologically first entry (trade, miss, or
+// Ross) on its date across the WHOLE combined deck — not just the
+// deck you're browsing. Only that one card per day gets the Session
+// tab. Same intra-day ordering combinedSort() uses.
+function isFirstEntryOfDay(t){
+  const all=[...ALL_TRADES, ...ALL_MISSES, ...ALL_ROSS];
+  const sameDay=all.filter(x=>x.date===t.date);
+  if(!sameDay.length) return false;
+  sameDay.sort(combinedSort);
+  return sameDay[0] === t;
+}
+
 function revTrades(){
   // Chronological oldest → newest so → (right) moves toward more
   // recent trades; opens on the most recent trade
@@ -3347,10 +3410,20 @@ function renderReview(){
       `<div class="rev-note ${c}"><b>${k}</b>${esc(v)}</div>`).join('')}</div>`:''}
     <div class="rev-body">
       <div class="rev-body-chart">
-        ${t.video?`<div class="rev-disp-tabs">
-          <button class="rev-disp-tab active" onclick="revDisp(this,'shot')">Screenshot</button>
-          <button class="rev-disp-tab" onclick="revDisp(this,'video')">Video</button>
-        </div>`:''}
+        ${(()=>{
+          const hasSession = isFirstEntryOfDay(t) && (SESSION_VIDEOS||{})[t.date];
+          const tabs = [
+            ['shot','Screenshot'],
+            t.video ? ['video','Video'] : null,
+            hasSession ? ['session','Session'] : null,
+          ].filter(Boolean);
+          if(tabs.length < 2) return '';
+          return `<div class="rev-disp-tabs">
+            ${tabs.map(([k,label],i)=>
+              `<button class="rev-disp-tab${i===0?' active':''}" onclick="revDisp(this,'${k}')">${label}</button>`
+            ).join('')}
+          </div>`;
+        })()}
         <div class="rev-disp" id="rev-disp-shot">${t.chart
           ? `<div class="rev-shot-wrap"><img class="rev-chart" loading="lazy" src="${esc(t.chart)}" alt="chart">
              <button class="rev-shot-edit" onclick="pickChartImage(); this.parentElement.querySelector('.rev-shot-delete').style.display='inline-block'">✎ Edit</button>
@@ -3362,6 +3435,14 @@ function renderReview(){
           <iframe class="rev-video" src="about:blank" data-src="https://www.youtube.com/embed/${esc(ytId(t.video))}?controls=${REV_CONTROLS}&modestbranding=1&rel=0&playsinline=1&enablejsapi=1" allow="fullscreen" allowfullscreen></iframe>
           <div class="rev-video-hint">, / . = 1s · Num4/6 = ±10s · Num1/3 = ±5s · space = play/pause · <button class="rev-hl-btn" onclick="toggleRevControls()" title="Show/hide the YouTube controls overlay (reloads at same timestamp)">🎬 controls</button></div>
         </div>`:''}
+        ${(()=>{
+          const hasSession = isFirstEntryOfDay(t) && (SESSION_VIDEOS||{})[t.date];
+          if(!hasSession) return '';
+          return `<div class="rev-disp" id="rev-disp-session" style="display:none">
+            <iframe class="rev-video" src="about:blank" data-src="https://www.youtube.com/embed/${SESSION_VIDEOS[t.date]}?controls=1&modestbranding=1&rel=0&playsinline=1&enablejsapi=1" allow="fullscreen" allowfullscreen></iframe>
+            <div class="rev-video-hint">Full session for ${esc(t.date)} · chapter bar available in player controls</div>
+          </div>`;
+        })()}
       </div>
       <div class="rev-body-notes">
         <div class="rev-notes-hdr"><span>Review notes</span>
@@ -3502,14 +3583,22 @@ function renderMissCard(t){
         : f
         ? `<div class="rev-cell edit" onclick="revEdit(this,'${f}')" title="Click to edit"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`
         : `<div class="rev-cell"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`).join('')}</div>
-    <div class="rev-body">
       <div class="rev-body-chart">
-        ${t.video?`<div class="rev-disp-tabs">
-          <button class="rev-disp-tab active" onclick="revDisp(this,'shot')">Screenshot</button>
-          <button class="rev-disp-tab" onclick="revDisp(this,'video')">Video</button>
-        </div>`:''}
-        <div class="rev-disp" id="rev-disp-shot">${t.chart
-          ? `<div class="rev-shot-wrap"><img class="rev-chart" loading="lazy" src="${esc(t.chart)}" alt="chart">
+        ${(()=>{
+          const hasSession = isFirstEntryOfDay(t) && (SESSION_VIDEOS||{})[t.date];
+          const tabs = [
+            ['shot','Screenshot'],
+            t.video ? ['video','Video'] : null,
+            hasSession ? ['session','Session'] : null,
+          ].filter(Boolean);
+          if(tabs.length < 2) return '';
+          return `<div class="rev-disp-tabs">
+            ${tabs.map(([k,label],i)=>
+              `<button class="rev-disp-tab${i===0?' active':''}" onclick="revDisp(this,'${k}')">${label}</button>`
+            ).join('')}
+          </div>`;
+        })()}
+        <div class="rev-disp" id="rev-disp-shot">${t.chart          ? `<div class="rev-shot-wrap"><img class="rev-chart" loading="lazy" src="${esc(t.chart)}" alt="chart">
              <button class="rev-shot-edit" onclick="pickChartImage(); this.parentElement.querySelector('.rev-shot-delete').style.display='inline-block'">✎ Edit</button>
              <button class="rev-shot-edit rev-shot-delete" style="right:76px;display:none" onclick="deleteChartImage()">🗑 Delete</button>
              <button class="rev-shot-edit" style="right:160px" onclick="pbMarkFromCard(this)" title="Add this chart to the setup's playbook as a template example">📖 Playbook</button></div>`
@@ -3519,6 +3608,14 @@ function renderMissCard(t){
           <iframe class="rev-video" src="about:blank" data-src="https://www.youtube.com/embed/${esc(ytId(t.video))}?controls=${REV_CONTROLS}&modestbranding=1&rel=0&playsinline=1&enablejsapi=1" allow="fullscreen" allowfullscreen></iframe>
           <div class="rev-video-hint">, / . = 1s · Num4/6 = ±10s · Num1/3 = ±5s · space = play/pause · <button class="rev-hl-btn" onclick="toggleRevControls()" title="Show/hide the YouTube controls overlay (reloads at same timestamp)">🎬 controls</button></div>
         </div>`:''}
+        ${(()=>{
+          const hasSession = isFirstEntryOfDay(t) && (SESSION_VIDEOS||{})[t.date];
+          if(!hasSession) return '';
+          return `<div class="rev-disp" id="rev-disp-session" style="display:none">
+            <iframe class="rev-video" src="about:blank" data-src="https://www.youtube.com/embed/${SESSION_VIDEOS[t.date]}?controls=1&modestbranding=1&rel=0&playsinline=1&enablejsapi=1" allow="fullscreen" allowfullscreen></iframe>
+            <div class="rev-video-hint">Full session for ${esc(t.date)} · chapter bar available in player controls</div>
+          </div>`;
+        })()}
       </div>
       <div class="rev-body-notes">
         <div class="rev-notes-hdr"><span>Review notes</span>
@@ -3928,6 +4025,59 @@ function playDateAll(date,btnEl){
   openPlaylist(null,btnEl);
 }
 
+// ── Session-video playlists ─────────────────────────────────────
+// The full-day recordings live in SESSION_VIDEOS keyed by date.
+// These two launchers build the queue out of that map, keyed by
+// week (Mon..Sun) or day, and hand it to the existing playlist
+// overlay. Each queue item carries a synthetic {video, date,
+// ticker:'SESSION'} shape so plItemLabel() renders it correctly
+// without any special-casing there.
+
+function _sessionQueueItem(date, videoId){
+  return {
+    video: `https://youtube.com/watch?v=${videoId}`,
+    date,
+    ticker: 'SESSION',
+    pnl: null,
+    setup: null,
+    __src: 'session',
+  };
+}
+
+function _sessionsInRange(from, to){
+  if(!SESSION_VIDEOS) return [];
+  return Object.keys(SESSION_VIDEOS)
+    .filter(d=> d>=from && d<=to)
+    .sort()
+    .map(d=> _sessionQueueItem(d, SESSION_VIDEOS[d]));
+}
+
+// ▶ Play this week — button lives in each calendar week-total cell.
+// wkMon is the Monday of that week (same key weekKey() returns).
+function playWeekSessions(wkMon,btnEl){
+  const d=new Date(wkMon+'T12:00:00'); d.setDate(d.getDate()+6);
+  const sun=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const queue=_sessionsInRange(wkMon, sun);
+  if(!queue.length){
+    if(btnEl){ const old=btnEl.textContent; btnEl.textContent='No sessions'; setTimeout(()=>btnEl.textContent=old,1400); }
+    return;
+  }
+  openSessionPlaylist(`Sessions · ${weekLabel(wkMon)}`, queue);
+}
+
+// Open a session queue in the existing playlist overlay. The
+// overlay's plLoad()/plItemLabel() need the queue pre-shaped; the
+// session items carry ticker='SESSION' so the label falls through
+// to the default branch and shows the date + "SESSION" cleanly.
+function openSessionPlaylist(title,queue){
+  PL_QUEUE=queue;
+  PL_IDX=0; PL_ACTIVE=true;
+  PL_IDEAL=false;
+  document.getElementById('pl-title').innerHTML=title;
+  document.getElementById('pl-overlay').style.display='flex';
+  plLoad();
+}
+
 // ── Scoped playlist launcher (Review toolbar) ───────────────────
 // Time range + Trades/Misses toggle feeding one "▶ Play" button,
 // instead of a separate button per range (today/week/month/...).
@@ -3965,6 +4115,12 @@ function launchPlaylist(){
 function plItemLabel(t){
   const esc=s=>String(s??'').replace(/</g,'&lt;');
   const src=curSrc(t);
+  // Full-session recordings — synthetic entries built by
+  // playWeekSessions()/openSessionPlaylist(). No pnl, no setup;
+  // label is just the date + "Session".
+  if(src==='session'){
+    return {main:'Session', sub:esc(t.date), chip:'', date:fmtDayDate(t.date)};
+  }
   if(src==='misses'){
     const chip=t.potential!=null?`<span class="chip pot">pot $${(+t.potential).toFixed(2)}</span>`:'';
     return {main:`${esc(t.ticker)} · Miss ${esc(t.missNo)}`, sub:esc(t.reason||t.setup||''), chip, date:fmtDayDate(t.date)};
@@ -5783,12 +5939,17 @@ document.addEventListener('keydown',e=>{
   'use strict';
 
   const HIDDEN_KEY_NAME = 'hidden-blocks';
-  let HIDDEN_KEYS = new Set();
-  let HIDDEN_LOADED = false;
-  let SHOW_HIDDEN = false;
-  let _FULL_TRADES = [];
-  let _FULL_MISSES = [];
-  let _FULL_ROSS   = [];
+let HIDDEN_KEYS = new Set();
+let HIDDEN_LOADED = false;
+let SHOW_HIDDEN = false;
+let _FULL_TRADES = [];
+let _FULL_MISSES = [];
+let _FULL_ROSS   = [];
+// Exposed so DOMContentLoaded can await this before init() runs,
+// instead of letting the IIFE's boot() re-fetch and re-render
+// everything after init() has already done it once.
+window.__hiddenBlocksReady = null;
+window.__hiddenBlocksKeys = HIDDEN_KEYS;
 
   function hk(t, src){
     src = src || (t && t.__src) || 'trades';
@@ -5997,32 +6158,18 @@ document.addEventListener('keydown',e=>{
     filterline.appendChild(btn);
   }
 
-  async function boot(){
-    await new Promise(r => {
-      if(document.readyState === 'complete' || document.readyState === 'interactive'){
-        setTimeout(r, 50);
-      }else{
-        document.addEventListener('DOMContentLoaded', () => setTimeout(r, 50), {once:true});
-      }
-    });
+  // Install the wrappers immediately so the main loaders pick up the
+  // hidden-key filter the moment they run. The KEYS themselves are
+  // fetched through window.__hiddenBlocksReady, which DOMContentLoaded
+  // awaits before calling init().
+  installLoaders();
+  installRenderers();
+  installToolbarButton();
 
-    installLoaders();
-    installRenderers();
-    installToolbarButton();
+  window.__hiddenBlocksReady = (async () => {
     await loadHiddenKeys();
-
-    try{
-      if(typeof loadSupabaseTrades === 'function') await loadSupabaseTrades();
-      if(typeof loadSupabaseMisses === 'function') await loadSupabaseMisses();
-      if(typeof loadSupabaseRoss === 'function')   await loadSupabaseRoss();
-    }catch(e){ console.warn('[hidden-blocks] initial refilter failed:', e); }
-
-    rerenderEverything();
     console.log('[hidden-blocks] ready —', HIDDEN_KEYS.size, 'entries hidden');
-  }
-
-  if(document.readyState === 'complete') boot();
-  else window.addEventListener('load', boot, {once:true});
+  })();
 })();
 </script>
 <script>
