@@ -1696,18 +1696,46 @@ async function init(){
     badge.style.color='#5b7a99';
     badge.textContent='⏳ Syncing...';
 
-    // Fire-and-forget: the Session tab and Calendar ▶ Play button fall
-    // back to "no session" until this resolves, then re-render so they
-    // appear. If it throws, SESSION_VIDEOS stays {} and nothing breaks.
-    loadSessionVideos().then(()=>{
-      try{ renderReview(); }catch(e){}
-      try{
-        if(document.getElementById('tab-calendar') &&
-           document.getElementById('tab-calendar').classList.contains('active'))
-          renderCalendar();
-      }catch(e){}
-    });
+    // ─────────────────────────────────────────────────────────────
+    // 1. PAINT THE SHELL IMMEDIATELY
+    //    Everything below this block runs with whatever's already in
+    //    memory (hardcoded fallback ALL_TRADES / CUM_DATA). The user
+    //    sees tabs, KPIs, tables, and checklists right away. Live data
+    //    swaps in later without a blank screen.
+    // ─────────────────────────────────────────────────────────────
+    setDates();
+    initDefs();
+    buildPeriodSelect();
+    const savedPeriod = localStorage.getItem('trading-period')||'all';
+    if(savedPeriod.startsWith('month:')){
+      document.getElementById('period-select').value = savedPeriod;
+      onMonthSelect(savedPeriod);
+    } else if(savedPeriod.startsWith('week:')){
+      const weekDate = savedPeriod.split(':')[1];
+      const month = weekDate.slice(0,7);
+      document.getElementById('period-select').value = `month:${month}`;
+      onMonthSelect(`month:${month}`);
+      document.getElementById('week-select').value = savedPeriod;
+      setPeriod(savedPeriod);
+    } else {
+      setPeriod('all');
+    }
+    renderChecklist('pre','pre-checklist');
+    renderChecklist('live','live-checklist');
+    renderChecklist('post','post-checklist');
+    renderChecklist('bed','bed-checklist');
+    restoreAcc();
+    let saved=localStorage.getItem('trading-active-tab');
+    if(['presession','live','postsession','bedtime'].includes(saved)) saved='checklists';
+    if(saved&&TAB_IDS.includes(saved)) switchTab(saved);
 
+    // ─────────────────────────────────────────────────────────────
+    // 2. SWAP IN LIVE DATA
+    //    Trades were already fetched during the parallel boot in
+    //    DOMContentLoaded, so this await resolves instantly the second
+    //    time (cached in the browser). If it's the first call, it
+    //    happens while the shell is already visible.
+    // ─────────────────────────────────────────────────────────────
     const live = await loadSupabaseTrades();
     if(live){
       ALL_TRADES = live.trades;
@@ -1725,6 +1753,17 @@ async function init(){
       badge.style.color='#00e676';
       badge.style.border='1px solid #1e6020';
       badge.textContent=`● Live · ${t}`;
+
+      // Re-render Home with the real numbers (shell already painted with
+      // fallback data, so this is a refresh, not a first paint)
+      buildPeriodSelect();
+      const sel = document.getElementById('period-select');
+      const wsel = document.getElementById('week-select');
+      const activePeriod = (wsel && wsel.style.display!=='none' && wsel.value)
+        ? wsel.value
+        : (sel ? sel.value : 'all');
+      if(sel && sel.value.startsWith('month:')) onMonthSelect(sel.value);
+      else setPeriod(activePeriod);
     } else {
       badge.style.background='#25180a';
       badge.style.color='#ffc300';
@@ -1732,17 +1771,37 @@ async function init(){
       badge.textContent='⚠ Offline · cached data';
     }
 
-    setDates();
+    // ─────────────────────────────────────────────────────────────
+    // 3. SESSION VIDEOS (non-blocking, still fires in the background)
+    // ─────────────────────────────────────────────────────────────
+    loadSessionVideos().then(()=>{
+      try{ renderReview(); }catch(e){}
+      try{
+        if(document.getElementById('tab-calendar') &&
+           document.getElementById('tab-calendar').classList.contains('active'))
+          renderCalendar();
+      }catch(e){}
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    // 4. CHECKLIST CLOUD RECONCILE
+    //    initDefs() already ran above (so checklists are visible); this
+    //    only reconciles with Supabase. No longer blocks first paint.
+    // ─────────────────────────────────────────────────────────────
     if(localStorage.getItem('trading-cl-dirty')==='1'){
       // A previous cloud save FAILED (stale auth, offline) — local is
       // ahead of the cloud. Pulling now would stomp the unsynced edits
       // (the vanish-on-refresh bug), so push local up instead.
-      initDefs();
       if(await pushDefs()) localStorage.removeItem('trading-cl-dirty');
       else clSaveStatus('err','⚠ Unsynced checklist edits on this device — sign in again, then hit 💾 Save');
     }else{
       const hadCloudDefs = await pullDefs();   // cloud copy of custom sections/items first
+      // Re-merge in case the cloud had sections this tab didn't know about
       initDefs();
+      renderChecklist('pre','pre-checklist');
+      renderChecklist('live','live-checklist');
+      renderChecklist('post','post-checklist');
+      renderChecklist('bed','bed-checklist');
       // Only auto-push if the cloud has NEVER had a row for this key
       // (first-ever seed). Once a cloud copy exists, only explicit user
       // edits push (via saveDefs()) — never blindly overwrite a good
@@ -1755,34 +1814,13 @@ async function init(){
       // instead of leaving it to a status line nobody watches.
       if(!hadCloudDefs) clNoBackupBanner();
     }
-    buildPeriodSelect();
-    const savedPeriod = localStorage.getItem('trading-period')||'all';
-    if(savedPeriod.startsWith('month:')){
-      document.getElementById('period-select').value = savedPeriod;
-      onMonthSelect(savedPeriod);
-    } else if(savedPeriod.startsWith('week:')){
-      // restore month dropdown to the right month, then select the week
-      const weekDate = savedPeriod.split(':')[1];
-      const month = weekDate.slice(0,7);
-      document.getElementById('period-select').value = `month:${month}`;
-      onMonthSelect(`month:${month}`);
-      document.getElementById('week-select').value = savedPeriod;
-      setPeriod(savedPeriod);
-    } else {
-      setPeriod('all');
-    }
-    renderChecklist('pre','pre-checklist');
-    renderChecklist('live','live-checklist');
-    renderChecklist('post','post-checklist');
-    renderChecklist('bed','bed-checklist');
-    restoreAcc();
-    let saved=localStorage.getItem('trading-active-tab');
-    // Old per-checklist tab ids now live under the merged tab
-    if(['presession','live','postsession','bedtime'].includes(saved)) saved='checklists';
-    if(saved&&TAB_IDS.includes(saved))switchTab(saved);
 
-    // Sync immediately on load, then every 5 minutes
-    syncSupabase();
+    // ─────────────────────────────────────────────────────────────
+    // 5. BACKGROUND SYNC
+    //    NOTE: no immediate syncSupabase() call — trades were already
+    //    loaded above, so calling it again here would refetch and
+    //    re-render every Home panel a second time on boot.
+    // ─────────────────────────────────────────────────────────────
     setInterval(syncSupabase, 5 * 60 * 1000);
 
     // Re-sync when tab becomes visible again
@@ -1796,12 +1834,21 @@ async function init(){
 }
 
 document.addEventListener('DOMContentLoaded', async()=>{
-  const ok=await sbAuthInit();
+  const ok = await sbAuthInit();        // must be first — token gates everything else
   if(!ok) sbShowLogin();
-  // Pre-load the hidden-block list so the main loaders can filter
-  // against it on their first pass, instead of re-fetching and
-  // re-rendering everything after init() finishes.
-  if(window.__hiddenBlocksReady) await window.__hiddenBlocksReady;
+
+  // Fire everything that isn't gated on data in parallel.
+  // hiddenBlocksReady must resolve before init() builds ALL_TRADES,
+  // but it can run alongside the trade/miss/ross fetches.
+  await Promise.all([
+    window.__hiddenBlocksReady,
+    loadSupabaseTrades(),
+    loadSupabaseMisses(),
+    loadSupabaseRoss(),
+    loadSessionVideos(),
+    pullDefs(),
+  ]);
+
   init();
 });
 
@@ -3298,6 +3345,8 @@ function fmtET(iso){
       {timeZone:'America/New_York',hour:'numeric',minute:'2-digit',second:'2-digit'});
   }catch(e){ return '—'; }
 }
+
+
 
 function renderReview(){
   REV_CHART_PASTE_ARMED=false;   // switching/reloading the card disarms any stale paste-target
@@ -5443,7 +5492,6 @@ function toggleHighlightLine(){
   let lineEnd=ta.value.indexOf('\n',s);
   if(lineEnd===-1) lineEnd=ta.value.length;
   let line=ta.value.slice(lineStart,lineEnd);
-  const marked=/^(\s*•\s*)?★\s?/.test(line.replace(/^(\s*•\s*)/,'$1'));
   if(/★/.test(line)) line=line.replace(/★\s?/,'');
   else line=line.replace(/^(\s*•\s*)?/,m=>m+'★ ');
   ta.setRangeText(line,lineStart,lineEnd,'end');
@@ -5452,74 +5500,20 @@ function toggleHighlightLine(){
   saveReviewNote();
 }
 
-let HLS_OPEN = localStorage.getItem('rev-hls-open')!=='0';
-function toggleHls(){
-  HLS_OPEN=!HLS_OPEN;
-  localStorage.setItem('rev-hls-open',HLS_OPEN?'1':'0');
-  renderHighlights();
-}
-
-let HL_ITEMS = [];  // last-rendered highlight list, for jumpToHighlight
-
-function renderHighlights(){
-  const esc=s=>String(s).replace(/</g,'&lt;');
-  const items=[];
-  const collect=(list,mark,source)=>list.forEach(t=>{
-    if(!t.reviewNote||t.reviewNote.indexOf('★')===-1) return;
-    t.reviewNote.split('\n').forEach(line=>{
-      if(line.indexOf('★')===-1) return;
-      const best=line.indexOf('★★')!==-1;
-      const txt=line.replace(/^\s*•\s*/,'').replace(/★+\s?/,'').trim();
-      if(txt) items.push({date:t.date,ticker:t.ticker+mark,txt,source,entry:t,best,raw:line});
-    });
-  });
-  collect(getFilteredTrades('review'),'','trades');
-  collect(ALL_MISSES,' (miss)','misses');
-  collect(ALL_ROSS,' (Ross)','ross');
-  items.sort((a,b)=>a.date<b.date?1:(a.date>b.date?-1:0));
-  HL_ITEMS=items;
-  const row=(h,i)=>`<div class="rev-hl-item">
-    <button class="rev-hl-best${h.best?' on':''}" onclick="toggleBestHl(${i})" title="${h.best?'Remove from':'Promote to'} Best of Highlights">🏆</button>
-    <button class="rev-hl-del" onclick="removeHl(${i})" title="Remove this highlight">🗑</button>
-    <span class="m hl-jump" onclick="jumpToHighlight(${i})" title="Jump to this ${h.source==='misses'?'miss':'trade'}">${esc(h.date)} · ${esc(h.ticker)}</span>
-    <mark>${esc(h.txt)}</mark></div>`;
-  document.getElementById('rev-hls-count').textContent=items.length;
-  document.getElementById('rev-hls-chev').textContent=HLS_OPEN?'▼':'▶';
-  const body=document.getElementById('rev-hls-body');
-  body.style.display=HLS_OPEN?'':'none';
-  body.innerHTML=items.length
-    ? items.map(row).join('')
-    : '<div class="rev-hl-empty">No highlighted notes yet — put the cursor on a line and press ★ Highlight line (or Ctrl+H)</div>';
-  // Best of highlights — the ★★ subset, promoted via the 🏆 toggle
-  const best=items.map((h,i)=>[h,i]).filter(([h])=>h.best);
-  document.getElementById('rev-best-count').textContent=best.length;
-  document.getElementById('rev-best-chev').textContent=BEST_OPEN?'▼':'▶';
-  const bbody=document.getElementById('rev-best-body');
-  bbody.style.display=BEST_OPEN?'':'none';
-  bbody.innerHTML=best.length
-    ? best.map(([h,i])=>row(h,i)).join('')
-    : '<div class="rev-hl-empty">Nothing promoted yet — hit the 🏆 on any highlight above</div>';
-}
-
-// ── Home versions — same ★ / ★★ data, but always ALL-TIME and
-// unaffected by the Review tab's period/tag/setup filters, matching
-// every other Home panel. Clicking a row jumps into Review on the
-// right deck/card, same as the Review-tab version.
-let HOME_HL_ITEMS=[];
-let HOME_HLS_OPEN = localStorage.getItem('home-hls-open')!=='0';
+// ── Highlight state (all up top) ────────────────────────────────
+let HLS_OPEN       = localStorage.getItem('rev-hls-open')!=='0';
+let BEST_OPEN      = localStorage.getItem('rev-best-open')!=='0';
+let HOME_HLS_OPEN  = localStorage.getItem('home-hls-open')!=='0';
 let HOME_BEST_OPEN = localStorage.getItem('home-best-open')!=='0';
-function toggleHomeHls(){
-  HOME_HLS_OPEN=!HOME_HLS_OPEN;
-  localStorage.setItem('home-hls-open',HOME_HLS_OPEN?'1':'0');
-  renderHomeHighlights();
-}
-function toggleHomeBest(){
-  HOME_BEST_OPEN=!HOME_BEST_OPEN;
-  localStorage.setItem('home-best-open',HOME_BEST_OPEN?'1':'0');
-  renderHomeHighlights();
-}
-function renderHomeHighlights(){
-  const esc=s=>String(s).replace(/</g,'&lt;');
+let HL_ITEMS      = [];   // Review-tab last-rendered list, for jumpToHighlight
+let HOME_HL_ITEMS = [];   // Home-tab last-rendered list
+let _HL_SCAN_CACHE = { sig:null, items:null };
+
+// ── Shared scan (cached) ───────────────────────────────────────
+function scanAllHighlights(){
+  const sig = ALL_TRADES.length + '|' + ALL_MISSES.length + '|' + ALL_ROSS.length;
+  if(_HL_SCAN_CACHE.sig === sig) return _HL_SCAN_CACHE.items;
+
   const items=[];
   const collect=(list,mark,source)=>list.forEach(t=>{
     if(!t.reviewNote||t.reviewNote.indexOf('★')===-1) return;
@@ -5534,13 +5528,124 @@ function renderHomeHighlights(){
   collect(ALL_MISSES,' (miss)','misses');
   collect(ALL_ROSS,' (Ross)','ross');
   items.sort((a,b)=>a.date<b.date?1:(a.date>b.date?-1:0));
+
+  _HL_SCAN_CACHE = { sig, items };
+  return items;
+}
+
+// ── Review-tab renderers ────────────────────────────────────────
+function toggleHls(){
+  HLS_OPEN=!HLS_OPEN;
+  localStorage.setItem('rev-hls-open',HLS_OPEN?'1':'0');
+  renderHighlights();
+}
+function toggleBest(){
+  BEST_OPEN=!BEST_OPEN;
+  localStorage.setItem('rev-best-open',BEST_OPEN?'1':'0');
+  renderHighlights();
+}
+function renderHighlights(){
+  const esc=s=>String(s).replace(/</g,'&lt;');
+  const filtered = getFilteredTrades('review');
+  const fset = new Set(filtered);
+  const items = scanAllHighlights().filter(h =>
+    h.source!=='trades' || fset.has(h.entry)
+  );
+  HL_ITEMS=items;
+  const row=(h,i)=>`<div class="rev-hl-item">
+    <button class="rev-hl-best${h.best?' on':''}" onclick="toggleBestHl(${i})" title="${h.best?'Remove from':'Promote to'} Best of Highlights">🏆</button>
+    <button class="rev-hl-del" onclick="removeHl(${i})" title="Remove this highlight">🗑</button>
+    <span class="m hl-jump" onclick="jumpToHighlight(${i})" title="Jump to this ${h.source==='misses'?'miss':'trade'}">${esc(h.date)} · ${esc(h.ticker)}</span>
+    <mark>${esc(h.txt)}</mark></div>`;
+  document.getElementById('rev-hls-count').textContent=items.length;
+  document.getElementById('rev-hls-chev').textContent=HLS_OPEN?'▼':'▶';
+  const body=document.getElementById('rev-hls-body');
+  body.style.display=HLS_OPEN?'':'none';
+  body.innerHTML=items.length
+    ? items.map(row).join('')
+    : '<div class="rev-hl-empty">No highlighted notes yet — put the cursor on a line and press ★ Highlight line (or Ctrl+H)</div>';
+  const best=items.map((h,i)=>[h,i]).filter(([h])=>h.best);
+  document.getElementById('rev-best-count').textContent=best.length;
+  document.getElementById('rev-best-chev').textContent=BEST_OPEN?'▼':'▶';
+  const bbody=document.getElementById('rev-best-body');
+  bbody.style.display=BEST_OPEN?'':'none';
+  bbody.innerHTML=best.length
+    ? best.map(([h,i])=>row(h,i)).join('')
+    : '<div class="rev-hl-empty">Nothing promoted yet — hit the 🏆 on any highlight above</div>';
+}
+async function toggleBestHl(i){
+  const h=HL_ITEMS[i];
+  if(!h) return;
+  const newLine=h.best
+    ? h.raw.replace('★★','★')
+    : h.raw.replace('★','★★');
+  const newNote=h.entry.reviewNote.replace(h.raw,newLine);
+  if(newNote===h.entry.reviewNote) return;
+  const ok=await patchTradeField(h.entry,{review_note:newNote},h.source);
+  if(ok){
+    h.entry.reviewNote=newNote;
+    _HL_SCAN_CACHE = { sig:null, items:null };
+    renderHighlights();
+  }
+}
+function removeHl(i){ stripHighlight(HL_ITEMS[i]); }
+function jumpToHighlight(i){
+  const h=HL_ITEMS[i];
+  if(!h) return;
+  REV_MODE=h.source;
+  REV_FILTER='';
+  setModeButtons(REV_MODE);
+  const list=revTrades();
+  let idx=list.indexOf(h.entry);
+  if(idx<0){
+    idx=list.findIndex(x=> h.source==='misses'
+      ? x.id===h.entry.id
+      : x.date===h.entry.date&&x.ticker===h.entry.ticker&&x.buyTime===h.entry.buyTime&&x.buy===h.entry.buy);
+  }
+  REV_IDX = idx>=0 ? idx : Math.max(list.length-1,0);
+  REV_INIT=true;
+  renderReview();
+  document.querySelectorAll('.rev-date-overlay').forEach(o=>o.remove());
+}
+async function stripHighlight(h){
+  if(!h) return;
+  if(!confirm('Remove this highlight?')) return;
+  const newLine=h.raw.replace(/★+\s?/,'');
+  const newNote=h.entry.reviewNote.replace(h.raw,newLine);
+  if(newNote===h.entry.reviewNote) return;
+  const ok=await patchTradeField(h.entry,{review_note:newNote},h.source);
+  if(!ok) return;
+  h.entry.reviewNote=newNote;
+  const m=findBacking(h.entry);
+  if(m) m.reviewNote=newNote;
+  _HL_SCAN_CACHE = { sig:null, items:null };
+  const ta=document.getElementById('rev-notes-ta');
+  if(ta && revTrades()[REV_IDX]===h.entry) ta.value=newNote;
+  renderHighlights();
+  renderHomeHighlights();
+}
+
+// ── Home-tab renderers (cached scan) ────────────────────────────
+function toggleHomeHls(){
+  HOME_HLS_OPEN=!HOME_HLS_OPEN;
+  localStorage.setItem('home-hls-open',HOME_HLS_OPEN?'1':'0');
+  renderHomeHighlights();
+}
+function toggleHomeBest(){
+  HOME_BEST_OPEN=!HOME_BEST_OPEN;
+  localStorage.setItem('home-best-open',HOME_BEST_OPEN?'1':'0');
+  renderHomeHighlights();
+}
+function renderHomeHighlights(){
+  const esc=s=>String(s).replace(/</g,'&lt;');
+  const items = scanAllHighlights();   // ← cached, no inline scan
   HOME_HL_ITEMS=items;
   const row=(h,i)=>`<div class="rev-hl-item">
     <button class="rev-hl-del" onclick="removeHomeHl(${i})" title="Remove this highlight">🗑</button>
     <span class="m hl-jump" onclick="jumpToHomeHighlight(${i})" title="Open in Review">${esc(h.date)} · ${esc(h.ticker)}</span>
     <mark>${esc(h.txt)}</mark></div>`;
   const hc=document.getElementById('home-hls-count');
-  if(!hc) return;   // Home panel not in the DOM yet on first paint
+  if(!hc) return;
   hc.textContent=items.length;
   document.getElementById('home-hls-chev').textContent=HOME_HLS_OPEN?'▼':'▶';
   const body=document.getElementById('home-hls-body');
@@ -5557,6 +5662,7 @@ function renderHomeHighlights(){
     ? best.map(([h,i])=>row(h,i)).join('')
     : '<div class="rev-hl-empty">Nothing promoted yet</div>';
 }
+function removeHomeHl(i){ stripHighlight(HOME_HL_ITEMS[i]); }
 function jumpToHomeHighlight(i){
   const h=HOME_HL_ITEMS[i];
   if(!h) return;
@@ -5574,73 +5680,6 @@ function jumpToHomeHighlight(i){
   REV_IDX = idx>=0 ? idx : Math.max(list.length-1,0);
   REV_INIT=true;
   renderReview();
-}
-
-let BEST_OPEN = localStorage.getItem('rev-best-open')!=='0';
-function toggleBest(){
-  BEST_OPEN=!BEST_OPEN;
-  localStorage.setItem('rev-best-open',BEST_OPEN?'1':'0');
-  renderHighlights();
-}
-
-async function toggleBestHl(i){
-  const h=HL_ITEMS[i];
-  if(!h) return;
-  // Promote = ★ -> ★★ on that exact line in the review note (the
-  // note itself is the storage, so it syncs everywhere for free)
-  const newLine=h.best
-    ? h.raw.replace('★★','★')
-    : h.raw.replace('★','★★');
-  const newNote=h.entry.reviewNote.replace(h.raw,newLine);
-  if(newNote===h.entry.reviewNote) return;
-  const ok=await patchTradeField(h.entry,{review_note:newNote},h.source);
-  if(ok){
-    h.entry.reviewNote=newNote;
-    renderHighlights();
-  }
-}
-
-// Un-stars the line in the underlying review note (doesn't delete the
-// note text, just drops it out of the Highlights lists) — the note IS
-// the storage, so this is the only way a highlight can be "removed".
-async function stripHighlight(h){
-  if(!h) return;
-  if(!confirm('Remove this highlight?')) return;
-  const newLine=h.raw.replace(/★+\s?/,'');
-  const newNote=h.entry.reviewNote.replace(h.raw,newLine);
-  if(newNote===h.entry.reviewNote) return;
-  const ok=await patchTradeField(h.entry,{review_note:newNote},h.source);
-  if(!ok) return;
-  h.entry.reviewNote=newNote;
-  const m=findBacking(h.entry);
-  if(m) m.reviewNote=newNote;
-  const ta=document.getElementById('rev-notes-ta');
-  if(ta && revTrades()[REV_IDX]===h.entry) ta.value=newNote;
-  renderHighlights();
-  renderHomeHighlights();
-}
-function removeHl(i){ stripHighlight(HL_ITEMS[i]); }
-function removeHomeHl(i){ stripHighlight(HOME_HL_ITEMS[i]); }
-
-function jumpToHighlight(i){
-  const h=HL_ITEMS[i];
-  if(!h) return;
-  REV_MODE=h.source;
-  REV_FILTER='';
-  setModeButtons(REV_MODE);
-  const list=revTrades();
-  let idx=list.indexOf(h.entry);
-  if(idx<0){
-    // Fell out of the current filter/period scope — match the same
-    // way the fill scripts do instead of giving up
-    idx=list.findIndex(x=> h.source==='misses'
-      ? x.id===h.entry.id
-      : x.date===h.entry.date&&x.ticker===h.entry.ticker&&x.buyTime===h.entry.buyTime&&x.buy===h.entry.buy);
-  }
-  REV_IDX = idx>=0 ? idx : Math.max(list.length-1,0);
-  REV_INIT=true;
-  renderReview();
-  document.querySelectorAll('.rev-date-overlay').forEach(o=>o.remove());
 }
 
 // Scoring-snapshot screenshot is stashed as a hidden marker line inside
@@ -5768,6 +5807,7 @@ async function saveReviewNote(){
     // Update the master list too so a re-sort doesn't lose it
     const m=findBacking(t);
     if(m) m.reviewNote=note;
+    _HL_SCAN_CACHE = { sig:null, items:null };   // ← bust the cache: note text changed, lengths didn't
     status.textContent='saved ✓';
     renderHighlights();
     setTimeout(()=>{ if(status.textContent==='saved ✓') status.textContent=''; },2000);
