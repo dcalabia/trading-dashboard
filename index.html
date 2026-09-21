@@ -3458,6 +3458,7 @@ function renderReview(){
     ${notes.length?`<div class="rev-notes">${notes.map(([c,k,v])=>
       `<div class="rev-note ${c}"><b>${k}</b>${esc(v)}</div>`).join('')}</div>`:''}
     <div class="rev-body">
+    <div class="rev-body">
       <div class="rev-body-chart">
         ${(()=>{
           const hasSession = isFirstEntryOfDay(t) && (SESSION_VIDEOS||{})[t.date];
