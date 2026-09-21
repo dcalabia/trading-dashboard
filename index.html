@@ -3458,7 +3458,6 @@ function renderReview(){
     ${notes.length?`<div class="rev-notes">${notes.map(([c,k,v])=>
       `<div class="rev-note ${c}"><b>${k}</b>${esc(v)}</div>`).join('')}</div>`:''}
     <div class="rev-body">
-    <div class="rev-body">
       <div class="rev-body-chart">
         ${(()=>{
           const hasSession = isFirstEntryOfDay(t) && (SESSION_VIDEOS||{})[t.date];
@@ -3633,6 +3632,7 @@ function renderMissCard(t){
         : f
         ? `<div class="rev-cell edit" onclick="revEdit(this,'${f}')" title="Click to edit"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`
         : `<div class="rev-cell"><div class="k">${k}</div><div class="v">${esc(v)}</div></div>`).join('')}</div>
+    <div class="rev-body">
       <div class="rev-body-chart">
         ${(()=>{
           const hasSession = isFirstEntryOfDay(t) && (SESSION_VIDEOS||{})[t.date];
@@ -3677,8 +3677,7 @@ function renderMissCard(t){
         <button class="rev-notes-save" onclick="saveReviewNote()">Save note</button>
       </div>
     </div>
-  </div>`;
-  const ta=document.getElementById('rev-notes-ta');
+  </div>`;  const ta=document.getElementById('rev-notes-ta');
   { const parsed=splitReviewNote(t.reviewNote||''); REV_SCORE_IMG=parsed.img; REV_SCORE_IMG2=parsed.img2; ta.value=parsed.text; }
   renderScoreShot(); wireScoreShot();
   renderScoreShot(2); wireScoreShot(2);
