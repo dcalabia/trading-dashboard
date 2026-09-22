@@ -1748,6 +1748,7 @@ async function init(){
           pnl:   i===0 ? d.cum : +(d.cum - live.cumData[i-1].cum).toFixed(4)
         });
       });
+      if(window.__hiddenBlocksResync) window.__hiddenBlocksResync();
       const t = new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
       badge.style.background='#0d2010';
       badge.style.color='#00e676';
@@ -2153,6 +2154,7 @@ async function syncSupabase(){
       pnl:   i===0 ? d.cum : +(d.cum - live.cumData[i-1].cum).toFixed(4)
     });
   });
+  if(window.__hiddenBlocksResync) window.__hiddenBlocksResync();
   const badge = document.getElementById('sync-badge');
   if(badge){
     const t = new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
@@ -6058,9 +6060,29 @@ window.__hiddenBlocksKeys = HIDDEN_KEYS;
   }
 
   function applyHiddenFilter(){
-    try{ ALL_TRADES = _FULL_TRADES.filter(t => !HIDDEN_KEYS.has(hk(t,'trades'))); }catch(e){}
-    try{ ALL_MISSES = _FULL_MISSES.filter(t => !HIDDEN_KEYS.has(hk(t,'misses'))); }catch(e){}
-    try{ ALL_ROSS   = _FULL_ROSS  .filter(t => !HIDDEN_KEYS.has(hk(t,'ross')));   }catch(e){}
+    // Self-heal: if the full-set snapshot is empty but the live array
+    // still has rows, the loaders bypassed the wrapper (init() and
+    // syncSupabase() assign ALL_TRADES = live.trades directly). Capture
+    // the live array as the authoritative full set before filtering,
+    // otherwise we'd reset ALL_TRADES to []. Same for misses and Ross.
+    try{
+      if((!_FULL_TRADES || !_FULL_TRADES.length) && Array.isArray(ALL_TRADES) && ALL_TRADES.length){
+        _FULL_TRADES = ALL_TRADES.slice();
+      }
+      ALL_TRADES = _FULL_TRADES.filter(t => !HIDDEN_KEYS.has(hk(t,'trades')));
+    }catch(e){ console.error('[hidden-blocks] trades filter failed:', e); }
+    try{
+      if((!_FULL_MISSES || !_FULL_MISSES.length) && Array.isArray(ALL_MISSES) && ALL_MISSES.length){
+        _FULL_MISSES = ALL_MISSES.slice();
+      }
+      ALL_MISSES = _FULL_MISSES.filter(t => !HIDDEN_KEYS.has(hk(t,'misses')));
+    }catch(e){ console.error('[hidden-blocks] misses filter failed:', e); }
+    try{
+      if((!_FULL_ROSS || !_FULL_ROSS.length) && Array.isArray(ALL_ROSS) && ALL_ROSS.length){
+        _FULL_ROSS = ALL_ROSS.slice();
+      }
+      ALL_ROSS = _FULL_ROSS.filter(t => !HIDDEN_KEYS.has(hk(t,'ross')));
+    }catch(e){ console.error('[hidden-blocks] ross filter failed:', e); }
   }
 
   // Wrap each loader so we can snapshot the full set and refilter
@@ -6227,6 +6249,20 @@ window.__hiddenBlocksKeys = HIDDEN_KEYS;
   installLoaders();
   installRenderers();
   installToolbarButton();
+
+  // Called by init() / syncSupabase() right after they assign
+  // ALL_TRADES = live.trades — those direct assignments bypass the
+  // wrapper, so the full-set snapshot would otherwise stay stale
+  // (the 643 → 0 hide bug). Re-snapshot from the live arrays, then
+  // re-apply the filter so hidden rows stay hidden.
+  window.__hiddenBlocksResync = function(){
+    try{
+      if(Array.isArray(ALL_TRADES)) _FULL_TRADES = ALL_TRADES.slice();
+      if(Array.isArray(ALL_MISSES)) _FULL_MISSES = ALL_MISSES.slice();
+      if(Array.isArray(ALL_ROSS))   _FULL_ROSS   = ALL_ROSS.slice();
+      applyHiddenFilter();
+    }catch(e){ console.error('[hidden-blocks] resync failed:', e); }
+  };
 
   window.__hiddenBlocksReady = (async () => {
     await loadHiddenKeys();
