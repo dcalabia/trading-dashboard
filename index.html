@@ -5991,7 +5991,6 @@ document.addEventListener('keydown',e=>{
   if(CMP_ACTIVE){ if(e.key==='Escape') closeCompare(); return; }
   if(TAGMGR_ACTIVE){ if(e.key==='Escape') closeTagMgr(); return; }
   if(document.getElementById('hiddenmgr-overlay')?.style.display==='flex'){ if(e.key==='Escape') closeHiddenManager(); return; }
-  if(document.getElementById('hiddenmgr-overlay')?.style.display==='flex'){ if(e.key==='Escape') closeHiddenManager(); return; }
   const pane=document.getElementById('tab-review');
   if(!pane||!pane.classList.contains('active'))return;
   const tag=(e.target.tagName||'').toLowerCase();
@@ -6281,9 +6280,6 @@ window.__hiddenBlocksKeys = HIDDEN_KEYS;
     if(!card) return;
     const t = currentReviewEntry();
     if(!t) return;
-    const src = currentSrc(t);
-    const isHidden = HIDDEN_KEYS.has(hk(t, src));
-
     const head = card.querySelector('.rev-head');
     if(head && !head.querySelector('.rev-hide-btn')){
       const btn = document.createElement('button');
@@ -6318,18 +6314,8 @@ window.__hiddenBlocksKeys = HIDDEN_KEYS;
     }
   }
 
-  function installToolbarButton(){
-    if(document.getElementById('rev-showhidden-btn')) return;
-    const filterline = document.querySelector('#tab-review .rev-filterline');
-    if(!filterline) return;
-    const btn = document.createElement('button');
-    btn.className = 'rev-act-btn';
-    btn.id = 'rev-showhidden-btn';
-    btn.textContent = `🚫 Manage hidden (${HIDDEN_KEYS.size})`;
-    btn.title = "Show entries you've flagged as hidden (excluded from all statistics)";
-    btn.onclick = window.toggleShowHidden;
-    filterline.appendChild(btn);
-  }
+  // Toolbar button now lives in the markup (onclick="openHiddenManager()"),
+  // so there's nothing to install here.
 
   // Install the wrappers immediately so the main loaders pick up the
   // hidden-key filter the moment they run. The KEYS themselves are
@@ -6337,7 +6323,6 @@ window.__hiddenBlocksKeys = HIDDEN_KEYS;
   // awaits before calling init().
   installLoaders();
   installRenderers();
-  installToolbarButton();
 
   // Called by init() / syncSupabase() right after they assign
   // ALL_TRADES = live.trades — those direct assignments bypass the
