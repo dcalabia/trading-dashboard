@@ -2605,9 +2605,9 @@ function getFilteredTrades(period){
 }
 
 function renderTradesTable(trades, period){
-  const label = period==='all'?'Recent Trades':'Trades';
+  const label = period==='all'?'All Trades':'Trades';
   document.getElementById('trades-panel-title').textContent=label;
-  const shown = period==='all' ? trades.slice(0,10) : trades;
+  const shown = trades;
   if(!shown.length){
     document.getElementById('trades-tbody').innerHTML='<tr><td colspan="8" style="color:var(--muted);text-align:center;padding:20px">No trade data for this period</td></tr>';
     return;
