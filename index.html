@@ -199,6 +199,9 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .rev-hls-hdr{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#ffd54a}
 .rev-hls-count{background:rgba(255,213,74,0.15);border-radius:10px;padding:1px 8px;font-size:12px;margin-left:6px}
 .rev-hls-chev{color:var(--muted);font-size:11px}
+.rev-hls-sort{color:var(--muted);font-size:11px;cursor:pointer;user-select:none;
+  margin-left:auto;padding:0 8px;letter-spacing:0.3px}
+.rev-hls-sort:hover{color:var(--accent)}
 .rev-hls-body{padding:0 16px 12px}
 .rev-hl-item{display:flex;gap:10px;align-items:baseline;padding:5px 0;border-top:1px solid var(--border)}
 .rev-hl-item .m{color:var(--muted);font-size:11px;white-space:nowrap}
@@ -4545,7 +4548,7 @@ function renderWeekly(){
       if(!t.reviewNote||t.reviewNote.indexOf('★')===-1||!inWk(t.date)) return;
       t.reviewNote.split('\n').forEach(l=>{
         if(l.indexOf('★')===-1) return;
-        const txt=l.replace(/^\s*•\s*/,'').replace(/★+\s?/,'').trim();
+        const txt=l.replace(/^\s*•\s*/,'').replace(/★+\d*\s?/,'').trim();
         if(txt) hls.push({date:t.date,tk:t.ticker+tag,txt});
       });
     }));
@@ -4959,7 +4962,7 @@ function renderDaily(){
       if(!t.reviewNote||t.reviewNote.indexOf('★')===-1||t.date!==d) return;
       t.reviewNote.split('\n').forEach(l=>{
         if(l.indexOf('★')===-1) return;
-        const txt=l.replace(/^\s*•\s*/,'').replace(/★+\s?/,'').trim();
+        const txt=l.replace(/^\s*•\s*/,'').replace(/★+\d*\s?/,'').trim();
         if(txt) hls.push({tk:t.ticker+tag,txt});
       });
     }));
@@ -5537,8 +5540,8 @@ function toggleHighlightLine(){
   let lineEnd=ta.value.indexOf('\n',s);
   if(lineEnd===-1) lineEnd=ta.value.length;
   let line=ta.value.slice(lineStart,lineEnd);
-  if(/★/.test(line)) line=line.replace(/★\s?/,'');
-  else line=line.replace(/^(\s*•\s*)?/,m=>m+'★ ');
+  if(/★/.test(line)) line=line.replace(/★\d*\s?/,'');
+  else line=line.replace(/^(\s*•\s*)?/,m=>m+'★'+Math.floor(Date.now()/1000)+' ');
   ta.setRangeText(line,lineStart,lineEnd,'end');
   ta.focus();
   document.getElementById('rev-notes-status').textContent='unsaved';
@@ -5546,6 +5549,17 @@ function toggleHighlightLine(){
 }
 
 // ── Highlight state (all up top) ────────────────────────────────
+let HLS_SORT       = localStorage.getItem('rev-hls-sort')||'added';   // 'added' | 'date'
+function toggleHlsSort(e){
+  if(e) e.stopPropagation();   // don't let it collapse the panel
+  HLS_SORT = HLS_SORT==='added' ? 'date' : 'added';
+  localStorage.setItem('rev-hls-sort',HLS_SORT);
+  const b=document.getElementById('rev-hls-sort');
+  if(b) b.textContent = HLS_SORT==='added' ? '⇅ Recent' : '⇅ By date';
+  _HL_SCAN_CACHE = { sig:null, items:null };
+  renderHighlights();
+  renderHomeHighlights();
+}
 let HLS_OPEN       = localStorage.getItem('rev-hls-open')!=='0';
 let BEST_OPEN      = localStorage.getItem('rev-best-open')!=='0';
 let HOME_HLS_OPEN  = localStorage.getItem('home-hls-open')!=='0';
@@ -5556,7 +5570,7 @@ let _HL_SCAN_CACHE = { sig:null, items:null };
 
 // ── Shared scan (cached) ───────────────────────────────────────
 function scanAllHighlights(){
-  const sig = ALL_TRADES.length + '|' + ALL_MISSES.length + '|' + ALL_ROSS.length;
+  const sig = ALL_TRADES.length + '|' + ALL_MISSES.length + '|' + ALL_ROSS.length + '|' + HLS_SORT;
   if(_HL_SCAN_CACHE.sig === sig) return _HL_SCAN_CACHE.items;
 
   const items=[];
@@ -5565,14 +5579,20 @@ function scanAllHighlights(){
     t.reviewNote.split('\n').forEach(line=>{
       if(line.indexOf('★')===-1) return;
       const best=line.indexOf('★★')!==-1;
-      const txt=line.replace(/^\s*•\s*/,'').replace(/★+\s?/,'').trim();
-      if(txt) items.push({date:t.date,ticker:t.ticker+mark,txt,source,entry:t,best,raw:line});
+      const m=line.match(/★+(\d*)/);
+      const addedAt=(m&&m[1])?+m[1]:null;
+      const txt=line.replace(/^\s*•\s*/,'').replace(/★+\d*\s?/,'').trim();
+      if(txt) items.push({date:t.date,ticker:t.ticker+mark,txt,source,entry:t,best,raw:line,addedAt});
     });
   });
   collect(ALL_TRADES,'','trades');
   collect(ALL_MISSES,' (miss)','misses');
   collect(ALL_ROSS,' (Ross)','ross');
-  items.sort((a,b)=>a.date<b.date?1:(a.date>b.date?-1:0));
+  if(HLS_SORT==='added'){
+    items.sort((a,b)=>(b.addedAt||0)-(a.addedAt||0));
+  } else {
+    items.sort((a,b)=>a.date<b.date?1:(a.date>b.date?-1:0));
+  }
 
   _HL_SCAN_CACHE = { sig, items };
   return items;
@@ -5604,6 +5624,17 @@ function renderHighlights(){
     <mark>${esc(h.txt)}</mark></div>`;
   document.getElementById('rev-hls-count').textContent=items.length;
   document.getElementById('rev-hls-chev').textContent=HLS_OPEN?'▼':'▶';
+  let sb=document.getElementById('rev-hls-sort');
+  if(!sb){
+    sb=document.createElement('span');
+    sb.id='rev-hls-sort';
+    sb.className='rev-hls-sort';
+    sb.title='Toggle highlight sort order';
+    sb.onclick=toggleHlsSort;
+    document.getElementById('rev-hls-chev').parentElement.insertBefore(
+      sb, document.getElementById('rev-hls-chev'));
+  }
+  sb.textContent = HLS_SORT==='added' ? '⇅ Recent' : '⇅ By date';
   const body=document.getElementById('rev-hls-body');
   body.style.display=HLS_OPEN?'':'none';
   body.innerHTML=items.length
@@ -5622,8 +5653,8 @@ async function toggleBestHl(i){
   const h=HL_ITEMS[i];
   if(!h) return;
   const newLine=h.best
-    ? h.raw.replace('★★','★')
-    : h.raw.replace('★','★★');
+    ? h.raw.replace(/★★\d*/,m=>'★'+(m.match(/\d+/)?.[0]||''))      // demote: keep epoch
+    : h.raw.replace(/★\d*/,m=>'★★'+Math.floor(Date.now()/1000)); // promote: new epoch
   const newNote=h.entry.reviewNote.replace(h.raw,newLine);
   if(newNote===h.entry.reviewNote) return;
   const ok=await patchTradeField(h.entry,{review_note:newNote},h.source);
@@ -5655,7 +5686,7 @@ function jumpToHighlight(i){
 async function stripHighlight(h){
   if(!h) return;
   if(!confirm('Remove this highlight?')) return;
-  const newLine=h.raw.replace(/★+\s?/,'');
+  const newLine=h.raw.replace(/★+\d*\s?/,'');
   const newNote=h.entry.reviewNote.replace(h.raw,newLine);
   if(newNote===h.entry.reviewNote) return;
   const ok=await patchTradeField(h.entry,{review_note:newNote},h.source);
