@@ -131,6 +131,12 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .tagmgr-row button.danger:hover{border-color:var(--red,#ff5d5d);color:var(--red,#ff5d5d)}
 .tagmgr-row input{background:var(--panel);border:1px solid var(--accent);border-radius:6px;color:var(--text);font-size:13px;padding:4px 8px;flex:1;outline:none}
 .tagmgr-preset{font-size:9px;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:1px 7px;text-transform:uppercase;letter-spacing:0.5px}
+/* ── Manage Hidden overlay ── */
+#hiddenmgr-overlay{position:fixed;inset:0;background:rgba(5,10,18,0.97);z-index:400;display:flex;flex-direction:column;padding:18px}
+.hiddenmgr-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)}
+.hiddenmgr-row .lbl{flex:1;font-size:13px;color:var(--text)}
+.hiddenmgr-row button{background:var(--panel);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:4px 12px;font-size:11px;cursor:pointer}
+.hiddenmgr-row button:hover{border-color:var(--accent);color:var(--accent)}
 /* ── Weekly review ── */
 .wk-bar{display:flex;align-items:center;gap:12px;margin:0 0 16px}
 .wk-label{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
@@ -955,7 +961,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
              title="Filter to one specific date" style="max-width:150px">
       <button class="rev-act-btn" onclick="applyTagThisWeekFilter('Ideal Trades')" title="All deck (Trades+Misses+Ross) + Ideal Trades tag + This week">🎯 Ideal This Week</button>
       <button class="rev-act-btn" id="rev-tag-week-btn" onclick="applyTagThisWeekFilter()" title="All deck (Trades+Misses+Ross) + the tag picked in Tags: all + This week">🎯 This Week</button>
-      <button class="rev-act-btn" id="rev-showhidden-btn" onclick="toggleShowHidden()" title="Show entries you've flagged as hidden (excluded from all statistics)">🚫 Hidden: off</button>
+      <button class="rev-act-btn" id="rev-showhidden-btn" onclick="openHiddenManager()" title="Manage hidden blocks — unhide individual entries or all of them">🚫 Manage hidden (0)</button>
       <select class="rev-filter" id="rev-tag-week-filter" onchange="applyTagWeekFilter(this.value)" title="Jump to a past week for the tag picked in Tags: all">
         <option value="">Jump to week…</option>
       </select>
@@ -1149,6 +1155,19 @@ tr:hover td{background:rgba(255,255,255,0.025)}
     <button class="pl-close" onclick="closeTagMgr()">✕ Close (Esc)</button>
   </div>
   <div class="tagmgr-list" id="tagmgr-list"></div>
+</div>
+
+<!-- MANAGE HIDDEN — list every hidden entry with an unhide button -->
+<div id="hiddenmgr-overlay" style="display:none">
+  <div class="pl-head">
+    <div class="pl-title">🚫 Manage Hidden</div>
+    <div class="pl-count" id="hiddenmgr-status"></div>
+    <button class="pl-close" onclick="closeHiddenManager()">✕ Close (Esc)</button>
+  </div>
+  <div class="tagmgr-list" id="hiddenmgr-list"></div>
+  <div style="max-width:640px;width:100%;margin:14px auto 0;display:flex;justify-content:flex-end">
+    <button class="rev-act-btn" onclick="unhideAll()" style="border-color:#ff5d5d;color:#ff5d5d">♻ Unhide all</button>
+  </div>
 </div>
 
 <!-- PLAYLIST MODE — theater overlay, queue built from current Review deck + tag filter -->
@@ -5971,6 +5990,8 @@ document.addEventListener('keydown',e=>{
   if(PL_ACTIVE){ plKeys(e); return; }   // playlist overlay owns the keys
   if(CMP_ACTIVE){ if(e.key==='Escape') closeCompare(); return; }
   if(TAGMGR_ACTIVE){ if(e.key==='Escape') closeTagMgr(); return; }
+  if(document.getElementById('hiddenmgr-overlay')?.style.display==='flex'){ if(e.key==='Escape') closeHiddenManager(); return; }
+  if(document.getElementById('hiddenmgr-overlay')?.style.display==='flex'){ if(e.key==='Escape') closeHiddenManager(); return; }
   const pane=document.getElementById('tab-review');
   if(!pane||!pane.classList.contains('active'))return;
   const tag=(e.target.tagName||'').toLowerCase();
@@ -6178,17 +6199,79 @@ window.__hiddenBlocksKeys = HIDDEN_KEYS;
     setHidden(t, false, currentSrc(t));
   };
 
-  window.toggleShowHidden = function(){
-    SHOW_HIDDEN = !SHOW_HIDDEN;
-    const btn = document.getElementById('rev-showhidden-btn');
-    if(btn){
-      btn.textContent = SHOW_HIDDEN ? '🚫 Hidden: shown' : '🚫 Hidden: off';
-      btn.style.borderStyle = SHOW_HIDDEN ? 'solid' : 'dashed';
-      btn.style.color = SHOW_HIDDEN ? '#ff5d5d' : '';
-      btn.style.borderColor = SHOW_HIDDEN ? '#ff5d5d' : '';
+  // Human-readable label for a hidden key. Keys look like
+  // "trades:2026-09-22:DCOY:2026-09-22T07:35:05..." or
+  // "misses:123" (Ross/miss use id).
+  function hiddenKeyLabel(k){
+    const parts = String(k).split(':');
+    const src = parts[0];
+    if((src==='misses'||src==='ross') && parts[1]){
+      // look up the entry to get ticker/date
+      const list = src==='misses' ? (window._FULL_MISSES||[]) : (window._FULL_ROSS||[]);
+      const hit = list.find(t=>String(t.id)===parts[1]);
+      if(hit) return `${hit.date} · ${hit.ticker} · ${src==='misses'?'Miss '+hit.missNo:'Ross'}`;
+      return `${src} id ${parts[1]}`;
     }
-    try{ renderReview(); }catch(e){}
+    // trades: date:ticker:buyTime
+    const date = parts[1]||'', ticker = parts[2]||'', bt = parts.slice(3).join(':');
+    const when = bt ? new Date(bt).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) : '';
+    return `${date} · ${ticker}${when?' · '+when:''}`;
+  }
+
+  function updateHiddenBtnCount(){
+    const btn = document.getElementById('rev-showhidden-btn');
+    if(btn) btn.textContent = `🚫 Manage hidden (${HIDDEN_KEYS.size})`;
+  }
+
+  window.openHiddenManager = function(){
+    const ov = document.getElementById('hiddenmgr-overlay');
+    if(!ov) return;
+    ov.style.display = 'flex';
+    renderHiddenManager();
   };
+
+  window.closeHiddenManager = function(){
+    const ov = document.getElementById('hiddenmgr-overlay');
+    if(ov) ov.style.display = 'none';
+  };
+
+  window.unhideOne = async function(key){
+    HIDDEN_KEYS.delete(key);
+    applyHiddenFilter();
+    await saveHiddenKeys();
+    updateHiddenBtnCount();
+    renderHiddenManager();
+    rerenderEverything();
+  };
+
+  window.unhideAll = async function(){
+    if(!HIDDEN_KEYS.size) return;
+    if(!confirm(`Unhide all ${HIDDEN_KEYS.size} hidden trade${HIDDEN_KEYS.size===1?'':'s'}?\n\nThey'll come back into the deck and all stats.`)) return;
+    HIDDEN_KEYS = new Set();
+    applyHiddenFilter();
+    await saveHiddenKeys();
+    updateHiddenBtnCount();
+    renderHiddenManager();
+    rerenderEverything();
+  };
+
+  function renderHiddenManager(){
+    const list = document.getElementById('hiddenmgr-list');
+    const status = document.getElementById('hiddenmgr-status');
+    if(!list) return;
+    if(status) status.textContent = `${HIDDEN_KEYS.size} hidden`;
+    const keys = [...HIDDEN_KEYS].sort();
+    if(!keys.length){
+      list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">No hidden entries. Every trade is in the deck.</div>';
+      return;
+    }
+    const esc = s => String(s).replace(/</g,'&lt;');
+    list.innerHTML = keys.map(k=>`
+      <div class="hiddenmgr-row">
+        <span class="lbl">${esc(hiddenKeyLabel(k))}</span>
+        <button onclick="unhideOne('${k.replace(/'/g,"\\'")}')">♻ Unhide</button>
+      </div>`).join('');
+  }
 
   // Post-process the rendered card: inject the hide button + hidden style
   function decorateCard(){
@@ -6204,26 +6287,12 @@ window.__hiddenBlocksKeys = HIDDEN_KEYS;
     const head = card.querySelector('.rev-head');
     if(head && !head.querySelector('.rev-hide-btn')){
       const btn = document.createElement('button');
-      if(SHOW_HIDDEN && isHidden){
-        btn.className = 'rev-hide-btn unhide';
-        btn.textContent = '♻ Unhide';
-        btn.title = 'Unhide — restores this block to all statistics';
-        btn.onclick = window.unhideCurrentCard;
-      }else{
-        btn.className = 'rev-hide-btn';
-        btn.textContent = '🚫 Hide';
-        btn.title = 'Hide this block — excludes it from every statistic';
-        btn.onclick = window.hideCurrentCard;
-      }
+      btn.className = 'rev-hide-btn';
+      btn.textContent = '🚫 Hide';
+      btn.title = 'Hide this block — excludes it from every statistic; unhide via the Manage hidden panel';
+      btn.onclick = window.hideCurrentCard;
       head.insertBefore(btn, head.firstChild);
     }
-
-    if(SHOW_HIDDEN && isHidden){
-      card.classList.add('is-hidden');
-    }else{
-      card.classList.remove('is-hidden');
-    }
-  }
 
   function wrapRenderer(name){
     const original = window[name];
@@ -6256,7 +6325,7 @@ window.__hiddenBlocksKeys = HIDDEN_KEYS;
     const btn = document.createElement('button');
     btn.className = 'rev-act-btn';
     btn.id = 'rev-showhidden-btn';
-    btn.textContent = '🚫 Hidden: off';
+    btn.textContent = `🚫 Manage hidden (${HIDDEN_KEYS.size})`;
     btn.title = "Show entries you've flagged as hidden (excluded from all statistics)";
     btn.onclick = window.toggleShowHidden;
     filterline.appendChild(btn);
@@ -6286,6 +6355,7 @@ window.__hiddenBlocksKeys = HIDDEN_KEYS;
 
   window.__hiddenBlocksReady = (async () => {
     await loadHiddenKeys();
+    updateHiddenBtnCount();
     console.log('[hidden-blocks] ready —', HIDDEN_KEYS.size, 'entries hidden');
   })();
 })();
