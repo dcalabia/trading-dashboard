@@ -2023,7 +2023,9 @@ async function loadSupabaseTrades() {
       exsNote:     r.exs_note || null,
       improveNote: r.improve_note || null,
       chart:       r.chart_url || null,
-      video:       r.video_url || null
+      video:       r.video_url || null,
+      scoreBinRecent: r.score_bin_recent || null,
+      scoreBinFirst:  r.score_bin_first  || null
     }));
 
     // Build CUM_DATA by grouping daily pnl and computing cumulative sum
@@ -2072,12 +2074,12 @@ async function loadSupabaseMisses(){
       reviewNote: r.review_note || '',
       tags:       r.tags ? String(r.tags).split(',').map(s=>s.trim()).filter(Boolean) : [],
       chart:      r.chart_url || null,
-      video:      r.video_url || null
+      video:      r.video_url || null,
+      scoreBinRecent: r.score_bin_recent || null,
+      scoreBinFirst:  r.score_bin_first  || null
     }));
   }catch(e){ console.warn('misses fetch failed:', e); }
-}
-
-let ALL_ROSS = [];
+}let ALL_ROSS = [];
 
 // Session-video map: { "2026-08-31": "<youtube id>", ... } — one per
 // trading day, written by youtube_upload.py's --backfill-sessions.
