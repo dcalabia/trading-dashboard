@@ -216,6 +216,8 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .rev-score-shot.has-img{border-style:solid;cursor:default}
 .rev-score-shot img{display:block;width:100%;max-height:150px;object-fit:contain;background:#0a0a0a}
 .rev-score-empty{display:flex;align-items:center;justify-content:center;gap:6px;padding:14px 10px;color:var(--muted);font-size:11px;text-align:center}
+.rev-score-text{margin:0;padding:8px 10px;font-family:'JetBrains Mono','Consolas',monospace;font-size:11px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto;background:var(--panel)}
+.rev-score-text::first-line{font-weight:600;color:var(--accent)}
 .rev-score-del{position:absolute;top:4px;right:4px;background:rgba(10,10,10,.75);border:1px solid var(--border);border-radius:5px;color:#fff;font-size:11px;padding:2px 7px;cursor:pointer;opacity:0;transition:opacity .15s}
 .rev-score-shot.has-img:hover .rev-score-del{opacity:1}
 .rev-notes-ta{flex:1;min-height:380px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;resize:vertical;
@@ -5742,12 +5744,30 @@ function scoreImgVal(slot){ return slot===2?REV_SCORE_IMG2:REV_SCORE_IMG; }
 function renderScoreShot(slot=1){
   const el=scoreShotEl(slot);
   if(!el) return;
+  const t=revTrades()[REV_IDX];
+  // Slot 1 (top) = most recent scanner eval at/before buy time.
+  // Slot 2 (bottom) = first pop of the day.
+  const binText = t
+    ? (slot===2 ? t.scoreBinFirst : t.scoreBinRecent)
+    : null;
+  if(binText){
+    // Scanner data present — read-only text block, upload path retired.
+    el.classList.add('has-img');
+    el.classList.remove('rev-score-empty');
+    el.innerHTML=`<pre class="rev-score-text">${String(binText).replace(/</g,'&lt;')}</pre>`;
+    el.onclick=null;
+    el.onpaste=null;
+    el.title='Scanner score snapshot — read-only';
+    return;
+  }
+  // No scanner data — fall back to the manual upload slot.
   const val=scoreImgVal(slot);
   el.classList.toggle('has-img',!!val);
   el.innerHTML = val
     ? `<img src="${val.replace(/"/g,'&quot;')}" alt="scoring snapshot" loading="lazy">
        <button class="rev-score-del" onclick="event.stopPropagation();deleteScoreShot(${slot})" title="Remove">🗑</button>`
     : `<div class="rev-score-empty">📷 Click or paste (Ctrl+V) the scanner's scoring snapshot</div>`;
+  wireScoreShot(slot);
 }
 function wireScoreShot(slot=1){
   const el=scoreShotEl(slot);
