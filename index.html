@@ -3054,7 +3054,17 @@ function setRevMode(m){
   REV_MODE = m;
   REV_FILTER = '';        // don't carry a tag filter across into the other deck
   REV_SETUP_FILTER = '';  // setups differ per deck — stale filter = empty deck
+  REV_PS_FILTER = '';     // $/share filter is deck-agnostic but confusing to inherit
+  REV_WL_FILTER = '';     // W/L filter — same reasoning
+  REV_PERIOD_FROM = ''; REV_PERIOD_TO = '';  // sticky period filter was silently shrinking the deck
   REV_DATE_FROM = ''; REV_DATE_TO = '';  // don't carry a date-range scope across a manual deck switch
+  // Reflect the cleared state in the UI dropdowns so they don't lie about what's filtering
+  const psEl=document.getElementById('rev-ps-filter'); if(psEl) psEl.value='';
+  const wlEl=document.getElementById('rev-wl-filter'); if(wlEl) wlEl.value='';
+  const pEl =document.getElementById('rev-period-filter'); if(pEl) pEl.value='';
+  const dEl =document.getElementById('rev-date-filter'); if(dEl) dEl.value='';
+  const sEl =document.getElementById('rev-setup-filter'); if(sEl) sEl.value='';
+  const tEl =document.getElementById('rev-filter'); if(tEl) tEl.value='';
   setModeButtons(m);
   REV_IDX = revTrades().length - 1;  // open on newest in the new deck
   renderReview();
@@ -3399,7 +3409,17 @@ function renderReview(){
   if(REV_IDX>=trades.length) REV_IDX=trades.length-1;
   if(REV_IDX<0) REV_IDX=0;
   const t = trades[REV_IDX];
-  document.getElementById('rev-pos').textContent=`${REV_IDX+1} / ${trades.length}`;
+  // Show "12 / 34 (of 612)" when a filter is narrowing the deck, so it's
+  // obvious the number isn't the full count. When nothing is filtered,
+  // keep the simple "12 / 612".
+  const deckTotal = REV_MODE==='misses' ? ALL_MISSES.length
+    : REV_MODE==='ross' ? ALL_ROSS.length
+    : REV_MODE==='all' ? (ALL_TRADES.length + ALL_MISSES.length + ALL_ROSS.length)
+    : ALL_TRADES.length;
+  const isFiltered = trades.length !== deckTotal;
+  document.getElementById('rev-pos').textContent = isFiltered
+    ? `${REV_IDX+1} / ${trades.length} (of ${deckTotal})`
+    : `${REV_IDX+1} / ${trades.length}`;
   if(curSrc(t)==='misses'){ renderMissCard(t); return; }
   // [Opus 5] % change is a PRICE move: (sell-buy)/buy. The old pnl/buy
   // only matched while Dale traded 1 share — at N shares it reported
