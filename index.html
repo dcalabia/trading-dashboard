@@ -2398,10 +2398,25 @@ function renderCalendar(){
     // session videos linked (SESSION_VIDEOS is keyed by ISO date).
     const wCls = weekPnl>=0?'pos':'neg';
     // Find this week's Monday from any cur-month day in the row
-    let wkMon=null;
-    for(const c of week){
-      if(c.month==='cur' && c.dk){ wkMon=weekKey(c.dk); break; }
-    }
+// Find this row's Monday directly. Do NOT feed a Sunday to weekKey()
+// — it walks back six days and returns the PREVIOUS Monday, so every
+// Play button was scoped one week early and the last (future) row
+// borrowed the prior week's sessions.
+let wkMon=null;
+for(const c of week){
+  if(c.dk){
+    const d=new Date(c.dk+'T12:00:00');
+    if(d.getDay()===1){ wkMon=c.dk; break; }
+  }
+}
+// Monday cell missing (it's out-of-month, e.g. an Aug 31 Monday on a
+// September row) — fall back to weekKey of the first dated cell, which
+// resolves to the same Monday because that cell won't be a Sunday.
+if(!wkMon){
+  for(const c of week){
+    if(c.dk){ wkMon=weekKey(c.dk); break; }
+  }
+}
     const sessCount = wkMon && SESSION_VIDEOS
       ? Object.keys(SESSION_VIDEOS).filter(d=>weekKey(d)===wkMon).length
       : 0;
