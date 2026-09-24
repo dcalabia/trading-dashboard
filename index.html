@@ -807,6 +807,9 @@ tr:hover td{background:rgba(255,255,255,0.025)}
      this makes success/failure VISIBLE and gives a manual retry -->
 <div class="cl-savebar">
   <span class="cl-save-status" id="cl-save-status"></span>
+  <button class="cl-save-btn" onclick="saveTemplate()" title="Snapshot the current checklist as your reset target">📌 Save as template</button>
+  <button class="cl-save-btn" onclick="resetToTemplate()" title="Restore the checklist to your saved template">↺ Reset to template</button>
+  <button class="cl-save-btn" onclick="resetToDefaults()" title="Wipe to factory defaults (your template is untouched)">↺ Reset to defaults</button>
   <button class="cl-save-btn" onclick="manualSaveDefs()">💾 Save</button>
 </div>
 
@@ -1352,6 +1355,57 @@ async function saveDefs(allowRemoval){
 
 function manualSaveDefs(){ saveDefs(); }
 
+// ── Template / reset ────────────────────────────────────────────
+// Snapshot the current CL_DEFS into its own dashboard_data row so
+// "Reset to template" has a target. Independent of the normal defs
+// row — saving a template doesn't touch your live checklist.
+async function saveTemplate(){
+  if(!confirm('Save the current checklist as your template?\n\nThis becomes the layout "↺ Reset to template" restores.')) return;
+  clSaveStatus('busy','Saving template…');
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/dashboard_data?on_conflict=key`,{
+      method:'POST',
+      headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+(SB_TOKEN||SUPABASE_KEY),
+        'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},
+      body:JSON.stringify({key:'trading-cl-template',
+        value:JSON.stringify({ver:1, defs:CL_DEFS, savedAt:new Date().toISOString()}),
+        updated_at:new Date().toISOString()})});
+    if(r.ok){
+      const t=new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+      clSaveStatus('ok',`✓ Template saved · ${t}`);
+    }else clSaveStatus('err','⚠ Template save FAILED');
+  }catch(e){ clSaveStatus('err','⚠ Template save FAILED — offline?'); }
+}
+
+async function resetToTemplate(){
+  if(!confirm('Reset the checklist to your saved template?\n\nAll edits made since the last "Save as template" will be lost.')) return;
+  clSaveStatus('busy','Loading template…');
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/dashboard_data?key=eq.trading-cl-template&select=value`,
+      {headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+(SB_TOKEN||SUPABASE_KEY)}});
+    const rows=await r.json();
+    const v=(rows&&rows[0]&&rows[0].value)?JSON.parse(rows[0].value):null;
+    if(!v||!v.defs){ clSaveStatus('err','⚠ No template saved yet — press 📌 Save as template first'); return; }
+    CL_DEFS=v.defs;
+    await saveDefs(true);   // skip merge — this IS the reset
+    ['pre','live','post','bed'].forEach(t=>{
+      if(document.getElementById(`${t}-checklist`)) renderChecklist(t,`${t}-checklist`);
+    });
+    clSaveStatus('ok','✓ Reset to template');
+  }catch(e){ clSaveStatus('err','⚠ Reset FAILED — '+e.message); }
+}
+
+function resetToDefaults(){
+  if(!confirm('Reset to factory defaults?\n\nALL custom items, sections and edits will be lost. (Your saved template is untouched.)')) return;
+  CL_DEFS=JSON.parse(JSON.stringify(DEFAULT_CHECKLISTS));
+  localStorage.setItem('trading-cl-ver',String(CL_VERSION));
+  saveDefs(true);
+  ['pre','live','post','bed'].forEach(t=>{
+    if(document.getElementById(`${t}-checklist`)) renderChecklist(t,`${t}-checklist`);
+  });
+  clSaveStatus('ok','✓ Reset to defaults');
+}
+
 // [Opus 5] Sticky warning when no cloud copy of the checklist exists.
 // Sections were being lost repeatedly and the only signal was a small
 // status line, so the failure ran for days unnoticed. This stays on
@@ -1483,21 +1537,27 @@ function mergeDefs(local,cloud){
 // the boot's unconditional pushDefs() call clobbered the good cloud
 // copy with those bare defaults. No version history exists on
 // dashboard_data, so that overwrite was unrecoverable.
+// Local is authoritative. Cloud is a backup/restore point. This NEVER
+// overwrites an existing local copy — that stomping behavior was why
+// edits kept vanishing overnight (the vanishing-checklist thread).
+// Returns true iff a cloud row exists (drives the "no backup" banner
+// and the "push if first-ever seed" logic in init()).
 async function pullDefs(){
   try{
     const r=await fetch(`${SUPABASE_URL}/rest/v1/dashboard_data?key=eq.trading-cl-defs&select=value&order=updated_at.desc&limit=1`,
       {headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+(SB_TOKEN||SUPABASE_KEY)}});
     const rows=await r.json();
-    if(rows&&rows[0]&&rows[0].value){
-      const v=JSON.parse(rows[0].value);
-      if(v&&v.defs){
-        localStorage.setItem('trading-cl-defs',JSON.stringify(v.defs));
-        localStorage.setItem('trading-cl-ver',String(v.ver||0));
-      }
-      return true;
+    if(!(rows&&rows[0]&&rows[0].value)) return false;
+    const v=JSON.parse(rows[0].value);
+    if(!(v&&v.defs)) return false;
+    // Only adopt cloud when this browser has NO local copy (fresh browser,
+    // cleared cache, brand-new device). Otherwise local wins, always.
+    if(!localStorage.getItem('trading-cl-defs')){
+      localStorage.setItem('trading-cl-defs',JSON.stringify(v.defs));
+      localStorage.setItem('trading-cl-ver',String(v.ver||0));
     }
-    return false;
-  }catch(e){ return true; }   // fetch/parse failure: treat as "row may exist", never push
+    return true;
+  }catch(e){ return true; }
 }
 function initDefs(){
   const saved = loadDefs();
