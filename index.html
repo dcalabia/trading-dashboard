@@ -111,6 +111,10 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .pb-name{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:0.5px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
 .pb-add{background:var(--panel);border:1px dashed var(--border);border-radius:6px;color:var(--muted);font-size:10px;padding:3px 10px;cursor:pointer}
 .pb-add:hover{color:var(--accent);border-color:var(--accent)}
+.pb-add.pb-star{font-size:14px;padding:2px 9px;line-height:1}
+.pb-add.pb-star.on{color:#ffd54a;border-color:#ffd54a;border-style:solid}
+.pb-add.pb-star:not(.on):hover{color:#ffd54a;border-color:#ffd54a}
+
 .pb-imgs{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
 .pb-img{position:relative}
 .pb-img img{width:100%;border:1px solid var(--border);border-radius:8px;display:block;cursor:zoom-in}
@@ -1058,6 +1062,7 @@ tr:hover td{background:rgba(255,255,255,0.025)}
       <div class="rev-hls-hdr" style="color:var(--accent);cursor:default">
         <span>📖 Setup Playbook <span class="rev-hls-count" id="rev-pb-count" style="background:rgba(38,131,255,0.15)">0</span></span>
         <span style="margin-left:auto;display:flex;gap:6px">
+          <button class="pb-add" id="pb-show-all-btn" onclick="pbToggleShowAll()">👁 Show all</button>
           <button class="pb-add" onclick="pbCollapseAll(true)">▸ Collapse all</button>
           <button class="pb-add" onclick="pbCollapseAll(false)">▾ Expand all</button>
         </span>
@@ -5261,6 +5266,25 @@ async function pbSave(){
 // of template charts stays folded across reloads
 let PB_COLLAPSED=new Set(JSON.parse(localStorage.getItem('pb-collapsed')||'[]'));
 function pbSaveCollapsed(){ localStorage.setItem('pb-collapsed',JSON.stringify([...PB_COLLAPSED])); }
+
+// Starred "core" setups — the handful you actually trade. Once at least
+// one is starred, the Playbook shows ONLY core by default; the header
+// toggle reveals the long tail of one-off setups. Persisted in
+// localStorage like PB_COLLAPSED — a view preference, not data.
+let PB_STARRED=new Set(JSON.parse(localStorage.getItem('pb-starred')||'[]'));
+let PB_SHOW_ALL=localStorage.getItem('pb-show-all')==='1';
+function pbSaveStarred(){ localStorage.setItem('pb-starred',JSON.stringify([...PB_STARRED])); }
+function pbToggleStar(name){
+  if(PB_STARRED.has(name)) PB_STARRED.delete(name);
+  else PB_STARRED.add(name);
+  pbSaveStarred();
+  renderPlaybook();
+}
+function pbToggleShowAll(){
+  PB_SHOW_ALL=!PB_SHOW_ALL;
+  localStorage.setItem('pb-show-all',PB_SHOW_ALL?'1':'0');
+  renderPlaybook();
+}
 function pbToggle(name){
   if(PB_COLLAPSED.has(name)) PB_COLLAPSED.delete(name);
   else PB_COLLAPSED.add(name);
@@ -5275,18 +5299,37 @@ function renderPlaybook(){
   if(!body||!PB_DATA) return;
   const esc=s=>String(s).replace(/</g,'&lt;');
   // Every setup ever traded + any setup that already has templates
-  const names=[...new Set([...knownSetups(),...Object.keys(PB_DATA)])].sort();
+  const allNames=[...new Set([...knownSetups(),...Object.keys(PB_DATA)])].sort();
+  // Core mode: only starred. Until you star at least one, show all —
+  // otherwise the tab reads as empty on first use, before anything is
+  // starred. The header toggle only appears once a star exists.
+  const hasStars=PB_STARRED.size>0;
+  const names=(PB_SHOW_ALL||!hasStars) ? allNames : allNames.filter(n=>PB_STARRED.has(n));
   document.getElementById('rev-pb-count').textContent=
     Object.values(PB_DATA).reduce((s,a)=>s+(a?.length||0),0);
+  // Header toggle — hidden until there's at least one star to filter by
+  const showBtn=document.getElementById('pb-show-all-btn');
+  if(showBtn){
+    if(!hasStars){ showBtn.style.display='none'; }
+    else{
+      showBtn.style.display='';
+      const hiddenN=allNames.length-names.length;
+      showBtn.textContent = PB_SHOW_ALL
+        ? `👁 Core only (hide ${hiddenN})`
+        : `👁 Show all (${allNames.length})`;
+    }
+  }
   body.innerHTML=names.map(n=>{
     const imgs=PB_DATA[n]||[];
     const arg=`'${esc(n).replace(/'/g,"\\'")}'`;
     const collapsed=imgs.length&&PB_COLLAPSED.has(n);
+    const starred=PB_STARRED.has(n);
     return `<div class="pb-card">
       <div class="pb-name">
         ${imgs.length?`<span class="pb-caret" onclick="pbToggle(${arg})" title="Show/hide template images">${collapsed?'▸':'▾'}</span>`:''}
         <span${imgs.length?` onclick="pbToggle(${arg})" style="cursor:pointer"`:''}>${esc(n)}</span>
         ${imgs.length?`<span class="pb-imgcount">${imgs.length}</span>`:''}
+        <button class="pb-add pb-star${starred?' on':''}" onclick="pbToggleStar(${arg})" title="${starred?'Unstar — drops out of the core view':'Star as a core setup — pinned to the Playbook, non-core setups hide behind Show all'}">${starred?'★':'☆'}</button>
         <button class="pb-add" onclick="pbAddShot(${arg})">＋ Add screenshot</button>
         <button class="pb-add" onclick="pbRenameSetup(${arg})" title="Rename this setup on every trade/miss/Ross entry that uses it">✎ Rename</button>
         <button class="pb-add" style="color:var(--red,#ff5d5d)" onclick="pbDeleteSetup(${arg})" title="Remove this setup from every entry that uses it">✕ Delete</button>
@@ -5296,7 +5339,10 @@ function renderPlaybook(){
          <button class="del" onclick="pbDelShot('${esc(n).replace(/'/g,"\\'")}',${i})">✕</button></div>`).join('')}</div>`
       :'<div class="pb-empty">No template yet — add the perfect example chart for this setup</div>'}
     </div>`;
-  }).join('')||'<div class="pb-empty">No setups found yet</div>';
+  }).join('')
+  || (hasStars && !PB_SHOW_ALL
+      ? '<div class="pb-empty">No core setups found — click <b>Show all</b> above, then star the ones you want</div>'
+      : '<div class="pb-empty">No setups found yet</div>');
 }
 
 // Rewrite one setup name across every trade/miss/Ross entry that
