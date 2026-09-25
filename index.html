@@ -229,8 +229,33 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .rev-score-shot.has-img{border-style:solid;cursor:default}
 .rev-score-shot img{display:block;width:100%;max-height:150px;object-fit:contain;background:#0a0a0a}
 .rev-score-empty{display:flex;align-items:center;justify-content:center;gap:6px;padding:14px 10px;color:var(--muted);font-size:11px;text-align:center}
-.rev-score-text{margin:0;padding:8px 10px;font-family:'JetBrains Mono','Consolas',monospace;font-size:11px;line-height:1.5;color:var(--text);white-space:pre;overflow-x:auto;background:var(--panel)}
-.rev-score-text::first-line{font-weight:600;color:var(--accent)}
+/* [Fable 6] Aligned scanner-snapshot grid. Replaces the ragged
+   monospace <pre> with fixed columns so every row's numbers line up
+   vertically. label = pillar name, val = the raw value cell, cell =
+   the "N + M" pair, note = the trailing avg-vol / 1minVol / etc. */
+.rev-score-grid{
+  display:grid;
+  grid-template-columns:56px minmax(50px,auto) 52px 1fr;
+  column-gap:10px;
+  padding:8px 10px;
+  font-family:'JetBrains Mono','Consolas',monospace;
+  font-size:11px;
+  line-height:1.55;
+  overflow-x:auto;
+}
+.rsg-label{color:var(--text)}
+.rsg-val{color:var(--text);text-align:right;white-space:nowrap}
+.rsg-cell{color:var(--text);text-align:right;white-space:nowrap;font-weight:600}
+.rsg-note{color:var(--muted);font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.rsg-extra{color:var(--muted);font-size:10.5px;white-space:pre-wrap}
+/* Header line is now its own div (see renderScoreShot) — color comes
+   from the sc-* class keyed off score_5, so first-line must NOT force
+   accent any more; it would only recolor the second line of the blob. */
+.rev-score-text::first-line{font-weight:400;color:var(--text)}
+.rev-score-hdr{padding:8px 10px 0;font-family:'JetBrains Mono','Consolas',monospace;font-size:11px;line-height:1.5;font-weight:600;color:var(--text);white-space:pre;overflow-x:auto}
+.rev-score-hdr.sc-green{color:var(--accent)}
+.rev-score-hdr.sc-gold{color:var(--yellow)}
+.rev-score-hdr.sc-muted{color:var(--muted)}
 .rev-score-del{position:absolute;top:4px;right:4px;background:rgba(10,10,10,.75);border:1px solid var(--border);border-radius:5px;color:#fff;font-size:11px;padding:2px 7px;cursor:pointer;opacity:0;transition:opacity .15s}
 .rev-score-shot.has-img:hover .rev-score-del{opacity:1}
 .rev-notes-ta{flex:1;min-height:380px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;resize:vertical;
@@ -3548,6 +3573,44 @@ function fmtET(iso){
   }catch(e){ return '—'; }
 }
 
+// [Fable 6] Snapshot header color, keyed off score_5 only — 5/5
+// renders green, 4/5 renders gold, below that stays muted. Same
+// thresholds the live scanner uses on its 5/5 column
+// (scoreClass5 in scanner_web/index.html).
+function snapshotHdrClass(s5){
+  if (s5 == null) return '';
+  if (s5 >= 5) return 'sc-green';
+  if (s5 >= 4) return 'sc-gold';
+  return 'sc-muted';
+}
+
+// [Fable 6] Parse one scanner snapshot blob … (full block from Edit A1)
+function parseSnapshotRows(text){
+  const PILLARS = ['Gain','Price','Float','RV','News'];
+  const out = { header:'', rows:[], extra:[] };
+  if(!text) return out;
+  const lines = String(text).split('\n');
+  if(!lines.length) return out;
+  out.header = lines[0].trim();
+  const re = /^\s*([A-Za-z]+)\s+(.*?)\s+(\d+(?:\.\d+)?)\s*\+\s*(\d+(?:\.\d+)?)\s*(.*)$/;
+  for(let i = 1; i < lines.length; i++){
+    const line = lines[i];
+    if(!line.trim()) continue;
+    const m = line.match(re);
+    if(m && PILLARS.includes(m[1])){
+      out.rows.push({
+        label: m[1],
+        value: m[2].trim(),
+        n:     parseFloat(m[3]),
+        m:     parseFloat(m[4]),
+        note:  m[5].trim(),
+      });
+    } else {
+      out.extra.push(line);
+    }
+  }
+  return out;
+}
 
 
 function renderReview(){
@@ -6006,10 +6069,33 @@ function renderScoreShot(slot=1){
     ? (slot===2 ? t.scoreBinFirst : t.scoreBinRecent)
     : null;
   if(binText){
-    // Scanner data present — read-only text block, upload path retired.
+    // Scanner data present — read-only, parsed into an aligned grid.
     el.classList.add('has-img');
     el.classList.remove('rev-score-empty');
-    el.innerHTML=`<pre class="rev-score-text">${String(binText).replace(/</g,'&lt;')}</pre>`;
+    const escHtml = s => String(s).replace(/</g,'&lt;');
+    // [Fable 6] Option A — header color comes from t.score5 for BOTH
+    // slots. Slot 1's is authoritative; slot 2 shows the trade's real
+    // /5 rather than its own (older) parsed snapshot value, so both
+    // boxes on a card agree with each other and with the SCORE /5 cell.
+    const hdrClass = t ? snapshotHdrClass(t.score5) : '';
+    const parsed = parseSnapshotRows(binText);
+    const hdrHtml = parsed.header
+      ? `<div class="rev-score-hdr ${hdrClass}">${escHtml(parsed.header)}</div>`
+      : '';
+    const rowsHtml = parsed.rows.map(r => {
+      const cell = `${r.n} + ${r.m}`;
+      return `<span class="rsg-label">${escHtml(r.label)}</span>`
+           + `<span class="rsg-val">${escHtml(r.value)}</span>`
+           + `<span class="rsg-cell">${escHtml(cell)}</span>`
+           + `<span class="rsg-note">${escHtml(r.note)}</span>`;
+    }).join('');
+    const extraHtml = parsed.extra.length
+      ? `<span class="rsg-extra" style="grid-column:1 / -1">${escHtml(parsed.extra.join('\n'))}</span>`
+      : '';
+    el.innerHTML = hdrHtml
+      + (parsed.rows.length || parsed.extra.length
+          ? `<div class="rev-score-grid">${rowsHtml}${extraHtml}</div>`
+          : '');
     el.onclick=null;
     el.onpaste=null;
     el.title='Scanner score snapshot — read-only';
