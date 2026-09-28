@@ -247,6 +247,22 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .rsg-cell{color:var(--text);text-align:right;white-space:nowrap;font-weight:600}
 .rsg-note{color:var(--muted);font-size:10.5px;min-width:0;
   white-space:normal;word-break:break-word;overflow-wrap:anywhere}
+@keyframes rsg-squeeze-pulse{
+  0%,100%{ color:inherit; background:transparent; }
+  50%    { color:var(--yellow); background:rgba(255,195,0,0.12); }
+}
+.rsg-squeeze{
+  animation:rsg-squeeze-pulse 0.5s ease-in-out 8;
+  border-radius:4px;
+}
+.rev-score-total{
+  padding:2px 10px 4px;
+  font-family:'JetBrains Mono','Consolas',monospace;
+  font-size:11px;
+  font-weight:600;
+  color:var(--text);
+  letter-spacing:0.3px;
+}
 .rsg-extra{color:var(--muted);font-size:10.5px;
   white-space:normal;word-break:break-word;overflow-wrap:anywhere}
 /* Header line is now its own div (see renderScoreShot) — color comes
@@ -3585,6 +3601,48 @@ function snapshotHdrClass(s5){
   return 'sc-muted';
 }
 
+// [Fable 6] Detect a thin-squeeze from a parsed scanner snapshot.
+// Returns {n, float, avg, candle} — same three conditions as the
+// scanner's squeeze_count(). n is 0-3. Reads the Float row's value,
+// the RV row's "avg vol 30D:" note, and the News row's "1minvol"
+// note. Any missing piece just doesn't count.
+function squeezeFromParsed(parsed){
+  const out = { n:0, float:false, avg:false, candle:false };
+  if(!parsed || !parsed.rows) return out;
+  const row = lbl => parsed.rows.find(r => r.label === lbl);
+  const parseKMB = s => {
+    if(s == null) return null;
+    const m = String(s).trim().match(/([\d.]+)\s*([KMB]?)/i);
+    if(!m) return null;
+    const n = parseFloat(m[1]);
+    if(isNaN(n)) return null;
+    const suf = (m[2]||'').toUpperCase();
+    return suf === 'B' ? n * 1e9 : suf === 'M' ? n * 1e6 : suf === 'K' ? n * 1e3 : n;
+  };
+  const fr = row('Float');
+  if(fr){
+    const fv = parseKMB(fr.value);
+    if(fv != null && fv < 2_000_000){ out.float = true; out.n++; }
+  }
+  const rr = row('RV');
+  if(rr && rr.note){
+    const m = rr.note.match(/avg vol 30D:\s*([\d.]+\s*[KMB]?)/i);
+    if(m){
+      const av = parseKMB(m[1]);
+      if(av != null && av < 500_000){ out.avg = true; out.n++; }
+    }
+  }
+  const nr = row('News');
+  if(nr && nr.note){
+    const m = nr.note.match(/1minvol\s+([\d.]+\s*[KMB]?)/i);
+    if(m){
+      const v1 = parseKMB(m[1]);
+      if(v1 != null && v1 >= 100_000){ out.candle = true; out.n++; }
+    }
+  }
+  return out;
+}
+
 // [Fable 6] Parse one scanner snapshot blob … (full block from Edit A1)
 function parseSnapshotRows(text){
   const PILLARS = ['Gain','Price','Float','RV','News'];
@@ -6083,17 +6141,37 @@ function renderScoreShot(slot=1){
     const hdrHtml = parsed.header
       ? `<div class="rev-score-hdr ${hdrClass}">${escHtml(parsed.header)}</div>`
       : '';
+    // [Fable 6] Sum the pillar column (N) — that's the snapshot's own
+    // /5. The /9 comes from t.score9 (the trade's stored value), since
+    // the blob's +M column only carries pillar bonuses, not the full
+    // score_9. Falls back to the parsed N+M sum if t.score9 is null.
+    const parsed5 = parsed.rows.reduce((s, r) => s + (isFinite(r.n) ? r.n : 0), 0);
+    const parsed9Partial = parsed.rows.reduce((s, r) => s + (isFinite(r.n)?r.n:0) + (isFinite(r.m)?r.m:0), 0);
+    const shown5 = parsed5;
+    const shown9 = (t && t.score9 != null) ? t.score9 : parsed9Partial;
+    const scoreLine = parsed.rows.length
+      ? `<div class="rev-score-total">${shown5}/5 &middot; ${shown9}/9</div>`
+      : '';
+    const sq = squeezeFromParsed(parsed);
+    const sqOn = sq.n >= 2;
     const rowsHtml = parsed.rows.map(r => {
       const cell = `${r.n} + ${r.m}`;
-      return `<span class="rsg-label">${escHtml(r.label)}</span>`
-           + `<span class="rsg-val">${escHtml(r.value)}</span>`
-           + `<span class="rsg-cell">${escHtml(cell)}</span>`
-           + `<span class="rsg-note">${escHtml(r.note)}</span>`;
+      let hit = false;
+      if(sqOn){
+        if(r.label === 'Float' && sq.float)  hit = true;
+        if(r.label === 'RV'    && sq.avg)    hit = true;
+        if(r.label === 'News'  && sq.candle) hit = true;
+      }
+      const cls = hit ? ' rsg-squeeze' : '';
+      return `<span class="rsg-label${cls}">${escHtml(r.label)}</span>`
+           + `<span class="rsg-val${cls}">${escHtml(r.value)}</span>`
+           + `<span class="rsg-cell${cls}">${escHtml(cell)}</span>`
+           + `<span class="rsg-note${cls}">${escHtml(r.note)}</span>`;
     }).join('');
     const extraHtml = parsed.extra.length
       ? `<span class="rsg-extra" style="grid-column:1 / -1">${escHtml(parsed.extra.join('\n'))}</span>`
       : '';
-    el.innerHTML = hdrHtml
+    el.innerHTML = hdrHtml + scoreLine
       + (parsed.rows.length || parsed.extra.length
           ? `<div class="rev-score-grid">${rowsHtml}${extraHtml}</div>`
           : '');
