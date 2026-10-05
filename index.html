@@ -235,7 +235,11 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
    the "N + M" pair, note = the trailing avg-vol / 1minVol / etc. */
 .rev-score-grid{
   display:grid;
-  grid-template-columns:56px minmax(50px,auto) 52px minmax(0,1fr);
+  /* [Fable 6] 3rd col widened 52px -> 64px so "1 + 0.5" doesn't
+     overflow into the note column. Was clipping the right edge of
+     every row with a .5 bonus, misaligning the avg vol / 1minvol
+     notes column below it. */
+  grid-template-columns:56px minmax(50px,auto) 64px minmax(0,1fr);
   column-gap:10px;
   padding:8px 10px;
   font-family:'JetBrains Mono','Consolas',monospace;
